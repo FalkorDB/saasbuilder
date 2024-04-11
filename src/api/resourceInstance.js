@@ -92,7 +92,7 @@ export const openResourceInstanceInBrowser = (payload) => {
     }
   ]
 
-  const url = `${process.env.NEXT_PUBLIC_FALKORDB_BROWSER_URL}?${queryParams.map((param) => `${param.key}=${param.value}`).join("&")}`;
+  const url = `${process.env.NEXT_PUBLIC_FALKORDB_BROWSER_URL}?${queryParams.map((param) => `${param.key}=${encodeURIComponent(param.value)}`).join("&")}`;
   window.open(
     url,
     '_blank'

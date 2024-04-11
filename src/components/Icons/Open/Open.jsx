@@ -1,9 +1,7 @@
 import * as React from "react";
 const PlayIcon = (props) => {
-  let { color } = props;
-  if (!color) {
-    color = "#039855";
-  }
+  let { color ="#039855" } = props;
+
   return (
     <svg
       aria-hidden="true"

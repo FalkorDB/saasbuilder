@@ -369,7 +369,6 @@ function MarketplaceService() {
         headerAlign: "center",
         minWidth: 155,
         renderCell: (params) => {
-          console.log("params", params.row);
           const region = params.row.region;
           const provider = params.row.cloud_provider;
           return !isCurrentResourceBYOA && region ? (

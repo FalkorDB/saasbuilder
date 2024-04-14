@@ -1,7 +1,9 @@
 import * as React from "react";
-const PlayIcon = (props) => {
-  let { color ="#039855" } = props;
-
+const OpenIcon = (props) => {
+  let { color } = props;
+  if (!color) {
+    color = "#039855"
+  }
   return (
     <svg
       aria-hidden="true"
@@ -21,4 +23,4 @@ const PlayIcon = (props) => {
     </svg>
   );
 };
-export default PlayIcon;
+export default OpenIcon;

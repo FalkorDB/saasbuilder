@@ -1,4 +1,11 @@
+import { fromProvider } from "cloud-regions-country-flags";
+
 const RegionIcon = (props) => {
+  if (props.region && props.provider) {
+    const region = fromProvider(props.region, props.provider.toUpperCase());
+    return region.flag;
+  }
+
   return (
     <svg
       width={40.909}

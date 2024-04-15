@@ -323,7 +323,7 @@ function ResourceInstance() {
               />
             );
           })}
-          {isOpenActionEnabled ? (
+          {isOpenActionEnabled &&  (
             <Box width="100%" display="flex" justifyContent="right">
               <Button
                 variant="contained"
@@ -336,7 +336,7 @@ function ResourceInstance() {
                 Open in Browser
               </Button>
             </Box>
-          ) : {}}
+          ) }
         </Tabs>
       </Box>
       {currentTab === tabs.resourceInstanceDetails && (

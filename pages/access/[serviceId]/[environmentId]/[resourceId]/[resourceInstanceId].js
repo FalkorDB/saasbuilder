@@ -142,8 +142,7 @@ function ResourceInstance() {
   }, [router.isReady, view, tabs]);
 
   let isOpenActionEnabled = false;
-
-  if (resourceInstanceData?.active) {
+  if (resourceInstanceData?.active && resourceInstanceData?.status === "RUNNING") {
     isOpenActionEnabled = true;
   }
 
@@ -324,18 +323,20 @@ function ResourceInstance() {
               />
             );
           })}
-          <Box width="100%" display="flex" justifyContent="right">
-            <Button
-              variant="contained"
-              size="medium"
-              sx={{ ml: 1.5 }}
-              startIcon={<OpenIcon color="#FFFFFF" />}
-              onClick={handleOpenInBrowser}
-              disabled={!isOpenActionEnabled}
-            >
-              Open in Browser
-            </Button>
-          </Box>
+          {isOpenActionEnabled ? (
+            <Box width="100%" display="flex" justifyContent="right">
+              <Button
+                variant="contained"
+                size="medium"
+                sx={{ ml: 1.5 }}
+                startIcon={<OpenIcon color="#FFFFFF" />}
+                onClick={handleOpenInBrowser}
+                disabled={!isOpenActionEnabled}
+              >
+                Open in Browser
+              </Button>
+            </Box>
+          ) : {}}
         </Tabs>
       </Box>
       {currentTab === tabs.resourceInstanceDetails && (

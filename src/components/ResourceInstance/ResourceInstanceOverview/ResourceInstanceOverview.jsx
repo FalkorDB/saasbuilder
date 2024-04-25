@@ -142,7 +142,7 @@ function ResourceInstanceOverview(props) {
                   justifyContent={"center"}
                   alignItems="center"
                 >
-                  <RegionIcon />
+                  <RegionIcon region={region} provider={cloudProvider} />
                   <Box
                     component="span"
                     ml="5.5px"

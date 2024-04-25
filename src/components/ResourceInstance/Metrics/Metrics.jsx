@@ -17,9 +17,9 @@ import DiskThroughputChart from "./DiskThroughputChart";
 import NetworkThroughputChart from "./NetworkThroughputChart";
 import DiskUsageChart from "./DiskUsageChart";
 import useSnackbar from "../../../hooks/useSnackbar";
-import formatDateUTC from "../../../utils/formatDateUTC";
 import MultiLineChart from "./MultiLineChart";
 import SingleLineChart from "./SingleLineChart";
+import formatDateLocal from "../../../utils/formatDateLocal";
 
 const initialCpuUsage = {
   current: "",
@@ -271,9 +271,7 @@ function Metrics(props) {
 
     const metrics = data.Metrics;
 
-    const formattedDate = formatDateUTC(messageTime * 1000);
-    // console.log("message time", messageTime);
-    // console.log("socket open time", socketOpenTime.current);
+    const formattedDate = formatDateLocal(messageTime * 1000);
 
     if (isOlderThanFourHours(messageTime)) {
     } else {

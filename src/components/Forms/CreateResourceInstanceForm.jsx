@@ -9,6 +9,7 @@ import {
   Radio,
   RadioGroup,
   Stack,
+  ListItemText,
 } from "@mui/material";
 import React, { useEffect, useMemo, useState } from "react";
 import Button from "../Button/Button";
@@ -28,6 +29,7 @@ import useResourcesInstanceIds from "../../hooks/useResourcesInstanceIds";
 import { ACCOUNT_CREATION_METHODS } from "src/utils/constants/accountConfig";
 import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
 import { PasswordField } from "../FormElementsv2/PasswordField/PasswordField";
+import { fromProvider } from "cloud-regions-country-flags";
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -70,9 +72,15 @@ function CreateResourceInstanceForm(props) {
       subscriptionId
     );
 
-  const regionsFilteredBySelectedProvider = regions.filter(
-    (region) => region.cloudProviderName === formData.values.cloud_provider
-  );
+  const regionsFilteredBySelectedProvider = regions
+    .filter(
+      (region) => region.cloudProviderName === formData.values.cloud_provider
+    )
+    .map((region) => ({
+      ...region,
+      flag: fromProvider(region.code, region.cloudProviderName.toUpperCase())
+        .flag,
+    }));
 
   useEffect(() => {
     async function getSchema() {
@@ -167,6 +175,19 @@ function CreateResourceInstanceForm(props) {
       </Stack>
     );
 
+  // If schema fields exist: name, description, user, password, sort them in that order
+  createSchema.sort((a, b) => {
+    if (a.key.toLowerCase().includes("name")) return -1;
+    if (b.key.toLowerCase().includes("name")) return 1;
+    if (a.key.toLowerCase().includes("description")) return -1;
+    if (b.key.toLowerCase().includes("description")) return 1;
+    if (a.key.toLowerCase().includes("user")) return -1;
+    if (b.key.toLowerCase().includes("user")) return 1;
+    if (a.key.toLowerCase().includes("password")) return -1;
+    if (b.key.toLowerCase().includes("password")) return 1;
+    return 0;
+  });
+
   return (
     <Box sx={{ width: "100%" }}>
       <H6 weight="extrabold" variant="mobile">
@@ -204,7 +225,12 @@ function CreateResourceInstanceForm(props) {
                   key={option.name.toLowerCase()}
                   value={option.name.toLowerCase()}
                 >
-                  {option.description}
+                  <ListItemText> {option.icon === null ? (
+                      <Hidden />
+                    ) : (
+                      <img src={option.icon.src} alt="Cloud Provider Logo" style={{ height: "100%", marginRight: "8px" }} />
+                    )}
+                    {option.description}</ListItemText>
                 </MenuItem>
               ))}
             </TextField>
@@ -271,7 +297,7 @@ function CreateResourceInstanceForm(props) {
                 })
                 .map((region) => (
                   <MenuItem key={region.code} value={region.code}>
-                    {region.cloudProviderName} - {region.code}
+                    {region.flag} {region.code} - {region.description}
                   </MenuItem>
                 ))}
             </TextField>
@@ -360,6 +386,12 @@ function CreateResourceInstanceForm(props) {
                       values={formData.values.requestParams[param.key]}
                       onBlur={formData.handleBlur}
                       required={param.required == true ? "required" : ""}
+                      // TODO: Change logic when param.type Password is added
+                      type={
+                        param.key?.toLowerCase()?.includes("password")
+                          ? "password"
+                          : "text"
+                      }
                     />
                   </FieldContainer>
                 );

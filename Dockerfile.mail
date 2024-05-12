@@ -43,6 +43,7 @@ RUN adduser --system --uid 1001 nextjs
 
 # Copy built application
 COPY --from=build /app /app
+COPY --from=build /app/src/server/mail-service/ejsTemplates /app/dist/ejsTemplates
 
 RUN chown -R nextjs:nodejs /app
 

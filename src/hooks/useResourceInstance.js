@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getResourceInstanceDetails } from "../api/resourceInstance";
 import processClusterPorts from "../utils/processClusterPorts";
+import { calculateInstanceHealthPercentage } from "src/utils/instanceHealthPercentage";
 
 export default function useResourceInstance(
   serviceProviderId,
@@ -126,6 +127,7 @@ export default function useResourceInstance(
               const resourceName = topologyDetails.resourceName;
               const resourceKey = topologyDetails.resourceKey;
               const healthStatus = node.healthStatus;
+              const detailedHealth = node.detailedHealth;
               nodes.push({
                 id: nodeId,
                 nodeId: nodeId,
@@ -138,6 +140,7 @@ export default function useResourceInstance(
                 healthStatus: healthStatus,
                 resourceKey: resourceKey,
                 displayName: nodeId,
+                detailedHealth: detailedHealth,
               });
 
               nodeEndpointsList.push(node.endpoint);
@@ -205,6 +208,7 @@ export default function useResourceInstance(
                     const status = node.status;
                     const resourceName = topologyDetails.resourceName;
                     const resourceKey = topologyDetails.resourceKey;
+                    const detailedHealth = node.detailedHealth;
                     nodes.push({
                       id: nodeId,
                       nodeId: nodeId,
@@ -217,6 +221,7 @@ export default function useResourceInstance(
                       healthStatus: node.healthStatus,
                       resourceKey,
                       displayName: nodeId,
+                      detailedHealth: detailedHealth,
                     });
                   });
                 } else {
@@ -269,16 +274,10 @@ export default function useResourceInstance(
           );
         }
 
-        let healthStatusPercent = 0;
-
-        if (nodes?.length > 0) {
-          let healthyNodes = nodes?.filter(
-            (node) => node?.healthStatus === "HEALTHY"
-          );
-          healthStatusPercent = (healthyNodes?.length / nodes?.length) * 100;
-        } else if (data?.status === "RUNNING" || data?.status === "READY") {
-          healthStatusPercent = 100;
-        }
+        const healthStatusPercent = calculateInstanceHealthPercentage(
+          data?.detailedNetworkTopology,
+          data?.status
+        );
 
         const final = {
           resourceInstanceId: resourceInstanceId,

@@ -52,8 +52,24 @@ function Connectivity(props) {
 
   const otherEndpoints = globalEndpoints?.others;
 
+  const otherResourceFilteredPorts = [];
+  const otherResourceFilteredEndpoints = [];
+  otherEndpoints.forEach(({ resourceName, endpoint }) => {
+    if (resourceName && endpoint) {
+      const matchingResourcePort = otherResourcePorts.find(
+        (port) => port.resourceName === resourceName && port.ports
+      );
+      if (matchingResourcePort) {
+        otherResourceFilteredPorts.push(matchingResourcePort);
+        otherResourceFilteredEndpoints.push({ resourceName, endpoint });
+      }
+    }
+  });
+
   const noConnectivityData =
-    !globalEndpoints?.primary && !otherEndpoints?.length && !ports?.length;
+    !globalEndpoints?.primary &&
+    !otherResourceFilteredEndpoints?.length &&
+    !ports?.length;
 
   const [isEndpointsExpanded, setIsEndpointsExpanded] = useState(false);
   const [isPortsExpanded, setIsPortsExpanded] = useState(false);
@@ -102,7 +118,7 @@ function Connectivity(props) {
             </TableCell>
           </TableRow>
           {((primaryResourceName && primaryResourceEndpoint) ||
-            otherEndpoints?.length > 0) && (
+            otherResourceFilteredEndpoints?.length > 0) && (
             <TableRow>
               <TableCell sx={{ verticalAlign: "baseline" }}>
                 <CellTitle>Global endpoint</CellTitle>
@@ -119,7 +135,7 @@ function Connectivity(props) {
                     type="endpoint"
                   />
                 )}
-                {otherEndpoints?.length > 0 && (
+                {otherResourceFilteredEndpoints?.length > 0 && (
                   <>
                     {primaryResourceName && primaryResourceEndpoint && (
                       <Stack direction="row" justifyContent="center">
@@ -139,8 +155,8 @@ function Connectivity(props) {
                       </Stack>
                     )}
                     {(isEndpointsExpanded ||
-                      (!primaryResourceName && !primaryResourceEndpoint)) &&
-                      otherEndpoints.map((obj) => {
+                      !(primaryResourceName && primaryResourceEndpoint)) &&
+                      otherResourceFilteredEndpoints.map((obj) => {
                         const { resourceName, endpoint } = obj;
                         return (
                           <ResourceGlobalEndpoint
@@ -159,7 +175,7 @@ function Connectivity(props) {
           )}
           {((primaryResourcePorts?.resourceName &&
             primaryResourcePorts?.ports) ||
-            otherResourcePorts?.length > 0) && (
+            otherResourceFilteredPorts?.length > 0) && (
             <TableRow>
               <TableCell>
                 <CellTitle>Port(s)</CellTitle>
@@ -174,7 +190,7 @@ function Connectivity(props) {
                       type="ports"
                     />
                   )}
-                {otherResourcePorts.length > 0 && (
+                {otherResourceFilteredPorts?.length > 0 && (
                   <>
                     {primaryResourcePorts?.resourceName &&
                       primaryResourcePorts?.ports && (
@@ -195,9 +211,11 @@ function Connectivity(props) {
                         </Stack>
                       )}
                     {(isPortsExpanded ||
-                      (!primaryResourcePorts?.resourceName &&
-                        !primaryResourcePorts?.ports)) &&
-                      otherResourcePorts.map((obj) => {
+                      !(
+                        primaryResourcePorts?.resourceName &&
+                        primaryResourcePorts?.ports
+                      )) &&
+                      otherResourceFilteredPorts.map((obj) => {
                         const { resourceName, ports } = obj;
                         return (
                           <ResourceGlobalEndpoint

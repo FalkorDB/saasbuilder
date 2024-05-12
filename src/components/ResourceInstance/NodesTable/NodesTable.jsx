@@ -27,6 +27,7 @@ import {
 import { useSelector } from "react-redux";
 import { selectUserrootData } from "../../../slices/userDataSlice";
 import Card from "src/components/Card/Card";
+import { NodeStatus } from "./NodeStatus";
 
 export default function NodesTable(props) {
   const {
@@ -72,7 +73,7 @@ export default function NodesTable(props) {
     () => [
       {
         field: "nodeId",
-        headerName: "Node ID",
+        headerName: "Container ID",
         flex: 1,
         minWidth: 190,
         renderCell: (params) => {
@@ -175,12 +176,21 @@ export default function NodesTable(props) {
           const status = params.row.healthStatus
             ? params.row.healthStatus
             : "UNKNOWN";
-
           return (
-            <StatusChip
-              status={status}
-              {...(status === "HEALTHY" ? { pulsateDot: true } : { dot: true })}
-            />
+            <>
+              {params.row?.detailedHealth ? (
+                <>
+                  <NodeStatus detailedHealth={params.row?.detailedHealth} />
+                </>
+              ) : (
+                <StatusChip
+                  status={status}
+                  {...(status === "HEALTHY"
+                    ? { pulsateDot: true }
+                    : { dot: true })}
+                />
+              )}
+            </>
           );
         },
         minWidth: 180,
@@ -240,7 +250,7 @@ export default function NodesTable(props) {
     return (
       <Card sx={{ minHeight: "500px", marginTop: "54px" }}>
         <Stack direction="row" justifyContent="center" marginTop="200px">
-          <Text size="xlarge">No Nodes data</Text>
+          <Text size="xlarge">No Containers data</Text>
         </Stack>
       </Card>
     );
@@ -249,7 +259,7 @@ export default function NodesTable(props) {
   return (
     <TableContainer mt={3}>
       <TableTitle>
-        List of Nodes {resourceName ? "for" : ""} {resourceName}
+        List of Containers {resourceName ? "for" : ""} {resourceName}
       </TableTitle>
       <Divider sx={{ marginTop: "10px" }} />
       <Stack direction="row" justifyContent="space-between" mt="10px">

@@ -89,6 +89,10 @@ export const openResourceInstanceInBrowser = (payload) => {
     {
       key: 'username',
       value: payload.username
+    },
+    {
+      key: 'tls',
+      value: payload.tls ?? false
     }
   ]
 

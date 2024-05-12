@@ -26,7 +26,6 @@ import {
   openResourceInstanceInBrowser,
 } from "../../../src/api/resourceInstance";
 import Button from "../../../src/components/Button/Button";
-import CalendarIcon from "../../../src/components/CalendarIcon/CalendarIcon";
 import Card from "../../../src/components/Card/Card";
 import LoadingSpinnerSmall from "../../../src/components/CircularProgress/CircularProgress";
 import DashboardLayout from "../../../src/components/DashboardLayout/DashboardLayout";
@@ -99,6 +98,8 @@ import { ACCOUNT_CREATION_METHODS } from "src/utils/constants/accountConfig";
 import Tooltip from "src/components/Tooltip/Tooltip";
 import ViewInstructionsIcon from "src/components/Icons/AccountConfig/ViewInstrcutionsIcon";
 import DeleteAccountConfigConfirmationDialog from "src/components/DeleteAccountConfigConfirmationDialog/DeleteAccountConfigConfirmationDialog";
+import { cloneDeep } from "lodash";
+import { calculateInstanceHealthPercentage } from "src/utils/instanceHealthPercentage";
 
 const instanceStatuses = {
   FAILED: "FAILED",
@@ -395,26 +396,11 @@ function MarketplaceService() {
         headerAlign: "center",
         renderCell: (params) => {
           const status = params?.row?.status;
-          const detailedNetworkTopologyEntries = Object.entries(
-            params.row.detailedNetworkTopology ?? {}
-          );
 
-          const mainResource = detailedNetworkTopologyEntries?.find(
-            ([resourceId, details]) => {
-              return details.main === true;
-            }
+          const healthStatusPercent = calculateInstanceHealthPercentage(
+            params.row.detailedNetworkTopology,
+            status
           );
-
-          const nodes = mainResource?.[1]?.nodes;
-          let healthStatusPercent = 0;
-          if (nodes?.length > 0) {
-            const healthyNodes = nodes?.filter(
-              (node) => node?.healthStatus === "HEALTHY"
-            );
-            healthStatusPercent = (healthyNodes?.length / nodes?.length) * 100;
-          } else if (status === "RUNNING" || status === "READY") {
-            healthStatusPercent = 100;
-          }
 
           return (
             <GradientProgressBar
@@ -635,7 +621,7 @@ function MarketplaceService() {
       for (let key in values) {
         if (values[key]) {
           if (values[key] === "requestParams") {
-            data["requestParams"] = { ...values["requestParams"] };
+            data["requestParams"] = cloneDeep(values["requestParams"]);
           } else {
             data[key] = values[key];
           }
@@ -731,6 +717,14 @@ function MarketplaceService() {
                 }
               }
             }
+            if (
+              param.key === "custom_availability_zone" &&
+              data.requestParams[param.key] === ""
+            ) {
+              isError = true;
+              requiredFieldName = param.displayName;
+              break;
+            }
           }
           if (isError) {
             snackbar.showError(`${requiredFieldName} is required`);
@@ -757,10 +751,12 @@ function MarketplaceService() {
         if (aws_account_id) {
           payload.requestParams.aws_bootstrap_role_arn =
             getAwsBootstrapArn(aws_account_id);
+          setCloudProvider("aws");
+        } else {
+          setCloudProvider("gcp");
         }
         if (payload.configMethod === ACCOUNT_CREATION_METHODS.CLOUDFORMATION) {
-          setIsCloudFormation(true);
-          setCloudProvider("aws");
+          setAccountConfigMethod("CloudFormation");
         }
       }
       return createResourceInstance(payload);

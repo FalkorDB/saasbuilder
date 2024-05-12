@@ -27,6 +27,7 @@ import {
 import { useSelector } from "react-redux";
 import { selectUserrootData } from "../../../slices/userDataSlice";
 import Card from "src/components/Card/Card";
+import { NodeStatus } from "./NodeStatus";
 
 export default function NodesTable(props) {
   const {
@@ -63,11 +64,16 @@ export default function NodesTable(props) {
     view
   );
 
+  //remove serverless nodes added on frontend
+  const filteredNodes = useMemo(() => {
+    return nodes.filter((node) => !node.isServerless);
+  }, [nodes]);
+
   const columns = useMemo(
     () => [
       {
         field: "nodeId",
-        headerName: "Node ID",
+        headerName: "Container ID",
         flex: 1,
         minWidth: 190,
         renderCell: (params) => {
@@ -170,12 +176,21 @@ export default function NodesTable(props) {
           const status = params.row.healthStatus
             ? params.row.healthStatus
             : "UNKNOWN";
-
           return (
-            <StatusChip
-              status={status}
-              {...(status === "HEALTHY" ? { pulsateDot: true } : { dot: true })}
-            />
+            <>
+              {params.row?.detailedHealth ? (
+                <>
+                  <NodeStatus detailedHealth={params.row?.detailedHealth} />
+                </>
+              ) : (
+                <StatusChip
+                  status={status}
+                  {...(status === "HEALTHY"
+                    ? { pulsateDot: true }
+                    : { dot: true })}
+                />
+              )}
+            </>
           );
         },
         minWidth: 180,
@@ -216,14 +231,14 @@ export default function NodesTable(props) {
   useEffect(() => {
     if (selectionModel.length > 0) {
       const selectedNodeId = selectionModel[0];
-      const node = nodes.find((node) => node.id === selectedNodeId);
+      const node = filteredNodes.find((node) => node.id === selectedNodeId);
       if (node) {
         setSelectedNode(node);
       }
     } else {
       setSelectedNode(null);
     }
-  }, [selectionModel, nodes]);
+  }, [selectionModel, filteredNodes]);
 
   let isFailoverEnabled = false;
 
@@ -231,11 +246,11 @@ export default function NodesTable(props) {
     isFailoverEnabled = true;
   }
 
-  if (!nodes?.length) {
+  if (!filteredNodes?.length) {
     return (
       <Card sx={{ minHeight: "500px", marginTop: "54px" }}>
         <Stack direction="row" justifyContent="center" marginTop="200px">
-          <Text size="xlarge">No Nodes data</Text>
+          <Text size="xlarge">No Containers data</Text>
         </Stack>
       </Card>
     );
@@ -244,7 +259,7 @@ export default function NodesTable(props) {
   return (
     <TableContainer mt={3}>
       <TableTitle>
-        List of Nodes {resourceName ? "for" : ""} {resourceName}
+        List of Containers {resourceName ? "for" : ""} {resourceName}
       </TableTitle>
       <Divider sx={{ marginTop: "10px" }} />
       <Stack direction="row" justifyContent="space-between" mt="10px">
@@ -299,7 +314,7 @@ export default function NodesTable(props) {
           checkboxSelection
           disableColumnMenu
           columns={columns}
-          rows={nodes}
+          rows={filteredNodes}
           //rows={rows}
           components={{ NoResultsOverlay: "" }}
           rowHeight={72}

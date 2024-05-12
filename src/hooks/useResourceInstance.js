@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getResourceInstanceDetails } from "../api/resourceInstance";
 import processClusterPorts from "../utils/processClusterPorts";
+import { calculateInstanceHealthPercentage } from "src/utils/instanceHealthPercentage";
 
 export default function useResourceInstance(
   serviceProviderId,
@@ -83,6 +84,7 @@ export default function useResourceInstance(
           globalEndpoints.others = [];
         }
 
+        const customMetrics = [];
         const productTierFeatures = data?.productTierFeatures;
 
         if (productTierFeatures?.LOGS?.enabled) {
@@ -91,34 +93,71 @@ export default function useResourceInstance(
 
         if (productTierFeatures?.METRICS?.enabled) {
           isMetricsEnabled = true;
-        }
 
-        if (topologyDetails?.nodes) {
-          topologyDetails.nodes.forEach((node) => {
-            const nodeId = node.id;
-            const endpoint = node.endpoint;
-            const ports = processClusterPorts(node.ports);
-            const availabilityZone = node.availabilityZone;
-            const status = node.status;
-            const resourceName = topologyDetails.resourceName;
-            const resourceKey = topologyDetails.resourceKey;
-            const healthStatus = node.healthStatus;
-            nodes.push({
-              id: nodeId,
-              nodeId: nodeId,
-              endpoint: endpoint,
-              ports: ports,
-              availabilityZone: availabilityZone,
-              status: status,
-              searchString: `${nodeId}${endpoint}${ports}${availabilityZone}${status}`,
-              resourceName: resourceName,
-              healthStatus: healthStatus,
-              resourceKey: resourceKey,
+          const additionalMetrics =
+            productTierFeatures?.METRICS?.additionalMetrics;
+
+          //check if custom metrics are configured
+          if (additionalMetrics) {
+            Object.entries(additionalMetrics).forEach(([resourceKey, data]) => {
+              const metricsData = data?.metrics;
+              if (metricsData) {
+                Object.entries(metricsData).forEach(
+                  ([metricName, labelsObj]) => {
+                    const labels = Object.keys(labelsObj || {});
+                    customMetrics.push({
+                      metricName,
+                      labels,
+                      resourceKey,
+                    });
+                  }
+                );
+              }
             });
+          }
+        }
+        if (topologyDetails.hasCompute) {
+          if (topologyDetails?.nodes) {
+            topologyDetails.nodes.forEach((node) => {
+              const nodeId = node.id;
+              const endpoint = node.endpoint;
+              const ports = processClusterPorts(node.ports);
+              const availabilityZone = node.availabilityZone;
+              const status = node.status;
+              const resourceName = topologyDetails.resourceName;
+              const resourceKey = topologyDetails.resourceKey;
+              const healthStatus = node.healthStatus;
+              const detailedHealth = node.detailedHealth;
+              nodes.push({
+                id: nodeId,
+                nodeId: nodeId,
+                endpoint: endpoint,
+                ports: ports,
+                availabilityZone: availabilityZone,
+                status: status,
+                searchString: `${nodeId}${endpoint}${ports}${availabilityZone}${status}`,
+                resourceName: resourceName,
+                healthStatus: healthStatus,
+                resourceKey: resourceKey,
+                displayName: nodeId,
+                detailedHealth: detailedHealth,
+              });
 
-            nodeEndpointsList.push(node.endpoint);
-            availabilityZonesList.push(node.availabilityZone);
-          });
+              nodeEndpointsList.push(node.endpoint);
+              availabilityZonesList.push(node.availabilityZone);
+            });
+          } else {
+            // assume that the resource is serverless
+            if (!resourceId.includes("r-obsrv") && data.status === "RUNNING") {
+              nodes.push({
+                id: `${topologyDetails.resourceKey}-0`,
+                displayName: `serverless-${topologyDetails.resourceKey}`,
+                isServerless: true,
+                resourceKey: topologyDetails.resourceKey,
+                resourceId,
+              });
+            }
+          }
         }
 
         const nodeEndpoints = nodeEndpointsList.join(", ");
@@ -159,28 +198,47 @@ export default function useResourceInstance(
                   : "",
               });
             } else {
-              if (topologyDetails.nodes) {
-                topologyDetails.nodes.forEach((node) => {
-                  const nodeId = node.id;
-                  const endpoint = node.endpoint;
-                  const ports = processClusterPorts(node.ports);
-                  const availabilityZone = node.availabilityZone;
-                  const status = node.status;
-                  const resourceName = topologyDetails.resourceName;
-                  const resourceKey = topologyDetails.resourceKey;
-                  nodes.push({
-                    id: nodeId,
-                    nodeId: nodeId,
-                    endpoint: endpoint,
-                    ports: ports,
-                    availabilityZone: availabilityZone,
-                    status: status,
-                    searchString: `${nodeId}${endpoint}${ports}${availabilityZone}${status}`,
-                    resourceName: resourceName,
-                    healthStatus: node.healthStatus,
-                    resourceKey,
+              if (topologyDetails.hasCompute) {
+                if (topologyDetails.nodes) {
+                  topologyDetails.nodes.forEach((node) => {
+                    const nodeId = node.id;
+                    const endpoint = node.endpoint;
+                    const ports = processClusterPorts(node.ports);
+                    const availabilityZone = node.availabilityZone;
+                    const status = node.status;
+                    const resourceName = topologyDetails.resourceName;
+                    const resourceKey = topologyDetails.resourceKey;
+                    const detailedHealth = node.detailedHealth;
+                    nodes.push({
+                      id: nodeId,
+                      nodeId: nodeId,
+                      endpoint: endpoint,
+                      ports: ports,
+                      availabilityZone: availabilityZone,
+                      status: status,
+                      searchString: `${nodeId}${endpoint}${ports}${availabilityZone}${status}`,
+                      resourceName: resourceName,
+                      healthStatus: node.healthStatus,
+                      resourceKey,
+                      displayName: nodeId,
+                      detailedHealth: detailedHealth,
+                    });
                   });
-                });
+                } else {
+                  // assume that the resource is serverless
+                  if (
+                    !resourceId.includes("r-obsrv") &&
+                    data.status === "RUNNING"
+                  ) {
+                    nodes.push({
+                      id: `${topologyDetails.resourceKey}-0`,
+                      displayName: `serverless-${topologyDetails.resourceKey}`,
+                      isServerless: true,
+                      resourceKey: topologyDetails.resourceKey,
+                      resourceId,
+                    });
+                  }
+                }
               }
               globalEndpoints.others.push({
                 resourceName: topologyDetails.resourceName,
@@ -216,16 +274,10 @@ export default function useResourceInstance(
           );
         }
 
-        let healthStatusPercent = 0;
-
-        if (nodes?.length > 0) {
-          let healthyNodes = nodes?.filter(
-            (node) => node?.healthStatus === "HEALTHY"
-          );
-          healthStatusPercent = (healthyNodes?.length / nodes?.length) * 100;
-        } else if (data?.status === "RUNNING" || data?.status === "READY") {
-          healthStatusPercent = 100;
-        }
+        const healthStatusPercent = calculateInstanceHealthPercentage(
+          data?.detailedNetworkTopology,
+          data?.status
+        );
 
         const final = {
           resourceInstanceId: resourceInstanceId,
@@ -255,8 +307,10 @@ export default function useResourceInstance(
           logsSocketURL: logsSocketURL,
           healthStatusPercent: healthStatusPercent,
           active: data?.active,
+          customMetrics: customMetrics,
+          mainResourceHasCompute: topologyDetails.hasCompute,
         };
-        //console.log("Final", final);
+
         return final;
       },
     }
@@ -264,47 +318,3 @@ export default function useResourceInstance(
 
   return resourceInstanceQuery;
 }
-
-// {
-//     "r-p8UuvixUZf": {
-//         "clusterEndpoint": "r-p8uuvixuzf.instance-x2pwx8edi.ca-central-1.aws.omnistrate.dev",
-//         "nodes": [
-//             {
-//                 "endpoint": "postgres-0.r-p8uuvixuzf.instance-x2pwx8edi.ca-central-1.aws.omnistrate.dev",
-//                 "availabilityZone": "ca-central-1a",
-//                 "ports": [
-//                     5432
-//                 ],
-//                 "id": "postgres-0",
-//                 "status": "RUNNING"
-//             }
-//         ],
-//         "clusterPorts": [
-//             5432
-//         ],
-//         "main": true,
-//         "networkingType": "",
-//         "publiclyAccessible": false,
-//         "allowedIPRanges": null
-//     }
-// }
-
-// {
-//     "id": "instance-o4bd4o16d",
-//     "status": "FAILED",
-//     "cloud_provider": "aws",
-//     "region": "ca-central-1",
-//     "network_type": "PUBLIC",
-//     "created_at": "2023-06-06 10:41:40.077378 +0000 UTC",
-//     "last_modified_at": "2023-06-20 08:08:33.851968 +0000 UTC",
-//     "result_params": {},
-//     "detailedNetworkTopology": {
-//         "r-p8UuvixUZf": {
-//             "clusterEndpoint": "",
-//             "main": true,
-//             "networkingType": "",
-//             "publiclyAccessible": false,
-//             "allowedIPRanges": null
-//         }
-//     }
-// }

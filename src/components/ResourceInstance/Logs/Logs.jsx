@@ -19,8 +19,9 @@ function Logs(props) {
     nodes = [],
     socketBaseURL,
     instanceStatus,
-    resourceKey,
+    //resourceKey,
     resourceInstanceId,
+    //mainResourceHasCompute,
   } = props;
   const [logs, setLogs] = useState([]);
   let selectedId = "";
@@ -33,9 +34,10 @@ function Logs(props) {
   let logsSocketEndpoint = null;
   if (socketBaseURL && selectedNodeId) {
     logsSocketEndpoint = `${socketBaseURL}&podName=${selectedNodeId}&instanceId=${resourceInstanceId}`;
-  } else if (socketBaseURL && resourceKey) {
-    logsSocketEndpoint = `${socketBaseURL}&podName=${resourceKey}-0&instanceId=${resourceInstanceId}`;
   }
+  // else if (socketBaseURL && resourceKey && mainResourceHasCompute) {
+  //   logsSocketEndpoint = `${socketBaseURL}&podName=${resourceKey}-0&instanceId=${resourceInstanceId}`;
+  // }
 
   const [isLogsSocketConnected, setIsLogsSocketConnected] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -117,7 +119,7 @@ function Logs(props) {
         //console.log("Closing socket");
       }
     };
-  }, []);
+  }, [logsSocketEndpoint]);
 
   if (!logsSocketEndpoint) {
     return (
@@ -162,7 +164,7 @@ function Logs(props) {
         {nodes?.length > 0 && (
           <Box sx={{ minWidth: "320px" }}>
             <Text size="small" weight="medium" color="#344054">
-              Node ID
+              Container ID
             </Text>
             <Select
               value={selectedNodeId}

@@ -1,7 +1,7 @@
+const { getNodeMailerConfig } = require("../mail-service/mail-config");
 const { setProviderToken } = require("../providerToken");
 const { fetchProviderAuthToken } = require("./fetchProviderAuthToken");
 const nodemailer = require("nodemailer");
-const { getMailProviderConfig } = require("../mail-service/mail-provider");
 
 //Checks if all environment variables are configured
 //Verifies provider auth credentials by attempting a signin
@@ -107,7 +107,7 @@ async function verifyEnvironmentVariables() {
 
   if (mailUserEmail && mailUserPassword) {
     try {
-      const mailTransporter = nodemailer.createTransport(getMailProviderConfig());
+      const mailTransporter = nodemailer.createTransport(getNodeMailerConfig());
       await mailTransporter.verify();
       areMailCredentialsVerified = true;
       mailTransporter.close();
@@ -139,7 +139,9 @@ async function verifyEnvironmentVariables() {
         name: envVarName,
         status: envVarStatus,
       }))
-      .sort((envVarOne, envVarTwo) => (envVarOne.name <= envVarTwo.name ? -1 : 1)),
+      .sort((envVarOne, envVarTwo) =>
+        envVarOne.name <= envVarTwo.name ? -1 : 1
+      ),
   };
 }
 

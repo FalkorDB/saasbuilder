@@ -394,6 +394,8 @@ function ResourceInstance() {
           socketBaseURL={resourceInstanceData.metricsSocketURL}
           instanceStatus={resourceInstanceData?.status}
           resourceKey={resourceInstanceData?.resourceKey}
+          customMetrics={resourceInstanceData?.customMetrics}
+          mainResourceHasCompute={resourceInstanceData?.mainResourceHasCompute}
         />
       )}
       {currentTab === tabs.logs && (
@@ -403,6 +405,7 @@ function ResourceInstance() {
           socketBaseURL={resourceInstanceData.logsSocketURL}
           instanceStatus={resourceInstanceData?.status}
           resourceKey={resourceInstanceData?.resourceKey}
+          mainResourceHasCompute={resourceInstanceData?.mainResourceHasCompute}
         />
       )}
       <SideDrawerRight
@@ -426,7 +429,7 @@ function getTabs(isMetricsEnabled, isLogsEnabled, isActive) {
   const tabs = {
     resourceInstanceDetails: "Resource Instance Details",
     connectivity: "Connectivity",
-    nodes: "Nodes",
+    nodes: "Containers",
   };
   if (isMetricsEnabled) tabs["metrics"] = "Metrics";
   if (isLogsEnabled) tabs["logs"] = "Logs";
@@ -442,7 +445,7 @@ function getTabs(isMetricsEnabled, isLogsEnabled, isActive) {
 const TAB_LABEL_MAP = {
   "Resource Instance Details": "Resource Instance Details",
   Connectivity: "Connectivity",
-  Nodes: "Nodes",
+  Containers: "Containers",
   Metrics: "Metrics",
   Logs: "Logs",
 };

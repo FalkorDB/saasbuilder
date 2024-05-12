@@ -11,7 +11,7 @@ import {
   Stack,
   ListItemText,
 } from "@mui/material";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Button from "../Button/Button";
 import FieldContainer from "../FormElements/FieldContainer/FieldContainer";
 import FieldDescription from "../FormElements/FieldDescription/FieldDescription";
@@ -25,9 +25,10 @@ import { useSelector } from "react-redux";
 import { describeServiceOfferingResource } from "../../api/serviceOffering";
 import { selectCloudProviders } from "../../slices/providerSlice";
 import Select from "../FormElements/Select/Select";
-import LoadingSpinnerSmall from "../CircularProgress/CircularProgress";
 import useResourcesInstanceIds from "../../hooks/useResourcesInstanceIds";
 import { ACCOUNT_CREATION_METHODS } from "src/utils/constants/accountConfig";
+import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
+import { PasswordField } from "../FormElementsv2/PasswordField/PasswordField";
 import { fromProvider } from "cloud-regions-country-flags";
 
 const ITEM_HEIGHT = 48;
@@ -140,6 +141,33 @@ function CreateResourceInstanceForm(props) {
     (field) => field.key === "region"
   );
 
+  const customAvailabilityZoneFieldExists = createSchema.find(
+    (field) => field.key === "custom_availability_zone"
+  );
+
+  const customAvailabilityZoneQuery = useAvailabilityZone(
+    formData.values.region,
+    formData.values.cloud_provider
+  );
+
+  const {
+    data: customAvailabilityZoneData,
+    isLoading: isLoadingCustomAvailabilityZone,
+  } = customAvailabilityZoneQuery;
+
+  const customAvailabilityZone = useMemo(() => {
+    return customAvailabilityZoneData?.availabilityZones?.sort(function (a, b) {
+      if (a.code < b.code) return -1;
+      else if (a.code > b.code) {
+        return 1;
+      }
+      return -1;
+    });
+  }, [
+    isLoadingCustomAvailabilityZone,
+    customAvailabilityZoneData?.availabilityZones,
+  ]);
+
   if (isSchemaLoading)
     return (
       <Stack alignItems="center" sx={{ mt: "300px" }}>
@@ -184,7 +212,12 @@ function CreateResourceInstanceForm(props) {
               id="cloud_provider"
               name="cloud_provider"
               value={formData.values.cloud_provider}
-              onChange={formData.handleChange}
+              onChange={(e) => {
+                if (regionFieldExists) {
+                  formData.setFieldValue("region", "");
+                }
+                formData.handleChange(e);
+              }}
               sx={{ marginTop: "16px" }}
             >
               {cloudProviders.map((option) => (
@@ -235,15 +268,21 @@ function CreateResourceInstanceForm(props) {
         {regionFieldExists && (
           <FieldContainer>
             <FieldLabel required>Region</FieldLabel>
-            <Select
+            <TextField
+              select
               sx={{ marginTop: "16px" }}
               id="region"
               name="region"
-              displayEmpty
-              /*multiple*/
               value={formData.values.region}
-              onChange={formData.handleChange}
-              input={<OutlinedInput />}
+              onChange={(e) => {
+                if (customAvailabilityZoneFieldExists) {
+                  formData.setFieldValue(
+                    "requestParams.custom_availability_zone",
+                    ""
+                  );
+                }
+                formData.handleChange(e);
+              }}
             >
               <MenuItem disabled value="">
                 <em>None</em>
@@ -261,13 +300,37 @@ function CreateResourceInstanceForm(props) {
                     {region.flag} {region.code} - {region.description}
                   </MenuItem>
                 ))}
-            </Select>
+            </TextField>
             <ErrorLabel></ErrorLabel>
           </FieldContainer>
         )}
-
+        {customAvailabilityZoneFieldExists && (
+          <FieldContainer>
+            <FieldLabel required>Custom Availability Zone</FieldLabel>
+            <TextField
+              select
+              sx={{ marginTop: "16px" }}
+              id="requestParams.custom_availability_zone"
+              name="requestParams.custom_availability_zone"
+              value={formData?.values.requestParams?.custom_availability_zone}
+              onChange={formData.handleChange}
+            >
+              <MenuItem disabled value="">
+                <em>None</em>
+              </MenuItem>
+              {customAvailabilityZone?.map((region) => (
+                <MenuItem key={region.code} value={region.code}>
+                  {region.cloudProviderName} - {region.code}
+                </MenuItem>
+              ))}
+            </TextField>
+          </FieldContainer>
+        )}
         <Box mt={isBYOA ? 2 : 4}>
-          {createSchema.filter((param) => param.custom === true).length > 0 ? (
+          {createSchema.filter(
+            (param) =>
+              param.custom === true && param.key !== "custom_availability_zone"
+          ).length > 0 ? (
             <FieldLabel>Request Parameters</FieldLabel>
           ) : (
             ""
@@ -300,94 +363,11 @@ function CreateResourceInstanceForm(props) {
           )}
 
           {createSchema.map((param) => {
-            if (isBYOA && param.key === "aws_bootstrap_role_arn") {
-              return null;
-            }
-            if (param.key === "cloud_provider_account_config_id") {
-              return (
-                <FieldContainer key={param.key}>
-                  {param.required == true ? (
-                    <FieldLabel required>{param.displayName}</FieldLabel>
-                  ) : (
-                    <FieldLabel>{param.displayName}</FieldLabel>
-                  )}
-                  <FieldDescription sx={{ mt: "5px" }}>
-                    {param.description}
-                  </FieldDescription>
-                  <Select
-                    sx={{ display: "block", marginTop: "16px" }}
-                    id={`requestParams.${param.key}`}
-                    name={`requestParams.${param.key}`}
-                    onChange={formData.handleChange}
-                    values={formData.values.requestParams[param.key]}
-                    input={<OutlinedInput />}
-                  >
-                    <MenuItem disabled value="">
-                      <em>None</em>
-                    </MenuItem>
-                    {[
-                      ...(cloudProviderFieldExists
-                        ? cloudProviderAccounts?.filter(
-                            (obj) => obj.type === formData.values.cloud_provider
-                          )
-                        : cloudProviderAccounts),
-                    ].map((cloudProviderAccount) => (
-                      <MenuItem
-                        key={cloudProviderAccount.id}
-                        value={cloudProviderAccount.id}
-                      >
-                        {cloudProviderAccount.id}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FieldContainer>
-              );
-            } else {
-              if (param.custom === true && param.dependentResourceID) {
-                const dependentResourceId = param.dependentResourceID;
-                const options = resourceIdInstancesHashMap[dependentResourceId]
-                  ? resourceIdInstancesHashMap[dependentResourceId]
-                  : [];
-                return (
-                  <FieldContainer key={param.key}>
-                    {param.required == true ? (
-                      <FieldLabel required>{param.displayName}</FieldLabel>
-                    ) : (
-                      <FieldLabel>{param.displayName}</FieldLabel>
-                    )}
-                    <FieldDescription sx={{ mt: "5px" }}>
-                      {param.description}
-                    </FieldDescription>
-                    <Select
-                      isLoading={isFetching}
-                      fullWidth
-                      MenuProps={MenuProps}
-                      id={`requestParams.${param.key}`}
-                      name={`requestParams.${param.key}`}
-                      value={
-                        formData.values.requestParams[param.key]
-                          ? formData.values.requestParams[param.key]
-                          : []
-                      }
-                      displayEmpty
-                      onChange={formData.handleChange}
-                      modifiable={param.modifiable}
-                      sx={{ marginTop: "16px" }}
-                      required={param.required == true ? "required" : ""}
-                    >
-                      <MenuItem value={""} disabled={param.required}>
-                        None
-                      </MenuItem>
-                      {options.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FieldContainer>
-                );
+            if (param.key !== "custom_availability_zone") {
+              if (isBYOA && param.key === "aws_bootstrap_role_arn") {
+                return null;
               }
-              if (param.custom == true && param.type == "Boolean") {
+              if (param.type === "Password") {
                 return (
                   <FieldContainer key={param.key}>
                     {param.required == true ? (
@@ -398,188 +378,13 @@ function CreateResourceInstanceForm(props) {
                     <FieldDescription sx={{ mt: "5px" }}>
                       {param.description}
                     </FieldDescription>
-                    <RadioGroup
-                      row
-                      aria-labelledby="demo-row-radio-buttons-group-label"
+                    <PasswordField
+                      sx={{ color: "#FFF" }}
                       id={`requestParams.${param.key}`}
                       name={`requestParams.${param.key}`}
-                      value={
-                        formData.values.requestParams[param.key]
-                          ? formData.values.requestParams[param.key]
-                          : "false"
-                      }
                       onChange={formData.handleChange}
-                      sx={{ marginTop: "16px" }}
-                      modifiable={param.modifiable}
-                      required={param.required == true ? "required" : ""}
-                    >
-                      <FormControlLabel
-                        value={"true"}
-                        control={<Radio />}
-                        label="True"
-                      />
-                      <FormControlLabel
-                        value={"false"}
-                        control={<Radio />}
-                        label="False"
-                      />
-                    </RadioGroup>
-                  </FieldContainer>
-                );
-              } else if (
-                param.custom == true &&
-                param.options !== undefined &&
-                param.isList === true
-              ) {
-                const options = param.options ? param.options : [""];
-                return (
-                  <FieldContainer key={param.key}>
-                    {param.required == true ? (
-                      <FieldLabel required>{param.displayName}</FieldLabel>
-                    ) : (
-                      <FieldLabel>{param.displayName}</FieldLabel>
-                    )}
-                    {/* <FieldLabel>{param.displayName}</FieldLabel> */}
-                    <FieldDescription sx={{ mt: "5px" }}>
-                      {param.description}
-                    </FieldDescription>
-                    <Select
-                      multiple
-                      fullWidth
-                      MenuProps={MenuProps}
-                      id={`requestParams.${param.key}`}
-                      name={`requestParams.${param.key}`}
-                      value={
-                        formData.values.requestParams[param.key]
-                          ? formData.values.requestParams[param.key]
-                          : []
-                      }
-                      renderValue={(selectedList) => {
-                        if (selectedList.length === 0) {
-                          return <em>None</em>;
-                        }
-                        const plist = selectedList
-                          .map((valInList) => {
-                            const returnVal = formData.values.requestParams[
-                              param.key
-                            ].find((val) => {
-                              return val === valInList;
-                            });
-                            return returnVal;
-                          })
-                          .join(", ");
-                        return (
-                          <Box
-                            sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
-                          >
-                            {plist.split(",").map((value) => (
-                              <Chip key={value} label={value} />
-                            ))}
-                          </Box>
-                        );
-                      }}
-                      onChange={formData.handleChange}
-                      modifiable={param.modifiable}
-                      sx={{ marginTop: "16px" }}
-                      required={param.required == true ? "required" : ""}
-                    >
-                      {options.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FieldContainer>
-                );
-              } else if (
-                param.custom == true &&
-                param.options !== undefined &&
-                param.isList === false
-              ) {
-                const options = param.options ? param.options : [""];
-                return (
-                  <FieldContainer key={param.key}>
-                    {param.required == true ? (
-                      <FieldLabel required>{param.displayName}</FieldLabel>
-                    ) : (
-                      <FieldLabel>{param.displayName}</FieldLabel>
-                    )}
-                    <FieldDescription sx={{ mt: "5px" }}>
-                      {param.description}
-                    </FieldDescription>
-                    <Select
-                      fullWidth
-                      MenuProps={MenuProps}
-                      id={`requestParams.${param.key}`}
-                      name={`requestParams.${param.key}`}
-                      value={
-                        formData.values.requestParams[param.key]
-                          ? formData.values.requestParams[param.key]
-                          : []
-                      }
-                      renderValue={(selectedVal) => {
-                        return (
-                          <Box
-                            sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
-                          >
-                            {<Chip key={selectedVal} label={selectedVal} />}
-                          </Box>
-                        );
-                      }}
-                      onChange={formData.handleChange}
-                      modifiable={param.modifiable}
-                      sx={{ marginTop: "16px" }}
-                      required={param.required == true ? "required" : ""}
-                    >
-                      {options.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FieldContainer>
-                );
-              } else if (
-                param.custom === true ||
-                param.key === "cloud_provider_native_network_id"
-              ) {
-                return (
-                  <FieldContainer key={param.key}>
-                    {param.required == true ? (
-                      <FieldLabel required>{param.displayName}</FieldLabel>
-                    ) : (
-                      <FieldLabel>{param.displayName}</FieldLabel>
-                    )}
-
-                    <FieldDescription sx={{ mt: "5px" }}>
-                      {param.description}
-                      {param.key === "cloud_provider_native_network_id" && (
-                        <>
-                          {param?.description && <br />}
-                          If you'd like to deploy within your VPC, enter its ID.
-                          Please ensure your VPC meets the{" "}
-                          <Link
-                            style={{
-                              textDecoration: "underline",
-                              color: "blue",
-                            }}
-                            href="https://docs.omnistrate.com/usecases/byoa/?#bring-your-own-vpc-byo-vpc"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            prerequisites
-                          </Link>
-                          .{" "}
-                        </>
-                      )}
-                    </FieldDescription>
-                    <TextField
-                      id={`requestParams.${param.key}`}
-                      name={`requestParams.${param.key}`}
-                      value={formData.values.requestParams[param.key]}
-                      onChange={formData.handleChange}
-                      sx={{ marginTop: "16px" }}
-                      modifiable={param.modifiable}
+                      values={formData.values.requestParams[param.key]}
+                      onBlur={formData.handleBlur}
                       required={param.required == true ? "required" : ""}
                       // TODO: Change logic when param.type Password is added
                       type={
@@ -590,6 +395,348 @@ function CreateResourceInstanceForm(props) {
                     />
                   </FieldContainer>
                 );
+              }
+              if (param.key === "cloud_provider_account_config_id") {
+                return (
+                  <FieldContainer key={param.key}>
+                    {param.required == true ? (
+                      <FieldLabel required>{param.displayName}</FieldLabel>
+                    ) : (
+                      <FieldLabel>{param.displayName}</FieldLabel>
+                    )}
+                    <FieldDescription sx={{ mt: "5px" }}>
+                      {param.description}
+                    </FieldDescription>
+                    <Select
+                      sx={{ display: "block", marginTop: "16px" }}
+                      id={`requestParams.${param.key}`}
+                      name={`requestParams.${param.key}`}
+                      onChange={formData.handleChange}
+                      values={formData.values.requestParams[param.key]}
+                      input={<OutlinedInput />}
+                    >
+                      <MenuItem disabled value="">
+                        <em>None</em>
+                      </MenuItem>
+                      {[
+                        ...(cloudProviderFieldExists
+                          ? cloudProviderAccounts?.filter(
+                              (obj) =>
+                                obj.type === formData.values.cloud_provider
+                            )
+                          : cloudProviderAccounts),
+                      ].map((cloudProviderAccount) => (
+                        <MenuItem
+                          key={cloudProviderAccount.id}
+                          value={cloudProviderAccount.id}
+                        >
+                          {cloudProviderAccount.id}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FieldContainer>
+                );
+              } else {
+                if (param.custom === true && param.dependentResourceID) {
+                  const dependentResourceId = param.dependentResourceID;
+                  const options = resourceIdInstancesHashMap[
+                    dependentResourceId
+                  ]
+                    ? resourceIdInstancesHashMap[dependentResourceId]
+                    : [];
+                  return (
+                    <FieldContainer key={param.key}>
+                      {param.required == true ? (
+                        <FieldLabel required>{param.displayName}</FieldLabel>
+                      ) : (
+                        <FieldLabel>{param.displayName}</FieldLabel>
+                      )}
+                      <FieldDescription sx={{ mt: "5px" }}>
+                        {param.description}
+                      </FieldDescription>
+                      <Select
+                        sx={{ display: "block", marginTop: "16px" }}
+                        id={`requestParams.${param.key}`}
+                        name={`requestParams.${param.key}`}
+                        onChange={formData.handleChange}
+                        values={formData.values.requestParams[param.key]}
+                        input={<OutlinedInput />}
+                      >
+                        <MenuItem disabled value="">
+                          <em>None</em>
+                        </MenuItem>
+                        {[
+                          ...(cloudProviderFieldExists
+                            ? cloudProviderAccounts?.filter(
+                                (obj) =>
+                                  obj.type === formData.values.cloud_provider
+                              )
+                            : cloudProviderAccounts),
+                        ].map((cloudProviderAccount) => (
+                          <MenuItem
+                            key={cloudProviderAccount.id}
+                            value={cloudProviderAccount.id}
+                          >
+                            {cloudProviderAccount.id}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FieldContainer>
+                  );
+                } else {
+                  if (param.custom === true && param.dependentResourceID) {
+                    const dependentResourceId = param.dependentResourceID;
+                    const options = resourceIdInstancesHashMap[
+                      dependentResourceId
+                    ]
+                      ? resourceIdInstancesHashMap[dependentResourceId]
+                      : [];
+                    return (
+                      <FieldContainer key={param.key}>
+                        {param.required == true ? (
+                          <FieldLabel required>{param.displayName}</FieldLabel>
+                        ) : (
+                          <FieldLabel>{param.displayName}</FieldLabel>
+                        )}
+                        <FieldDescription sx={{ mt: "5px" }}>
+                          {param.description}
+                        </FieldDescription>
+                        <Select
+                          isLoading={isFetching}
+                          fullWidth
+                          MenuProps={MenuProps}
+                          id={`requestParams.${param.key}`}
+                          name={`requestParams.${param.key}`}
+                          value={
+                            formData.values.requestParams[param.key]
+                              ? formData.values.requestParams[param.key]
+                              : []
+                          }
+                          displayEmpty
+                          onChange={formData.handleChange}
+                          modifiable={param.modifiable}
+                          sx={{ marginTop: "16px" }}
+                          required={param.required == true ? "required" : ""}
+                        >
+                          <MenuItem value={""} disabled={param.required}>
+                            None
+                          </MenuItem>
+                          {options.map((option) => (
+                            <MenuItem key={option} value={option}>
+                              {option}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FieldContainer>
+                    );
+                  }
+                  if (param.custom == true && param.type == "Boolean") {
+                    return (
+                      <FieldContainer key={param.key}>
+                        {param.required == true ? (
+                          <FieldLabel required>{param.displayName}</FieldLabel>
+                        ) : (
+                          <FieldLabel>{param.displayName}</FieldLabel>
+                        )}
+                        <FieldDescription sx={{ mt: "5px" }}>
+                          {param.description}
+                        </FieldDescription>
+                        <RadioGroup
+                          row
+                          aria-labelledby="demo-row-radio-buttons-group-label"
+                          id={`requestParams.${param.key}`}
+                          name={`requestParams.${param.key}`}
+                          value={
+                            formData.values.requestParams[param.key]
+                              ? formData.values.requestParams[param.key]
+                              : "false"
+                          }
+                          onChange={formData.handleChange}
+                          sx={{ marginTop: "16px" }}
+                          modifiable={param.modifiable}
+                          required={param.required == true ? "required" : ""}
+                        >
+                          <FormControlLabel
+                            value={"true"}
+                            control={<Radio />}
+                            label="True"
+                          />
+                          <FormControlLabel
+                            value={"false"}
+                            control={<Radio />}
+                            label="False"
+                          />
+                        </RadioGroup>
+                      </FieldContainer>
+                    );
+                  } else if (
+                    param.custom == true &&
+                    param.options !== undefined &&
+                    param.isList === true
+                  ) {
+                    const options = param.options ? param.options : [""];
+                    return (
+                      <FieldContainer key={param.key}>
+                        {param.required == true ? (
+                          <FieldLabel required>{param.displayName}</FieldLabel>
+                        ) : (
+                          <FieldLabel>{param.displayName}</FieldLabel>
+                        )}
+                        {/* <FieldLabel>{param.displayName}</FieldLabel> */}
+                        <FieldDescription sx={{ mt: "5px" }}>
+                          {param.description}
+                        </FieldDescription>
+                        <Select
+                          multiple
+                          fullWidth
+                          MenuProps={MenuProps}
+                          id={`requestParams.${param.key}`}
+                          name={`requestParams.${param.key}`}
+                          value={
+                            formData.values.requestParams[param.key]
+                              ? formData.values.requestParams[param.key]
+                              : []
+                          }
+                          renderValue={(selectedList) => {
+                            if (selectedList.length === 0) {
+                              return <em>None</em>;
+                            }
+                            const plist = selectedList
+                              .map((valInList) => {
+                                const returnVal = formData.values.requestParams[
+                                  param.key
+                                ].find((val) => {
+                                  return val === valInList;
+                                });
+                                return returnVal;
+                              })
+                              .join(", ");
+                            return (
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  gap: 0.5,
+                                }}
+                              >
+                                {plist.split(",").map((value) => (
+                                  <Chip key={value} label={value} />
+                                ))}
+                              </Box>
+                            );
+                          }}
+                          onChange={formData.handleChange}
+                          modifiable={param.modifiable}
+                          sx={{ marginTop: "16px" }}
+                          required={param.required == true ? "required" : ""}
+                        >
+                          {options.map((option) => (
+                            <MenuItem key={option} value={option}>
+                              {option}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FieldContainer>
+                    );
+                  } else if (
+                    param.custom == true &&
+                    param.options !== undefined &&
+                    param.isList === false
+                  ) {
+                    const options = param.options ? param.options : [""];
+                    return (
+                      <FieldContainer key={param.key}>
+                        {param.required == true ? (
+                          <FieldLabel required>{param.displayName}</FieldLabel>
+                        ) : (
+                          <FieldLabel>{param.displayName}</FieldLabel>
+                        )}
+                        <FieldDescription sx={{ mt: "5px" }}>
+                          {param.description}
+                        </FieldDescription>
+                        <Select
+                          fullWidth
+                          MenuProps={MenuProps}
+                          id={`requestParams.${param.key}`}
+                          name={`requestParams.${param.key}`}
+                          value={
+                            formData.values.requestParams[param.key]
+                              ? formData.values.requestParams[param.key]
+                              : []
+                          }
+                          renderValue={(selectedVal) => {
+                            return (
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  gap: 0.5,
+                                }}
+                              >
+                                {<Chip key={selectedVal} label={selectedVal} />}
+                              </Box>
+                            );
+                          }}
+                          onChange={formData.handleChange}
+                          modifiable={param.modifiable}
+                          sx={{ marginTop: "16px" }}
+                          required={param.required == true ? "required" : ""}
+                        >
+                          {options.map((option) => (
+                            <MenuItem key={option} value={option}>
+                              {option}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FieldContainer>
+                    );
+                  } else if (
+                    param.custom === true ||
+                    param.key === "cloud_provider_native_network_id"
+                  ) {
+                    return (
+                      <FieldContainer key={param.key}>
+                        {param.required == true ? (
+                          <FieldLabel required>{param.displayName}</FieldLabel>
+                        ) : (
+                          <FieldLabel>{param.displayName}</FieldLabel>
+                        )}
+
+                        <FieldDescription sx={{ mt: "5px" }}>
+                          {param.description}
+                          {param.key === "cloud_provider_native_network_id" && (
+                            <>
+                              {param?.description && <br />}
+                              If you'd like to deploy within your VPC, enter its
+                              ID. Please ensure your VPC meets the{" "}
+                              <Link
+                                style={{
+                                  textDecoration: "underline",
+                                  color: "blue",
+                                }}
+                                href="https://docs.omnistrate.com/usecases/byoa/?#bring-your-own-vpc-byo-vpc"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                prerequisites
+                              </Link>
+                              .{" "}
+                            </>
+                          )}
+                        </FieldDescription>
+                        <TextField
+                          id={`requestParams.${param.key}`}
+                          name={`requestParams.${param.key}`}
+                          value={formData.values.requestParams[param.key]}
+                          onChange={formData.handleChange}
+                          sx={{ marginTop: "16px" }}
+                          modifiable={param.modifiable}
+                          required={param.required == true ? "required" : ""}
+                        />
+                      </FieldContainer>
+                    );
+                  }
+                }
               }
             }
           })}

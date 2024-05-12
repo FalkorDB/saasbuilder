@@ -45,7 +45,7 @@ function ProductTiers(props) {
   const selectedProductTier = serviceOfferingData?.offerings?.find(
     (item) => item?.productTierID === selectedProductTierId
   );
-  const [currentTab, setCurrentTab] = useState(tabs.description);
+  const [currentTab, setCurrentTab] = useState(tabs.planDetails);
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -72,7 +72,6 @@ function ProductTiers(props) {
     },
     {
       onSuccess: async (res) => {
-        console.log("res", res);
         await refetchSubscriptions();
         await refetchSubscriptionRequests();
         snackbar.showSuccess(
@@ -247,7 +246,7 @@ function ProductTiers(props) {
         />
       </Box>
       <Box sx={{ minHeight: "400px" }}>
-        {currentTab === tabs.description && (
+        {currentTab === tabs.planDetails && (
           <ProductTierPlanDetailsCard
             name={currentTab}
             description={selectedProductTier?.productTierPlanDescription}

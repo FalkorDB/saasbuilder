@@ -146,8 +146,6 @@ function MarketplaceService() {
     setIsOrgIdModalOpen(false);
   }
 
-  const selectUser = useSelector(selectUserrootData);
-
   const resourceInstancesHashmap = useMemo(() => {
     const hashmap = {};
     resourceInstanceList.forEach((instance) => {
@@ -156,8 +154,6 @@ function MarketplaceService() {
     return hashmap;
   }, [resourceInstanceList]);
 
-  const [selectedResourceInstanceName, setSelectedResourceInstanceName] =
-    useState("");
   const [selectedResourceInstances, setSelectedResourceInstances] = useState(
     []
   );
@@ -178,7 +174,6 @@ function MarketplaceService() {
   )
     isCurrentResourceBYOA = true;
 
-  const regionNames = useSelector(selectAllRegions);
   const isUnmounted = useRef(false);
   const router = useRouter();
   const {
@@ -197,13 +192,12 @@ function MarketplaceService() {
 
   const environmentId = service?.serviceEnvironmentID;
 
-  useCloudProviders(serviceId, service?.serviceModelID);
   const [creationDrawerOpen, setCreationDrawerOpen] = useState(false);
   const [supportDrawerOpen, setSupportDrawerOpen] = useState(false);
   const [currentTabValue, setCurrentTabValue] = useState(false);
   const [viewInfoDrawerOpen, setViewInfoDrawerOpen] = useState(false);
   const [updateDrawerOpen, setUpdateDrawerOpen] = useState(false);
-  useCloudProviderRegions(serviceId, service?.serviceModelID);
+
   const timeoutID = useRef(null);
   const currentResourceInfo = useRef({ resourceKey: null, resourceId: null });
   useEffect(() => {
@@ -467,7 +461,7 @@ function MarketplaceService() {
     }
 
     return columnDefinition;
-  }, [serviceId, selectedResource]);
+  }, [serviceId, selectedResource, resourceInstanceList]);
 
   const snackbar = useSnackbar();
   const dispatch = useDispatch();
@@ -1849,7 +1843,10 @@ function MarketplaceService() {
                   <ResourceUpdateView
                     isCurrentResourceBYOA={isCurrentResourceBYOA}
                     formData={updateformik}
-                    regions={regionNames}
+                    regions={{
+                      aws: service?.awsRegions || [],
+                      gcp: service?.gcpRegions || [],
+                    }}
                     formCancelClick={closeUpdateDrawer}
                     isLoading={updateResourceInstanceMutation.isLoading}
                     serviceName={service?.serviceName}
@@ -1895,7 +1892,6 @@ function MarketplaceService() {
               serviceName={service?.serviceName}
               serviceId={serviceId}
               selectedResourceKey={selectedResource}
-              regions={regionNames}
               isLoading={
                 createResourceInstanceMutation.isLoading ||
                 isCreateInstanceSchemaFetching
@@ -1905,6 +1901,11 @@ function MarketplaceService() {
               service={service}
               subscriptionId={subscriptionData?.id}
               handleOrgIdModalOpen={handleOrgIdModalOpen}
+              cloudProviders={service?.cloudProviders}
+              regions={{
+                aws: service?.awsRegions || [],
+                gcp: service?.gcpRegions || [],
+              }}
             />
           }
         />

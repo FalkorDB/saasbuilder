@@ -250,6 +250,7 @@ function ResourceInstance() {
       port: resourceInstanceData.connectivity.ports.find(p => p.resourceName.startsWith('node'))?.ports?.split(',')[0] ?? '6379',
       region: resourceInstanceData.region,
       username: resourceInstanceData.resultParameters.falkordbUser,
+      tls: resourceInstanceData.resultParameters.tls,
     }
     openResourceInstanceMutation.mutate(payload);
   }

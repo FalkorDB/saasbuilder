@@ -887,8 +887,7 @@ function MarketplaceService() {
         host: resourceInstanceResource?.clusterEndpoint,
         port: resourceInstanceResource.clusterPorts[0],
         region: resourceInstance.region,
-        username: resourceInstance.result_params.falkordbUser,
-        tls: resourceInstance.result_params.tls
+        username: resourceInstance.result_params.falkordbUser
       }
       openResourceInstanceMutation.mutate(payload);
     }

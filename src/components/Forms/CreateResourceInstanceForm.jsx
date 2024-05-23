@@ -29,7 +29,7 @@ import { ACCOUNT_CREATION_METHODS } from "src/utils/constants/accountConfig";
 import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
 import { PasswordField } from "../FormElementsv2/PasswordField/PasswordField";
 import { fromProvider } from "cloud-regions-country-flags";
-import { cloudProviderLabels } from "src/utils/constants/cloudProviders";
+import { cloudProviderLabels, cloudProviderLogos } from "src/utils/constants/cloudProviders";
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -58,6 +58,7 @@ function CreateResourceInstanceForm(props) {
     cloudProviders,
   } = props;
 
+
   const [isSchemaLoading, setIsSchemaLoading] = useState(true);
   const [createSchema, setCreateSchema] = useState([]);
   const { isFetching, data: resourceIdInstancesHashMap = {} } =
@@ -72,13 +73,17 @@ function CreateResourceInstanceForm(props) {
       subscriptionId
     );
 
-  const regionsFilteredBySelectedProvider = regions
-    .filter(
-      (region) => region.cloudProviderName === formData.values.cloud_provider
-    )
-    .map((region) => ({
-      ...region,
-      flag: fromProvider(region.code, region.cloudProviderName.toUpperCase())
+  const cloudProvidersWithIcon = cloudProviders.map((provider) => ({
+    name: provider,
+    description: cloudProviderLabels[provider],
+    icon: cloudProviderLogos[provider],
+  }));
+
+  const regionsFilteredBySelectedProvider =
+    !formData.values.cloud_provider ? [] :
+    regions[formData.values.cloud_provider].map((region) => ({
+      code: region,
+      flag: fromProvider(region, formData.values.cloud_provider.toUpperCase())
         .flag,
     }));
 
@@ -251,17 +256,24 @@ function CreateResourceInstanceForm(props) {
               }}
               sx={{ marginTop: "16px" }}
             >
-              {cloudProviders.map((option) => (
+              {cloudProvidersWithIcon.map((option) => (
                 <MenuItem
                   key={option.name.toLowerCase()}
                   value={option.name.toLowerCase()}
                 >
-                  <ListItemText> {option.icon === null ? (
+                  <ListItemText>
+                    {" "}
+                    {option.icon === null ? (
                       <Hidden />
                     ) : (
-                      <img src={option.icon.src} alt="Cloud Provider Logo" style={{ height: "100%", marginRight: "8px" }} />
+                      <img
+                        src={option.icon.src}
+                        alt="Cloud Provider Logo"
+                        style={{ height: "100%", marginRight: "8px" }}
+                      />
                     )}
-                    {option.description}</ListItemText>
+                    {option.description}
+                  </ListItemText>
                 </MenuItem>
               ))}
             </TextField>
@@ -329,7 +341,7 @@ function CreateResourceInstanceForm(props) {
                 })
                 .map((region) => (
                   <MenuItem key={region.code} value={region.code}>
-                    {region.flag} {region.code} - {region.description}
+                    {region.flag} {region.code}
                   </MenuItem>
                 ))}
             </TextField>

@@ -28,7 +28,7 @@ import {
 import useSubscriptionForProductTierAccess from "src/hooks/query/useSubscriptionForProductTierAccess";
 import SubscriptionNotFoundUI from "src/components/Access/SubscriptionNotFoundUI";
 import { checkIfResouceIsBYOA } from "src/utils/access/byoaResource";
-import ConnectIcon from "src/components/Icons/Open/Open";
+import ConnectIcon from "src/components/Icons/Connect/Connect";
 import {
   connectToInstance,
 } from "../../../../../src/api/resourceInstance";

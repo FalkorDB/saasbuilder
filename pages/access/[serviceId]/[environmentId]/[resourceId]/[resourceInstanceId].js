@@ -28,9 +28,9 @@ import {
 import useSubscriptionForProductTierAccess from "src/hooks/query/useSubscriptionForProductTierAccess";
 import SubscriptionNotFoundUI from "src/components/Access/SubscriptionNotFoundUI";
 import { checkIfResouceIsBYOA } from "src/utils/access/byoaResource";
-import OpenIcon from "src/components/Icons/Open/Open";
+import ConnectIcon from "src/components/Icons/Open/Open";
 import {
-  openResourceInstanceInBrowser,
+  connectToInstance,
 } from "../../../../../src/api/resourceInstance";
 import { useMutation } from "@tanstack/react-query";
 
@@ -152,12 +152,12 @@ function ResourceInstance() {
     }
   }, [router.isReady, view, tabs]);
 
-  let isOpenActionEnabled = false;
+  let isConnectActionEnabled = false;
   if (resourceInstanceData?.active && resourceInstanceData?.status === "RUNNING") {
-    isOpenActionEnabled = true;
+    isConnectActionEnabled = true;
   }
 
-  const openResourceInstanceMutation = useMutation(openResourceInstanceInBrowser, {
+  const connectToInstanceMutation = useMutation(connectToInstance, {
     onError: (error) => {
       snackbar.showError("Failed to open resource instance in browser");
     },
@@ -243,8 +243,8 @@ function ResourceInstance() {
     subscriptionData?.id
   );
 
-  const handleOpenInBrowser = () => {
-    if (!isOpenActionEnabled) return;
+  const handleConnectToInstance = () => {
+    if (!isConnectActionEnabled) return;
     const payload = {
       host: resourceInstanceData.connectivity.globalEndpoints.others[0].endpoint,
       port: resourceInstanceData.connectivity.ports.find(p => p.resourceName.startsWith('node'))?.ports?.split(',')[0] ?? '6379',
@@ -252,7 +252,7 @@ function ResourceInstance() {
       username: resourceInstanceData.resultParameters.falkordbUser,
       tls: resourceInstanceData.resultParameters.tls,
     }
-    openResourceInstanceMutation.mutate(payload);
+    connectToInstanceMutation.mutate(payload);
   }
 
   return (
@@ -337,15 +337,15 @@ function ResourceInstance() {
               />
             );
           })}
-          {isOpenActionEnabled &&  (
+          {isConnectActionEnabled &&  (
             <Box width="100%" display="flex" justifyContent="right">
               <Button
                 variant="contained"
                 size="medium"
                 sx={{ ml: 1.5 }}
-                startIcon={<OpenIcon color="#FFFFFF" />}
-                onClick={handleOpenInBrowser}
-                disabled={!isOpenActionEnabled}
+                startIcon={<ConnectIcon color="#FFFFFF" />}
+                onClick={handleConnectToInstance}
+                disabled={!isConnectActionEnabled}
               >
                 Open in Browser
               </Button>

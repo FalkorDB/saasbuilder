@@ -72,7 +72,7 @@ export const restartResourceInstance = (payload) => {
   );
 };
 
-export const openResourceInstanceInBrowser = (payload) => {
+export const connectToInstance = (payload) => {
   const queryParams = [
     {
       key: 'host',

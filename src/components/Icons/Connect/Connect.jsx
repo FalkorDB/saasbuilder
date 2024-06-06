@@ -1,5 +1,5 @@
 import * as React from "react";
-const OpenIcon = (props) => {
+const ConnectIcon = (props) => {
   let { color } = props;
   if (!color) {
     color = "#039855"
@@ -23,4 +23,4 @@ const OpenIcon = (props) => {
     </svg>
   );
 };
-export default OpenIcon;
+export default ConnectIcon;

@@ -12,10 +12,20 @@ import Head from "next/head";
 import placeholderService from "public/assets/images/dashboard/service/servicePlaceholder.png";
 import useSubscriptionRequests from "./hooks/useSubscriptionRequests";
 import { useMemo } from "react";
+import useResourcesInstanceIds from "src/hooks/useResourcesInstanceIds";
+import usePublicServiceOfferings from "../PublicServices/hooks/useOrgServiceOfferings";
 
 function MarketplaceProductTier({ orgLogoURL, orgName }) {
   const router = useRouter();
   const { serviceId, environmentId } = router.query;
+
+  const publicServicesOfferingsQuery = usePublicServiceOfferings();
+
+  const { data: services } = publicServicesOfferingsQuery;
+
+  const freeTierService = useMemo(() => {
+    return services?.find((service) => service.serviceId === "s-KgFDwg5vBS");
+  }, [services]);
 
   const serviceOfferingQuery = useServiceOfferingById(serviceId);
   const { data, isFetching } = serviceOfferingQuery;
@@ -28,14 +38,14 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
     };
   }, [data]);
   const subscriptionsQuery = useUserSubscriptions();
+
   const {
     data: subscriptionRequestsData,
     isLoading: isSubscriptionRequestLoading,
     refetch: refetchSubscriptionRequests,
   } = useSubscriptionRequests();
+
   const subscriptionRequests = subscriptionRequestsData?.subscriptionRequests;
-  const { shouldDisplayNoServicesUI, shouldDisplayServiceNotFoundUI } =
-    useProductTierRedirect();
 
   const {
     isLoading: isSubscriptionLoading,
@@ -43,7 +53,38 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
     data: subscriptions = [],
   } = subscriptionsQuery;
 
-  if (shouldDisplayServiceNotFoundUI || shouldDisplayNoServicesUI) {
+  const {
+    data: resourceInstancesIds,
+    isFetching: isResourceInstancesIdsFetching,
+    isFetched: isResourceInstancesIdsFetched,
+  } = useResourcesInstanceIds(
+    freeTierService?.serviceProviderId,
+    freeTierService?.serviceURLKey,
+    freeTierService?.serviceAPIVersion,
+    freeTierService?.serviceEnvironmentURLKey,
+    freeTierService?.serviceModelURLKey,
+    freeTierService?.productTierURLKey,
+    [{ urlKey: "free", resourceId: "free" }],
+    subscriptions[0]?.id
+  );
+
+  const filterOutFreeDedicatedTier = useMemo(
+    () =>
+      isResourceInstancesIdsFetched && resourceInstancesIds?.free?.length === 0,
+    [isResourceInstancesIdsFetched, resourceInstancesIds]
+  );
+
+  const { shouldDisplayNoServicesUI, shouldDisplayServiceNotFoundUI } =
+    useProductTierRedirect({
+      filterOutFreeDedicatedTier,
+    });
+
+  if (
+    isResourceInstancesIdsFetched &&
+    (filterOutFreeDedicatedTier ||
+      shouldDisplayServiceNotFoundUI ||
+      shouldDisplayNoServicesUI)
+  ) {
     return (
       <>
         <Head>
@@ -85,6 +126,7 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
         {!serviceId ||
         !environmentId ||
         isFetching ||
+        isResourceInstancesIdsFetching ||
         isSubscriptionLoading ||
         isSubscriptionRequestLoading ? (
           <Box display="flex" justifyContent="center" mt="200px">

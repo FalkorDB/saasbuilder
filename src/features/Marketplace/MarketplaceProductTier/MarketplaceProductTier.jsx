@@ -88,7 +88,7 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
     
   if (
     isResourceInstancesIdsFetched &&
-    ((filterOutFreeDedicatedTier && data.offerings.length === 1) ||
+    ((filterOutFreeDedicatedTier && data?.offerings?.length === 1) ||
       shouldDisplayServiceNotFoundUI ||
       shouldDisplayNoServicesUI)
   ) {

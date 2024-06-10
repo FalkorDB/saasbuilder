@@ -23,35 +23,16 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
 
   const { data: services } = publicServicesOfferingsQuery;
 
-  const freeTierService = useMemo(() => {
-    return services?.find((service) => service.serviceId === "s-KgFDwg5vBS");
-  }, [services]);
-
-  const serviceOfferingQuery = useServiceOfferingById(serviceId);
-  const { data, isFetching } = serviceOfferingQuery;
-  const serviceOfferingData = useMemo(() => {
-    return {
-      ...data,
-      offerings: data?.offerings?.sort((a, b) =>
-        a.productTierName < b.productTierName ? -1 : 1
-      ),
-    };
-  }, [data]);
   const subscriptionsQuery = useUserSubscriptions();
-
-  const {
-    data: subscriptionRequestsData,
-    isLoading: isSubscriptionRequestLoading,
-    refetch: refetchSubscriptionRequests,
-  } = useSubscriptionRequests();
-
-  const subscriptionRequests = subscriptionRequestsData?.subscriptionRequests;
-
   const {
     isLoading: isSubscriptionLoading,
     refetch: refetchSubscriptions,
     data: subscriptions = [],
   } = subscriptionsQuery;
+
+  const freeTierService = useMemo(() => {
+    return services?.find((service) => service.serviceId === "s-KgFDwg5vBS");
+  }, [services]);
 
   const {
     data: resourceInstancesIds,
@@ -74,14 +55,42 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
     [isResourceInstancesIdsFetched, resourceInstancesIds]
   );
 
+
+  const serviceOfferingQuery = useServiceOfferingById(serviceId);
+  const { data, isFetching } = serviceOfferingQuery;
+  const serviceOfferingData = useMemo(() => {
+    const offerings = {
+      ...data,
+      offerings: data?.offerings?.sort((a, b) =>
+        a.productTierName < b.productTierName ? -1 : 1
+      ),
+    };
+    console.log({filterOutFreeDedicatedTier})
+    if (filterOutFreeDedicatedTier) {
+      offerings.offerings = offerings.offerings.filter(
+        (offering) => offering.productTierID !== "pt-phFY4aK6Cq" && offering.productTierID !== "pt-m2FKdsSXSi"
+      );
+      console.log({offerings});
+    }
+    return offerings;
+  }, [data, filterOutFreeDedicatedTier]);
+
+  const {
+    data: subscriptionRequestsData,
+    isLoading: isSubscriptionRequestLoading,
+    refetch: refetchSubscriptionRequests,
+  } = useSubscriptionRequests();
+
+  const subscriptionRequests = subscriptionRequestsData?.subscriptionRequests;
+
   const { shouldDisplayNoServicesUI, shouldDisplayServiceNotFoundUI } =
     useProductTierRedirect({
       filterOutFreeDedicatedTier,
     });
-
+    
   if (
     isResourceInstancesIdsFetched &&
-    (filterOutFreeDedicatedTier ||
+    ((filterOutFreeDedicatedTier && data.offerings.length === 1) ||
       shouldDisplayServiceNotFoundUI ||
       shouldDisplayNoServicesUI)
   ) {

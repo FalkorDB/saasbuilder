@@ -65,12 +65,10 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
         a.productTierName < b.productTierName ? -1 : 1
       ),
     };
-    console.log({filterOutFreeDedicatedTier})
     if (filterOutFreeDedicatedTier) {
-      offerings.offerings = offerings.offerings.filter(
+      offerings.offerings = offerings.offerings?.filter(
         (offering) => offering.productTierID !== "pt-phFY4aK6Cq" && offering.productTierID !== "pt-m2FKdsSXSi"
-      );
-      console.log({offerings});
+      ) ?? [];
     }
     return offerings;
   }, [data, filterOutFreeDedicatedTier]);

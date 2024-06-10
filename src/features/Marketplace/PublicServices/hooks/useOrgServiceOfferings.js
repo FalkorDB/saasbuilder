@@ -53,6 +53,11 @@ function useOrgServiceOfferings(queryOptions = {}, queryConfig = {}) {
         serviceOfferings.sort(
           (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
         );
+
+        // Remove Free Dedicated tier
+        if (queryOptions?.filterOutFreeDedicatedTier) {
+          return serviceOfferings.filter(s => s.serviceId !== "s-KgFDwg5vBS");
+        }
         return serviceOfferings;
       },
       ...queryConfig,

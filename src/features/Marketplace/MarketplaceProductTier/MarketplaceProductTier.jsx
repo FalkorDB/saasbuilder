@@ -125,7 +125,7 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
         marketplacePage
         serviceName={serviceOfferingData?.serviceName}
         serviceLogoURL={
-          serviceOfferingData?.offerings?.[0].serviceLogoURL ||
+          serviceOfferingData?.offerings?.[0]?.serviceLogoURL ||
           orgLogoURL ||
           placeholderService
         }

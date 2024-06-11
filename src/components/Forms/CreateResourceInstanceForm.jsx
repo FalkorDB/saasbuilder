@@ -264,8 +264,7 @@ function CreateResourceInstanceForm(props) {
                   value={option.name.toLowerCase()}
                 >
                   <ListItemText>
-                    {option.icon === null ? <Hidden /> : option.icon}
-                    {" "}
+                    {option.icon === null ? <Hidden /> : option.icon}{" "}
                     {option.description}
                   </ListItemText>
                 </MenuItem>
@@ -684,7 +683,19 @@ function CreateResourceInstanceForm(props) {
                         name={`requestParams.${param.key}`}
                         value={
                           formData.values.requestParams[param.key]
-                            ? formData.values.requestParams[param.key]
+                            ? param.key === "nodeInstanceType" &&
+                              formData.values.cloud_provider === "gcp" &&
+                              !formData.values.requestParams[
+                                param.key
+                              ].startsWith("e2")
+                              ? "e2-custom-4-8192"
+                              : param.key === "nodeInstanceType" &&
+                                  formData.values.cloud_provider === "aws" &&
+                                  !formData.values.requestParams[
+                                    param.key
+                                  ].startsWith("c6g")
+                                ? "c6g.xlarge"
+                                : formData.values.requestParams[param.key]
                             : []
                         }
                         renderValue={(selectedVal) => {
@@ -705,11 +716,25 @@ function CreateResourceInstanceForm(props) {
                         sx={{ marginTop: "16px" }}
                         required={param.required == true ? "required" : ""}
                       >
-                        {options.map((option) => (
-                          <MenuItem key={option} value={option}>
-                            {option}
-                          </MenuItem>
-                        ))}
+                        {options
+                          .filter((option) => {
+                            // If param.key is nodeInstanceType and cloud provider is gcp, remove all options that don't start with e2
+                            // If param.key is nodeInstanceType and cloud provider is aws, remove all options that don't start with c6g
+                            if (param.key === "nodeInstanceType") {
+                              if (formData.values.cloud_provider === "gcp") {
+                                return option.startsWith("e2");
+                              } else if (
+                                formData.values.cloud_provider === "aws"
+                              ) {
+                                return option.startsWith("c6g");
+                              }
+                            }
+                          })
+                          .map((option) => (
+                            <MenuItem key={option} value={option}>
+                              {option}
+                            </MenuItem>
+                          ))}
                       </Select>
                     </FieldContainer>
                   );

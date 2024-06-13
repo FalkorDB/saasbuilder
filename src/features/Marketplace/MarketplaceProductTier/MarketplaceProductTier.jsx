@@ -31,7 +31,11 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
   } = subscriptionsQuery;
 
   const freeTierService = useMemo(() => {
-    return services?.find((service) => service.serviceId === "s-KgFDwg5vBS");
+    return services?.find(
+      (service) =>
+        service.productTierID === "pt-phFY4aK6Cq" ||
+        service.productTierID === "pt-m2FKdsSXSi"
+    );
   }, [services]);
 
   const {

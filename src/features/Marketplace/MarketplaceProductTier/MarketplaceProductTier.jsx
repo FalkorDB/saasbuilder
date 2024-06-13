@@ -11,7 +11,7 @@ import Head from "next/head";
 // import NoLogoImage from "public/assets/images/logos/no-logo.png";
 import placeholderService from "public/assets/images/dashboard/service/servicePlaceholder.png";
 import useSubscriptionRequests from "./hooks/useSubscriptionRequests";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import useResourcesInstanceIds from "src/hooks/useResourcesInstanceIds";
 import usePublicServiceOfferings from "../PublicServices/hooks/useOrgServiceOfferings";
 
@@ -51,10 +51,17 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
 
   const filterOutFreeDedicatedTier = useMemo(
     () =>
-      isResourceInstancesIdsFetched && resourceInstancesIds?.free?.length === 0,
-    [isResourceInstancesIdsFetched, resourceInstancesIds]
+      (isResourceInstancesIdsFetched &&
+        resourceInstancesIds?.free?.length === 0) ||
+      (!isResourceInstancesIdsFetched &&
+        !isResourceInstancesIdsFetching &&
+        !resourceInstancesIds?.free?.length),
+    [
+      isResourceInstancesIdsFetched,
+      isResourceInstancesIdsFetching,
+      resourceInstancesIds,
+    ]
   );
-
 
   const serviceOfferingQuery = useServiceOfferingById(serviceId);
   const { data, isFetching } = serviceOfferingQuery;
@@ -66,9 +73,12 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
       ),
     };
     if (filterOutFreeDedicatedTier) {
-      offerings.offerings = offerings.offerings?.filter(
-        (offering) => offering.productTierID !== "pt-phFY4aK6Cq" && offering.productTierID !== "pt-m2FKdsSXSi"
-      ) ?? [];
+      offerings.offerings =
+        offerings.offerings?.filter(
+          (offering) =>
+            offering.productTierID !== "pt-phFY4aK6Cq" &&
+            offering.productTierID !== "pt-m2FKdsSXSi"
+        ) ?? [];
     }
     return offerings;
   }, [data, filterOutFreeDedicatedTier]);
@@ -85,7 +95,7 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
     useProductTierRedirect({
       filterOutFreeDedicatedTier,
     });
-    
+
   if (
     isResourceInstancesIdsFetched &&
     ((filterOutFreeDedicatedTier && data?.offerings?.length === 1) ||

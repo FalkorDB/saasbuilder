@@ -23,7 +23,7 @@ import {
   startResourceInstance,
   stopResourceInstance,
   updateResourceInstance,
-  openResourceInstanceInBrowser,
+  connectToInstance,
 } from "../../../src/api/resourceInstance";
 import Button from "../../../src/components/Button/Button";
 import Card from "../../../src/components/Card/Card";
@@ -40,7 +40,7 @@ import LogoHeader from "../../../src/components/Headers/LogoHeader";
 import DeleteIcon from "../../../src/components/Icons/Delete/Delete";
 import DeprecateIcon from "../../../src/components/Icons/DeprecateIcon/DeprecateIcon";
 import EditIcon from "../../../src/components/Icons/Edit/Edit";
-import OpenIcon from "../../../src/components/Icons/Open/Open";
+import ConnectIcon from "../../../src/components/Icons/Connect/Connect";
 import PlayIcon from "../../../src/components/Icons/Play/Play";
 import RebootIcon from "../../../src/components/Icons/Reboot/Reboot";
 import RefreshIcon from "../../../src/components/Icons/Refresh/Refresh";
@@ -420,6 +420,26 @@ function MarketplaceService() {
         },
       },
     ];
+
+    // If resource has a name, add a column to display the resource name
+    if (resourceInstanceList[0]?.result_params?.name) {
+      columnDefinition.splice(1, 0, {
+        field: "name",
+        headerName: "Name",
+        flex: 1,
+        minWidth: 200,
+        align: "center",
+        headerAlign: "center",
+        renderCell: (params) => {
+          return (
+            <GridCellExpand
+              value={params.row.result_params?.name}
+              width={params.colDef.computedWidth}
+            />
+          );
+        },
+      });
+    }
 
     // If a resource is BYOA, one of the fields: awsAccountId, gcpProjectID are present for all the instances
     // If present, add a column at the 1st index. Otherwise add a column at the 4th index.
@@ -866,7 +886,7 @@ function MarketplaceService() {
     onError: (error) => { },
   });
 
-  const openResourceInstanceMutation = useMutation(openResourceInstanceInBrowser, {
+  const openResourceInstanceMutation = useMutation(connectToInstance, {
     onError: (error) => {
       snackbar.showError("Failed to open resource instance in browser");
     },
@@ -894,8 +914,8 @@ function MarketplaceService() {
     }
   };
 
-  const handleOpen = () => {
-    if (isOpenActionEnabled) {
+  const handleConnect = () => {
+    if (isConnectActionEnabled) {
       const resourceInstance = selectedResourceInstances[0];
       const resourceInstanceResource = Object.values(resourceInstance.detailedNetworkTopology).find(r => r.resourceKey.startsWith('node'));
       const payload = {
@@ -1171,7 +1191,7 @@ function MarketplaceService() {
   let isModifyActionEnabled = false;
   let isRestoreActionEnabled = false;
   let isDeleteActionEnabled = false;
-  let isOpenActionEnabled = false;
+  let isConnectActionEnabled = false;
 
   let selectedResourceInstance = null;
   if (isSingleInstanceSelected) {
@@ -1186,7 +1206,7 @@ function MarketplaceService() {
       //enable stop action
       if (instanceStatus === instanceStatuses.RUNNING) {
         isStopActionEnabled = true;
-        isOpenActionEnabled = true;
+        isConnectActionEnabled = true;
       }
 
       //enable modify action
@@ -1686,20 +1706,20 @@ function MarketplaceService() {
               <Button
                 variant="outlined"
                 startIcon={
-                  <OpenIcon
+                  <ConnectIcon
                     color={
-                      !isOpenActionEnabled &&
+                      !isConnectActionEnabled &&
                       "#EAECF0"
                     }
                   />
                 }
                 sx={{ marginRight: 2 }}
                 disabled={
-                  !isOpenActionEnabled
+                  !isConnectActionEnabled
                 }
-                onClick={handleOpen}
+                onClick={handleConnect}
               >
-                Open
+                Connect
               </Button>
             )}
 

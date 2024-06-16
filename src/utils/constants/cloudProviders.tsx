@@ -1,16 +1,13 @@
-import AwsLogo from "src/components/Logos/AwsLogo/AwsLogo";
-import GcpLogo from "src/components/Logos/GcpLogo/GcpLogo";
+import React from "react";
+import AwsIcon from "src/components/Logos/AwsIcon/AwsIcon";
+import GcpIcon from "src/components/Logos/GcpIcon/GcpIcon";
 
 export const cloudProviderLabels = {
   gcp: "Google Cloud Platform",
   aws: "Amazon Web Services",
 };
 
-export const cloudProviderLogos = {
-  gcp: {
-    src: '../../../../public/assets/images/logos/gcpCloud.svg'
-  },
-  aws: {
-    src: '../../../../public/assets/images/logos/aws.svg'
-  }
+export const cloudProviderIcons = {
+  gcp: <GcpIcon />,
+  aws: <AwsIcon />,
 };

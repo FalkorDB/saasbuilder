@@ -53,6 +53,7 @@ function useOrgServiceOfferings(queryOptions = {}, queryConfig = {}) {
         serviceOfferings.sort(
           (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
         );
+
         return serviceOfferings;
       },
       ...queryConfig,

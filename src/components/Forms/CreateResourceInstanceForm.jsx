@@ -29,7 +29,10 @@ import { ACCOUNT_CREATION_METHODS } from "src/utils/constants/accountConfig";
 import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
 import { PasswordField } from "../FormElementsv2/PasswordField/PasswordField";
 import { fromProvider } from "cloud-regions-country-flags";
-import { cloudProviderLabels, cloudProviderLogos } from "src/utils/constants/cloudProviders";
+import {
+  cloudProviderLabels,
+  cloudProviderIcons,
+} from "src/utils/constants/cloudProviders";
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -58,7 +61,6 @@ function CreateResourceInstanceForm(props) {
     cloudProviders,
   } = props;
 
-
   const [isSchemaLoading, setIsSchemaLoading] = useState(true);
   const [createSchema, setCreateSchema] = useState([]);
   const { isFetching, data: resourceIdInstancesHashMap = {} } =
@@ -76,16 +78,16 @@ function CreateResourceInstanceForm(props) {
   const cloudProvidersWithIcon = cloudProviders.map((provider) => ({
     name: provider,
     description: cloudProviderLabels[provider],
-    icon: cloudProviderLogos[provider],
+    icon: cloudProviderIcons[provider],
   }));
 
-  const regionsFilteredBySelectedProvider =
-    !formData.values.cloud_provider ? [] :
-    regions[formData.values.cloud_provider].map((region) => ({
-      code: region,
-      flag: fromProvider(region, formData.values.cloud_provider.toUpperCase())
-        .flag,
-    }));
+  const regionsFilteredBySelectedProvider = !formData.values.cloud_provider
+    ? []
+    : regions[formData.values.cloud_provider].map((region) => ({
+        code: region,
+        flag: fromProvider(region, formData.values.cloud_provider.toUpperCase())
+          .flag,
+      }));
 
   useEffect(() => {
     async function getSchema() {
@@ -262,16 +264,8 @@ function CreateResourceInstanceForm(props) {
                   value={option.name.toLowerCase()}
                 >
                   <ListItemText>
+                    {option.icon === null ? <Hidden /> : option.icon}
                     {" "}
-                    {option.icon === null ? (
-                      <Hidden />
-                    ) : (
-                      <img
-                        src={option.icon.src}
-                        alt="Cloud Provider Logo"
-                        style={{ height: "100%", marginRight: "8px" }}
-                      />
-                    )}
                     {option.description}
                   </ListItemText>
                 </MenuItem>

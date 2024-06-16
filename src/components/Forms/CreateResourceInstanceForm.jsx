@@ -215,6 +215,9 @@ function CreateResourceInstanceForm(props) {
 
   // If schema fields exist: name, description, user, password, sort them in that order
   createSchema.sort((a, b) => {
+    console.log(a.key, b.key);
+    if (a.key.toLowerCase().includes("nodeInstanceType")) return -1;
+    if (b.key.toLowerCase().includes("nodeInstanceType")) return 1;
     if (a.key.toLowerCase().includes("name")) return -1;
     if (b.key.toLowerCase().includes("name")) return 1;
     if (a.key.toLowerCase().includes("description")) return -1;
@@ -223,6 +226,12 @@ function CreateResourceInstanceForm(props) {
     if (b.key.toLowerCase().includes("user")) return 1;
     if (a.key.toLowerCase().includes("password")) return -1;
     if (b.key.toLowerCase().includes("password")) return 1;
+    if (a.key.toLowerCase().includes("enableTLS")) return -1;
+    if (b.key.toLowerCase().includes("enableTLS")) return 1;
+    if (a.key.toLowerCase().includes("RDBPersistenceConfig")) return -1;
+    if (b.key.toLowerCase().includes("RDBPersistenceConfig")) return 1;
+    if (a.key.toLowerCase().includes("AOFPersistenceConfig")) return -1;
+    if (b.key.toLowerCase().includes("AOFPersistenceConfig")) return 1;
     return 0;
   });
 

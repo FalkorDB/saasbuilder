@@ -100,6 +100,10 @@ import ViewInstructionsIcon from "src/components/Icons/AccountConfig/ViewInstrcu
 import DeleteAccountConfigConfirmationDialog from "src/components/DeleteAccountConfigConfirmationDialog/DeleteAccountConfigConfirmationDialog";
 import { cloneDeep } from "lodash";
 import { calculateInstanceHealthPercentage } from "src/utils/instanceHealthPercentage";
+import AccessServiceHealthStatus from "src/components/ServiceHealthStatus/AccessServicehealthStatus";
+import RestoreInstanceIcon from "src/components/Icons/RestoreInstance/RestoreInstanceIcon";
+import AccessSideRestoreInstance from "src/components/RestoreInstance/AccessSideRestoreInstance";
+import DataGridText from "src/components/DataGrid/DataGridText";
 
 const instanceStatuses = {
   FAILED: "FAILED",
@@ -123,6 +127,9 @@ function MarketplaceService() {
   const [cloudProviderAccounts, setCloudProviderAccounts] = useState([]);
   const [cloudProviderResource, setCloudProviderResource] = useState(null);
 
+  const [isRestoreInstanceModalOpen, setIsResourceInstanceModalOpen] =
+    useState(false);
+
   const [isOrgIdModalOpen, setIsOrgIdModalOpen] = useState(false);
   //this is required to show some extra text on CloudProviderAccountModal on creation
   const [isAccountCreation, setIsAccountCreation] = useState(false);
@@ -145,6 +152,14 @@ function MarketplaceService() {
   function handleOrgIdModalClose() {
     setIsOrgIdModalOpen(false);
   }
+
+  const handleRestoreInstanceModalOpen = () => {
+    setIsResourceInstanceModalOpen(true);
+  };
+
+  const handleRestoreInstanceModalClose = () => {
+    setIsResourceInstanceModalOpen(false);
+  };
 
   const resourceInstancesHashmap = useMemo(() => {
     const hashmap = {};
@@ -247,7 +262,6 @@ function MarketplaceService() {
         headerAlign: "center",
         renderCell: (params) => {
           const instanceId = params.row.id;
-          const isActive = params.row.active;
 
           const instanceIdDisplay = isCurrentResourceBYOA
             ? "account-" + instanceId
@@ -262,14 +276,15 @@ function MarketplaceService() {
           );
 
           return (
-            <Box display="flex" gap="8px" alignItems="center">
-              <GridCellExpand
-                href={resourceInstanceUrlLink}
-                value={instanceIdDisplay ?? ""}
-                width={params.colDef.computedWidth}
-              />
-              <CopyButton text={instanceIdDisplay} />
-            </Box>
+            <DataGridText
+              color="primary"
+              showCopyButton
+              linkProps={{
+                href: resourceInstanceUrlLink,
+              }}
+            >
+              {instanceIdDisplay}
+            </DataGridText>
           );
         },
       },
@@ -1154,6 +1169,7 @@ function MarketplaceService() {
   let isStopActionEnabled = false;
   let isRebootActiondEnabled = false;
   let isModifyActionEnabled = false;
+  let isRestoreActionEnabled = false;
   let isDeleteActionEnabled = false;
   let isOpenActionEnabled = false;
 
@@ -1188,6 +1204,14 @@ function MarketplaceService() {
       //enable reboot action
       if (instanceStatus === instanceStatuses.RUNNING) {
         isRebootActiondEnabled = true;
+      }
+
+      // enable restore if earliestRestoreTime is present in backupStatus
+      const earliestRestoreTime =
+        selectedResourceInstance?.backupStatus?.earliestRestoreTime;
+
+      if (earliestRestoreTime) {
+        isRestoreActionEnabled = true;
       }
 
       if (instanceStatus !== instanceStatuses.DELETING) {
@@ -1554,11 +1578,18 @@ function MarketplaceService() {
         <Head>
           <title>Resources</title>
         </Head>
-        <LogoHeader
-          title={`${selectedResource?.name} Instances`}
-          desc="Some Description"
-          newicon={resourceInstnaceIcon}
-        />
+        <Stack
+          direction="row"
+          justifyContent={"space-between"}
+          alignItems={"center"}
+        >
+          <LogoHeader
+            title={`${selectedResource?.name} Instances`}
+            desc="Some Description"
+            newicon={resourceInstnaceIcon}
+          />
+          <AccessServiceHealthStatus />
+        </Stack>
 
         <AccessHeaderCard
           serviceName={service?.serviceName}
@@ -1750,6 +1781,28 @@ function MarketplaceService() {
             <Button
               variant="outlined"
               startIcon={
+                <RestoreInstanceIcon
+                  disabled={
+                    isCurrentResourceBYOA ||
+                    !modifyAccessServiceAllowed ||
+                    !isRestoreActionEnabled
+                  }
+                />
+              }
+              disabled={
+                isCurrentResourceBYOA ||
+                !modifyAccessServiceAllowed ||
+                !isRestoreActionEnabled
+              }
+              sx={{ marginRight: 2 }}
+              onClick={handleRestoreInstanceModalOpen}
+            >
+              PiTR
+            </Button>
+
+            <Button
+              variant="outlined"
+              startIcon={
                 <DeleteIcon
                   color={
                     (!isDeleteActionEnabled || !deleteAccessServiceAllowed) &&
@@ -1936,6 +1989,21 @@ function MarketplaceService() {
           selectedResourceKey={selectedResource.key}
           subscriptionId={subscriptionData?.id}
           setCloudFormationTemplateUrl={setCloudFormationTemplateUrl}
+        />
+
+        <AccessSideRestoreInstance
+          open={isRestoreInstanceModalOpen}
+          handleClose={handleRestoreInstanceModalClose}
+          earliestRestoreTime={
+            selectedResourceInstance?.backupStatus?.earliestRestoreTime
+          }
+          service={service}
+          setSelectionModel={setSelectionModel}
+          fetchResourceInstances={fetchResourceInstances}
+          selectedResource={selectedResource}
+          subscriptionId={subscriptionData?.id}
+          selectedInstanceId={selectedResourceInstance?.id}
+          networkType={selectedResourceInstance?.network_type}
         />
       </DashboardLayout>
     );

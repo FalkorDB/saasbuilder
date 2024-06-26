@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { useMemo } from "react";
 import { Box, styled } from "@mui/material";
 import {
   CellDescription,

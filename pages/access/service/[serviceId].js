@@ -321,7 +321,12 @@ function MarketplaceService() {
                     }}
                     onClick={() => {
                       const result_params = params.row.result_params;
-                      setCloudProvider(result_params?.cloud_provider);
+                      setCloudProvider(
+                        result_params?.cloud_provider ||
+                          !!result_params?.aws_account_id
+                          ? "aws"
+                          : "gcp"
+                      );
                       setCloudFormationTemplateUrl(
                         result_params?.cloudformation_url
                       );
@@ -1157,6 +1162,10 @@ function MarketplaceService() {
         timeoutID.current = id;
       }
     }
+  }
+
+  function fetchResourceInstancesOfSelectedResource() {
+    return fetchResourceInstances(selectedResource);
   }
 
   async function getResourceSchema(resourceId) {
@@ -2016,6 +2025,9 @@ function MarketplaceService() {
           selectedResourceKey={selectedResource.key}
           subscriptionId={subscriptionData?.id}
           setCloudFormationTemplateUrl={setCloudFormationTemplateUrl}
+          fetchResourceInstancesOfSelectedResource={
+            fetchResourceInstancesOfSelectedResource
+          }
         />
 
         <AccessSideRestoreInstance

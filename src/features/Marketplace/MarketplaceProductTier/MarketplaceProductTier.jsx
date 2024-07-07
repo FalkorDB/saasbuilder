@@ -126,7 +126,7 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
       </>
     );
   }
-
+  
   return (
     <>
       <Head>
@@ -137,7 +137,7 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
         marketplacePage
         serviceName={serviceOfferingData?.serviceName}
         serviceLogoURL={
-          serviceOfferingData?.offerings?.[0].serviceLogoURL || orgLogoURL
+          serviceOfferingData?.offerings?.[0]?.serviceLogoURL || orgLogoURL
         }
       >
         {!serviceId ||

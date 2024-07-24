@@ -114,6 +114,7 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
           marketplacePage
           serviceName={orgName}
           serviceLogoURL={orgLogoURL}
+          noServicesAvailable={true}
         >
           <NoServiceFoundUI
             text={

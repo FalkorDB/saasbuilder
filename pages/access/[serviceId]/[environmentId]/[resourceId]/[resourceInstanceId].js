@@ -33,6 +33,13 @@ import {
   connectToInstance,
 } from "../../../../../src/api/resourceInstance";
 import { useMutation } from "@tanstack/react-query";
+import Link from "next/link";
+
+export const getServerSideProps = async () => {
+  return {
+    props: {},
+  };
+};
 
 function ResourceInstance() {
   const router = useRouter();
@@ -163,6 +170,16 @@ function ResourceInstance() {
     },
   });
 
+  const queryData = {
+    serviceProviderId: serviceOffering?.serviceProviderId,
+    serviceKey: serviceOffering?.serviceURLKey,
+    serviceAPIVersion: serviceOffering?.serviceAPIVersion,
+    serviceEnvironmentKey: serviceOffering?.serviceEnvironmentURLKey,
+    serviceModelKey: serviceOffering?.serviceModelURLKey,
+    productTierKey: serviceOffering?.productTierURLKey,
+    subscriptionId: subscriptionData?.id,
+    resourceInstanceId: resourceInstanceId,
+  };
 
   if (isLoading || isLoadingSubscription || !resourceInstanceData) {
     return (
@@ -289,15 +306,11 @@ function ResourceInstance() {
         <title>{pageTitle}</title>
       </Head>
       <Stack direction="row" alignItems="center" justifyContent="flex-end">
-        <Button
-          startIcon={<RiArrowGoBackFill />}
-          sx={{ color: "#6941C6" }}
-          onClick={() => {
-            router.push(resourceInstancesUrl);
-          }}
-        >
-          Back to list of Resource Instances
-        </Button>
+        <Link href={resourceInstancesUrl}>
+          <Button startIcon={<RiArrowGoBackFill />} sx={{ color: "#6941C6" }}>
+            Back to list of Resource Instances
+          </Button>
+        </Link>
       </Stack>
 
       <ResourceInstanceOverview
@@ -387,6 +400,8 @@ function ResourceInstance() {
           privateNetworkId={resourceInstanceData.connectivity.privateNetworkId}
           globalEndpoints={resourceInstanceData.connectivity.globalEndpoints}
           nodes={resourceInstanceData.nodes}
+          queryData={queryData}
+          refetchInstance={resourceInstanceQuery.refetch}
         />
       )}
       {currentTab === tabs.nodes && (

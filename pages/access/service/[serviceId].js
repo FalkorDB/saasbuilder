@@ -100,6 +100,7 @@ import RestoreInstanceIcon from "src/components/Icons/RestoreInstance/RestoreIns
 import AccessSideRestoreInstance from "src/components/RestoreInstance/AccessSideRestoreInstance";
 import DataGridText from "src/components/DataGrid/DataGridText";
 import Head from "next/head";
+import { getResourceInstanceStatusStylesAndlabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
 
 const instanceStatuses = {
   FAILED: "FAILED",
@@ -113,6 +114,12 @@ const instanceStatuses = {
   COMPLETE: "COMPLETE",
   STOPPED: "STOPPED",
   DELETING: "DELETING",
+};
+
+export const getServerSideProps = async () => {
+  return {
+    props: {},
+  };
 };
 
 function MarketplaceService() {
@@ -176,6 +183,7 @@ function MarketplaceService() {
     id: "",
     name: "",
     isDeprecated: false,
+    isBackupEnabled: false,
   });
 
   let isCurrentResourceBYOA = false;
@@ -295,6 +303,8 @@ function MarketplaceService() {
               "UNKNOWN",
               "DEPLOYING",
             ].includes(status);
+          const statusSytlesAndLabel =
+            getResourceInstanceStatusStylesAndlabel(status);
           return (
             <Stack
               direction={"row"}
@@ -302,7 +312,7 @@ function MarketplaceService() {
               alignItems={"center"}
               gap="4px"
             >
-              <StatusChip status={status} />
+              <StatusChip status={status} {...statusSytlesAndLabel} />
               {showInstructions && (
                 <Tooltip
                   title={
@@ -1005,6 +1015,7 @@ function MarketplaceService() {
             id: selectedResource.resourceId,
             name: selectedResource.name,
             isDeprecated: selectedResource.isDeprecated,
+            isBackupEnabled: selectedResource.isBackupEnabled,
           };
         } else {
           selectedResourceInfo = {
@@ -1012,6 +1023,7 @@ function MarketplaceService() {
             id: service?.resourceParameters[0].resourceId,
             name: service?.resourceParameters[0].name,
             isDeprecated: service?.resourceParameters[0].isDeprecated,
+            isBackupEnabled: service?.resourceParameters[0].isBackupEnabled,
           };
         }
 
@@ -1814,27 +1826,29 @@ function MarketplaceService() {
               Modify
             </Button>
 
-            <Button
-              variant="outlined"
-              startIcon={
-                <RestoreInstanceIcon
-                  disabled={
-                    isCurrentResourceBYOA ||
-                    !modifyAccessServiceAllowed ||
-                    !isRestoreActionEnabled
-                  }
-                />
-              }
-              disabled={
-                isCurrentResourceBYOA ||
-                !modifyAccessServiceAllowed ||
-                !isRestoreActionEnabled
-              }
-              sx={{ marginRight: 2 }}
-              onClick={handleRestoreInstanceModalOpen}
-            >
-              PiTR
-            </Button>
+            {selectedResource?.isBackupEnabled && (
+              <Button
+                variant="outlined"
+                startIcon={
+                  <RestoreInstanceIcon
+                    disabled={
+                      isCurrentResourceBYOA ||
+                      !modifyAccessServiceAllowed ||
+                      !isRestoreActionEnabled
+                    }
+                  />
+                }
+                disabled={
+                  isCurrentResourceBYOA ||
+                  !modifyAccessServiceAllowed ||
+                  !isRestoreActionEnabled
+                }
+                sx={{ marginRight: 2 }}
+                onClick={handleRestoreInstanceModalOpen}
+              >
+                PiTR
+              </Button>
+            )}
 
             <Button
               variant="outlined"

@@ -962,7 +962,9 @@ function MarketplaceService() {
   const handleConnect = () => {
     if (isConnectActionEnabled) {
       const resourceInstance = selectedResourceInstances[0];
-      const resourceInstanceResource = Object.values(resourceInstance.detailedNetworkTopology).find(r => r.resourceKey.startsWith('node'));
+      const resourceInstanceResource = Object.values(resourceInstance.detailedNetworkTopology).find(r => r.publiclyAccessible && r.clusterEndpoint?.length && !r.resourceKey.startsWith("omnistrateobserv"));
+      console.log({ resourceInstance, resourceInstanceResource });
+
       const payload = {
         host: resourceInstanceResource?.clusterEndpoint,
         port: resourceInstanceResource.clusterPorts[0],

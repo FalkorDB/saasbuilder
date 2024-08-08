@@ -7,7 +7,6 @@ import ProductTiers from "src/features/ProductTiers/ProductTiers";
 import useUserSubscriptions from "src/hooks/query/useUserSubscriptions";
 import useProductTierRedirect from "./hooks/useProductTierRedirect";
 import NoServiceFoundUI from "../components/NoServiceFoundUI";
-import Head from "next/head";
 import useSubscriptionRequests from "./hooks/useSubscriptionRequests";
 import { useEffect, useMemo } from "react";
 import useResourcesInstanceIds from "src/hooks/useResourcesInstanceIds";
@@ -106,9 +105,6 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
   ) {
     return (
       <>
-        <Head>
-          <title>Service Plans</title>
-        </Head>
         <DashboardLayout
           noSidebar
           marketplacePage
@@ -130,9 +126,6 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
   
   return (
     <>
-      <Head>
-        <title>Service Plans</title>
-      </Head>
       <DashboardLayout
         noSidebar
         marketplacePage

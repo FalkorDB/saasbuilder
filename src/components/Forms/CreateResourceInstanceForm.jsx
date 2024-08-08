@@ -33,6 +33,11 @@ import {
   cloudProviderLabels,
   cloudProviderIcons,
 } from "src/utils/constants/cloudProviders";
+import {
+  AWSAccountIDDescription,
+  GCPProjectIDDescription,
+  GCPProjectNumberDescription,
+} from "./AccountConfigFormElements";
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -764,6 +769,15 @@ function CreateResourceInstanceForm(props) {
                             </Link>
                             .{" "}
                           </>
+                        )}
+                        {param.key === "aws_account_id" && (
+                          <AWSAccountIDDescription />
+                        )}
+                        {param.key === "gcp_project_id" && (
+                          <GCPProjectIDDescription />
+                        )}
+                        {param.key === "gcp_project_number" && (
+                          <GCPProjectNumberDescription />
                         )}
                       </FieldDescription>
                       <TextField

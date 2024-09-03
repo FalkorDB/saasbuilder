@@ -44,6 +44,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       const responseData = response?.data || {};
       return nextResponse.status(200).send({ ...responseData });
     } catch (error) {
+      console.error("Error in signin", error);
       let defaultErrorMessage =
         "Failed to sign in. Either the credentials are incorrect or the user does not exist";
 
@@ -69,7 +70,6 @@ export default async function handleSignIn(nextRequest, nextResponse) {
           message: defaultErrorMessage,
         });
       } else {
-        console.error("Error in signin", error);
         return nextResponse.status(error.response?.status || 500).send({
           message: error.response?.data?.message || defaultErrorMessage,
         });

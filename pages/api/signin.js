@@ -69,6 +69,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
           message: defaultErrorMessage,
         });
       } else {
+        console.error("Error in signin", error);
         return nextResponse.status(error.response?.status || 500).send({
           message: error.response?.data?.message || defaultErrorMessage,
         });

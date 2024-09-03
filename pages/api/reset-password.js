@@ -8,7 +8,7 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
     try {
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP || "";
 

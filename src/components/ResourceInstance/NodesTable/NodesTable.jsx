@@ -44,9 +44,6 @@ export default function NodesTable(props) {
     resourceInstanceId,
     context,
     subscriptionId,
-    resourceId,
-    serviceId,
-    environmentId,
   } = props;
   let sectionLabel = "Resource";
 
@@ -182,6 +179,11 @@ export default function NodesTable(props) {
         headerAlign: "center",
         align: "center",
         renderCell: (params) => {
+          const lifecycleStatus = params.row.status;
+
+          if (lifecycleStatus === "STOPPED")
+            return <StatusChip category="unknown" label="N/A" />;
+
           const status = params.row.healthStatus
             ? params.row.healthStatus
             : "UNKNOWN";
@@ -331,7 +333,7 @@ export default function NodesTable(props) {
   );
 }
 
-const getRowBorderStyles = () => {
+function getRowBorderStyles() {
   const styles = {};
 
   for (const status in resourceInstanceStatusMap) {
@@ -352,4 +354,4 @@ const getRowBorderStyles = () => {
   }
 
   return styles;
-};
+}

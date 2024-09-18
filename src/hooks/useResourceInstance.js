@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { useQuery } from "@tanstack/react-query";
 import { getResourceInstanceDetails } from "../api/resourceInstance";
 import processClusterPorts from "../utils/processClusterPorts";
@@ -67,6 +68,10 @@ export default function useResourceInstance(
         let isMetricsEnabled = false;
         let metricsSocketURL = "";
         let logsSocketURL = "";
+        let customNetworkDetails = null;
+        if (data.customNetworkDetail) {
+          customNetworkDetails = data.customNetworkDetail;
+        }
 
         const topologyDetails = data?.detailedNetworkTopology?.[resourceId];
         const nodeEndpointsList = [];
@@ -170,12 +175,12 @@ export default function useResourceInstance(
           ", "
         );
 
-        let createdAt = data.created_at;
-        let modifiedAt = data.last_modified_at;
+        const createdAt = data.created_at;
+        const modifiedAt = data.last_modified_at;
 
         const topologyDetailsOtherThanMain = Object.entries(
           data.detailedNetworkTopology ?? {}
-        )?.filter(([resourceId, topologyDetails]) => {
+        )?.filter(([, topologyDetails]) => {
           return topologyDetails.main === false;
         });
 
@@ -194,6 +199,16 @@ export default function useResourceInstance(
                 metricsSocketURL = `wss://${baseURL}/metrics?username=${username}&password=${password}`;
                 logsSocketURL = `wss://${baseURL}/logs?username=${username}&password=${password}`;
               }
+
+              globalEndpoints.others.push({
+                resourceName: topologyDetails.resourceName,
+                endpoint: topologyDetails.clusterEndpoint
+                  ? topologyDetails.clusterEndpoint
+                  : "",
+                customDNSEndpoint: topologyDetails.customDNSEndpoint,
+                resourceId: resourceId,
+                resourceKey: topologyDetails.resourceKey,
+              });
             } else {
               if (topologyDetails?.hasCompute === true) {
                 if (topologyDetails.nodes) {
@@ -310,6 +325,7 @@ export default function useResourceInstance(
           active: data?.active,
           mainResourceHasCompute: Boolean(topologyDetails?.hasCompute),
           customMetrics: customMetrics,
+          customNetworkDetails,
         };
 
         return final;

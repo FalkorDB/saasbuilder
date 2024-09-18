@@ -1,18 +1,6 @@
-import Link from "next/link";
-import { Box, styled } from "@mui/material";
-import {
-  CellDescription,
-  CellSubtext,
-  CellTitle,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableRow,
-} from "../../InfoTable/InfoTable";
+import { useMemo } from "react";
+import { Box } from "@mui/material";
 import formatDateLocal from "../../../utils/formatDateLocal";
-import React, { useMemo } from "react";
-import capitalize from "lodash/capitalize";
 
 import PropertyTable from "components/PropertyTable/PropertyTable";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
@@ -34,6 +22,8 @@ function ResourceInstanceDetails(props) {
     serviceOffering,
     nonOmnistrateInternalLogs,
     nonOmnistrateInternalMetrics,
+    customNetworkDetails,
+    cloudProviderAccountInstanceURL,
   } = props;
 
   const isResourceBYOA =
@@ -96,6 +86,24 @@ function ResourceInstanceDetails(props) {
         value: formatDateLocal(modifiedAt),
       },
     ];
+    if (customNetworkDetails) {
+      res.push(
+        ...[
+          {
+            label: "Custom Network ID",
+            value: customNetworkDetails.id,
+          },
+          {
+            label: "Custom Network Name",
+            value: customNetworkDetails.name,
+          },
+          {
+            label: "Custom Network CIDR",
+            value: customNetworkDetails.cidr,
+          },
+        ]
+      );
+    }
 
     if (nonOmnistrateInternalMetrics?.Url) {
       res.push({
@@ -134,6 +142,21 @@ function ResourceInstanceDetails(props) {
             </PasswordWithOutBorderField>
           ),
           valueType: "custom",
+        });
+      } else if (
+        param.key === "cloud_provider_account_config_id" &&
+        param.value?.startsWith("instance") &&
+        cloudProviderAccountInstanceURL
+      ) {
+        return res.push({
+          label: param.displayName || param.key,
+          description: param.description,
+          value: param.value,
+          valueType: "link",
+          linkProps: {
+            href: cloudProviderAccountInstanceURL,
+            target: "_blank",
+          },
         });
       } else {
         res.push({
@@ -175,6 +198,8 @@ function ResourceInstanceDetails(props) {
     serviceOffering,
     subscriptionId,
     resultParameters,
+    customNetworkDetails,
+    cloudProviderAccountInstanceURL
   ]);
 
   if (isLoading) {

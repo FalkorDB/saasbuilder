@@ -18,10 +18,7 @@ function Connectivity(props) {
     globalEndpoints,
     context,
     nodes,
-    addCustomDNSMutation,
-    removeCustomDNSMutation,
-    accessQueryParams,
-    fleetQueryParams,
+    queryData,
     refetchInstance,
   } = props;
 
@@ -117,8 +114,7 @@ function Connectivity(props) {
                 viewType="endpoint"
                 endpointURL={primaryResourceEndpoint}
                 customDNSData={globalEndpoints?.primary?.customDNSEndpoint}
-                fleetQueryParams={fleetQueryParams}
-                accessQueryParams={accessQueryParams}
+                queryData={queryData}
                 resourceKey={globalEndpoints?.primary?.resourceKey}
                 resourceId={globalEndpoints?.primary?.resourceId}
                 refetchInstance={refetchInstance}
@@ -157,22 +153,22 @@ function Connectivity(props) {
                       resourceKey,
                       resourceHasCompute,
                     } = obj;
+
                     return (
                       <ResourceConnectivityEndpoint
-                        key={resourceId}
+                        key={`endpoint-${resourceId}`}
                         context={context}
                         isPrimaryResource={false}
                         resourceName={resourceName}
                         viewType="endpoint"
                         endpointURL={endpoint}
                         customDNSData={customDNSEndpoint}
-                        fleetQueryParams={fleetQueryParams}
-                        accessQueryParams={accessQueryParams}
                         resourceKey={resourceKey}
                         resourceId={resourceId}
                         refetchInstance={refetchInstance}
                         containerStyles={{ marginTop: "16px" }}
                         resourceHasCompute={resourceHasCompute}
+                        queryData={queryData}
                       />
                     );
                   })}
@@ -258,9 +254,11 @@ function Connectivity(props) {
         description: `The private network CIDR of the ${sectionLabel.toLowerCase()}`,
         value: privateNetworkCIDR,
       });
+    }
 
+    if (privateNetworkId) {
       res.push({
-        label: "Private network id",
+        label: "Private network ID",
         description: `The private network ID of the ${sectionLabel.toLowerCase()}`,
         value: privateNetworkId,
       });
@@ -278,12 +276,12 @@ function Connectivity(props) {
     availabilityZones,
     publiclyAccessible,
     privateNetworkCIDR,
-    globalEndpoints?.primary?.customDNSEndpoint,
-    addCustomDNSMutation,
-    removeCustomDNSMutation,
+    globalEndpoints,
     isEndpointsExpanded,
     isPortsExpanded,
     privateNetworkId,
+    refetchInstance,
+    queryData
   ]);
 
   if (noConnectivityData) {

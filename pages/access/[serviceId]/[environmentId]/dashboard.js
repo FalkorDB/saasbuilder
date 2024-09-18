@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "../../../../src/components/DashboardLayout/DashboardLayout";
 import { useRouter } from "next/router";
 import useServiceOffering from "../../../../src/hooks/useServiceOffering";
@@ -30,7 +30,7 @@ export const getServerSideProps = async () => {
   };
 };
 
-function Dashboard(props) {
+function Dashboard() {
   const router = useRouter();
   const { serviceId, environmentId, source, productTierId, subscriptionId } =
     router.query;
@@ -68,9 +68,7 @@ function Dashboard(props) {
   };
   const {
     isLoading: isResourceInstancesLoading,
-    resourceInstances,
     numResourceInstances,
-    isRefetching: isResourceInstancesRefetching,
     isIdle: isResourceInstancesIdle,
   } = useServiceOfferingResourceInstances(
     serviceId,
@@ -91,6 +89,19 @@ function Dashboard(props) {
   }, [source]);
 
   const events = useSelector(selectEvents);
+
+  const isCustomNetworkEnabled = useMemo(() => {
+    let enabled = false;
+
+    if (
+      serviceOffering?.serviceModelFeatures?.find((featureObj) => {
+        return featureObj.feature === "CUSTOM_NETWORKS";
+      })
+    )
+      enabled = true;
+
+    return enabled;
+  }, [serviceOffering]);
 
   const isLoading =
     isServiceOfferingLoading ||
@@ -118,6 +129,7 @@ function Dashboard(props) {
             active={sidebarActiveOptions.dashboard}
             currentSource={currentSource}
             currentSubscription={subscriptionData}
+            isCustomNetworkEnabled={isCustomNetworkEnabled}
           />
         }
         serviceName={serviceOffering?.serviceName}
@@ -148,6 +160,7 @@ function Dashboard(props) {
             active={sidebarActiveOptions.dashboard}
             currentSource={currentSource}
             currentSubscription={subscriptionData}
+            isCustomNetworkEnabled={isCustomNetworkEnabled}
           />
         }
         serviceName={serviceOffering?.serviceName}
@@ -219,6 +232,7 @@ function Dashboard(props) {
           active={sidebarActiveOptions.dashboard}
           currentSource={currentSource}
           currentSubscription={subscriptionData}
+          isCustomNetworkEnabled={isCustomNetworkEnabled}
         />
       }
       serviceName={serviceOffering?.serviceName}

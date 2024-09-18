@@ -79,6 +79,7 @@
     "@flydotio/dockerfile": "^0.5.2",
     "concurrently": "^8.2.2",
     "@types/node": "20.14.11",
+    "@types/react": "^18.3.5",
     "eslint": "^8.56.0",
     "eslint-config-next": "13.1.1",
     "eslint-plugin-import": "^2.29.1",

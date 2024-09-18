@@ -1,6 +1,5 @@
 import {
   Box,
-  Chip,
   CircularProgress,
   Link,
   MenuItem,
@@ -13,16 +12,13 @@ import {
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "../Button/Button";
 import FieldContainer from "../FormElements/FieldContainer/FieldContainer";
-import FieldDescription from "../FormElements/FieldDescription/FieldDescription";
+import FieldDescription from "../FormElementsv2/FieldDescription/FieldDescription";
 import FieldLabel from "../FormElements/FieldLabel/FieldLabel";
 import Form from "../FormElements/Form/Form";
 import { FormControlLabel } from "../FormElements/Radio/Radio";
 import TextField from "../FormElements/TextField/TextField";
-import { H6, P } from "../Typography/Typography";
 import ErrorLabel from "../ErrorLabel/ErrorLabel";
-import { useSelector } from "react-redux";
 import { describeServiceOfferingResource } from "../../api/serviceOffering";
-import { selectCloudProviders } from "../../slices/providerSlice";
 import Select from "../FormElements/Select/Select";
 import useResourcesInstanceIds from "../../hooks/useResourcesInstanceIds";
 import { ACCOUNT_CREATION_METHODS } from "src/utils/constants/accountConfig";
@@ -41,6 +37,9 @@ import {
 import Autocomplete, {
   StyledTextField,
 } from "../FormElementsv2/AutoComplete/AutoComplete";
+import useCustomNetworks from "src/features/CustomNetworks/hooks/useCustomNetworks";
+import FormTitle from "../FormElements/FormTitle/FormTitle";
+import FormDescription from "../FormElements/FormDescription/FormDescription";
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -64,9 +63,10 @@ function CreateResourceInstanceForm(props) {
     isBYOA,
     setRequestParams,
     cloudProviderAccounts,
+    cloudProviders,
     service,
     subscriptionId,
-    cloudProviders,
+    isCustomNetworkEnabled = false,
   } = props;
 
   const [isSchemaLoading, setIsSchemaLoading] = useState(true);
@@ -96,6 +96,40 @@ function CreateResourceInstanceForm(props) {
         flag: fromProvider(region, formData.values.cloud_provider.toUpperCase())
           .flag,
       }));
+
+  const customNetworksQuery = useCustomNetworks({
+    enabled: isCustomNetworkEnabled,
+  });
+
+  const { data: customNetworks = [] } = customNetworksQuery;
+
+  const customNetworkOptions = useMemo(() => {
+    let options = customNetworks;
+    const selectedProvider = formData.values.cloud_provider;
+    const selectedRegion = formData.values.region;
+    if (selectedProvider) {
+      options = customNetworks.filter((customNetwork) => {
+        return customNetwork.cloudProviderName === selectedProvider;
+      });
+      //filter the custom networks by supported regions for the selected cloud provider
+      const supportedRegions = regions[selectedProvider] || [];
+      options = customNetworks.filter((customNetwork) => {
+        return supportedRegions.includes(customNetwork.cloudProviderRegion);
+      });
+    }
+    if (selectedRegion) {
+      options = customNetworks.filter((customNetwork) => {
+        return customNetwork.cloudProviderRegion === selectedRegion;
+      });
+    }
+
+    return options;
+  }, [
+    formData.values.cloud_provider,
+    formData.values.region,
+    customNetworks,
+    regions,
+  ]);
 
   useEffect(() => {
     async function getSchema() {
@@ -144,6 +178,7 @@ function CreateResourceInstanceForm(props) {
       setIsSchemaLoading(false);
     }
     getSchema();
+    /*eslint-disable-next-line react-hooks/exhaustive-deps*/
   }, []);
 
   const cloudProviderFieldExists = createSchema.find(
@@ -156,6 +191,9 @@ function CreateResourceInstanceForm(props) {
     (field) => field.key === "region"
   );
 
+  const customNetworkFieldExists = createSchema.find(
+    (field) => field.key === "custom_network_id"
+  );
   const customAvailabilityZoneFieldExists = createSchema.find(
     (field) => field.key === "custom_availability_zone"
   );
@@ -195,10 +233,7 @@ function CreateResourceInstanceForm(props) {
     formData.values.cloud_provider
   );
 
-  const {
-    data: customAvailabilityZoneData,
-    isLoading: isLoadingCustomAvailabilityZone,
-  } = customAvailabilityZoneQuery;
+  const { data: customAvailabilityZoneData } = customAvailabilityZoneQuery;
 
   const customAvailabilityZone = useMemo(() => {
     const availabilityZones = customAvailabilityZoneData?.availabilityZones;
@@ -209,10 +244,9 @@ function CreateResourceInstanceForm(props) {
       }
       return -1;
     });
-  }, [
-    isLoadingCustomAvailabilityZone,
-    customAvailabilityZoneData?.availabilityZones,
-  ]);
+  }, [customAvailabilityZoneData?.availabilityZones]);
+
+  const selectedCustomNetworkId = formData.values?.custom_network_id ?? "";
 
   if (isSchemaLoading)
     return (
@@ -245,15 +279,10 @@ function CreateResourceInstanceForm(props) {
 
   return (
     <Box sx={{ width: "100%" }}>
-      <H6 weight="extrabold" variant="mobile">
-        Create {selectedResourceKey.name} Instance
-      </H6>
-      <P
-        weight="semibold"
-        sx={{ color: (theme) => theme.palette.neutral[600], fontSize: "14px" }} //mt: "14px"
-      >
+      <FormTitle> Create {selectedResourceKey.name} Instance</FormTitle>
+      <FormDescription>
         Create new Instance of {selectedResourceKey.name}
-      </P>
+      </FormDescription>
 
       <Form onSubmit={formData.handleSubmit} sx={{ width: "100%" }}>
         {cloudProviderFieldExists && (
@@ -266,10 +295,13 @@ function CreateResourceInstanceForm(props) {
               select
               id="cloud_provider"
               name="cloud_provider"
-              value={formData.values.cloud_provider}
+              value={formData.values.cloud_provider ?? ""}
               onChange={(e) => {
                 if (regionFieldExists) {
                   formData.setFieldValue("region", "");
+                }
+                if (customNetworkFieldExists) {
+                  formData.setFieldValue("custom_network_id", "");
                 }
                 formData.handleChange(e);
               }}
@@ -281,8 +313,7 @@ function CreateResourceInstanceForm(props) {
                   value={option.name.toLowerCase()}
                 >
                   <ListItemText>
-                    {option.icon === null ? <Hidden /> : option.icon}
-                    {" "}
+                    {option.icon === null ? <Hidden /> : option.icon}{" "}
                     {option.description}
                   </ListItemText>
                 </MenuItem>
@@ -304,7 +335,7 @@ function CreateResourceInstanceForm(props) {
               select
               id="network_type"
               name="network_type"
-              value={formData.values.network_type}
+              value={formData.values.network_type ?? ""}
               onChange={formData.handleChange}
               sx={{ marginTop: "16px" }}
             >
@@ -327,13 +358,16 @@ function CreateResourceInstanceForm(props) {
               sx={{ marginTop: "16px" }}
               id="region"
               name="region"
-              value={formData.values.region}
+              value={formData.values.region ?? ""}
               onChange={(e) => {
                 if (customAvailabilityZoneFieldExists) {
                   formData.setFieldValue(
                     "requestParams.custom_availability_zone",
                     ""
                   );
+                }
+                if (customNetworkFieldExists) {
+                  formData.setFieldValue("custom_network_id", "");
                 }
                 formData.handleChange(e);
               }}
@@ -358,6 +392,45 @@ function CreateResourceInstanceForm(props) {
             </TextField>
           </FieldContainer>
         )}
+
+        {customNetworkFieldExists && (
+          <FieldContainer>
+            <FieldLabel required>Custom Network</FieldLabel>
+            <TextField
+              select
+              sx={{ marginTop: "16px" }}
+              id="custom_network_id"
+              name="custom_network_id"
+              value={selectedCustomNetworkId}
+              onChange={(e) => {
+                formData.handleChange(e);
+                const selectedCustomNetworkID = e.target.value;
+                const selectedCustomNetwork = customNetworks.find(
+                  (customNetwork) => {
+                    return customNetwork.id === selectedCustomNetworkID;
+                  }
+                );
+
+                //auto select region if not already set
+                if (!formData.values.region) {
+                  formData.setFieldValue(
+                    "region",
+                    selectedCustomNetwork?.cloudProviderRegion
+                  );
+                }
+              }}
+            >
+              <MenuItem disabled value="">
+                <em>None</em>
+              </MenuItem>
+              {customNetworkOptions?.map((customNetwork) => (
+                <MenuItem key={customNetwork.id} value={customNetwork.id}>
+                  {customNetwork.name} - {customNetwork.cidr}
+                </MenuItem>
+              ))}
+            </TextField>
+          </FieldContainer>
+        )}
         {customAvailabilityZoneFieldExists && (
           <FieldContainer>
             <FieldLabel required>Custom Availability Zone</FieldLabel>
@@ -366,7 +439,9 @@ function CreateResourceInstanceForm(props) {
               sx={{ marginTop: "16px" }}
               id="requestParams.custom_availability_zone"
               name="requestParams.custom_availability_zone"
-              value={formData.values?.requestParams?.custom_availability_zone}
+              value={
+                formData.values?.requestParams?.custom_availability_zone ?? ""
+              }
               onChange={formData.handleChange}
             >
               <MenuItem disabled value="">
@@ -410,7 +485,7 @@ function CreateResourceInstanceForm(props) {
                     );
                     formData.handleChange(e);
                   }}
-                  value={formData.values.cloud_provider}
+                  value={formData.values.cloud_provider ?? ""}
                   required
                   input={<OutlinedInput />}
                 >
@@ -472,9 +547,9 @@ function CreateResourceInstanceForm(props) {
                       id={`requestParams.${param.key}`}
                       name={`requestParams.${param.key}`}
                       onChange={formData.handleChange}
-                      value={formData.values.requestParams[param.key]}
+                      value={formData.values.requestParams[param.key] ?? ""}
                       onBlur={formData.handleBlur}
-                      required={param.required == true ? "required" : ""}
+                      required={param.required == true ? true : false}
                       showPasswordGenerator
                     />
                   </FieldContainer>
@@ -553,9 +628,8 @@ function CreateResourceInstanceForm(props) {
                         }
                         displayEmpty
                         onChange={formData.handleChange}
-                        modifiable={param.modifiable}
                         sx={{ marginTop: "16px" }}
-                        required={param.required == true ? "required" : ""}
+                        required={param.required == true ? true : false}
                       >
                         <MenuItem value={""} disabled={param.required}>
                           None
@@ -572,11 +646,9 @@ function CreateResourceInstanceForm(props) {
                 if (param.custom == true && param.type == "Boolean") {
                   return (
                     <FieldContainer key={param.key}>
-                      {param.required == true ? (
-                        <FieldLabel required>{param.displayName}</FieldLabel>
-                      ) : (
-                        <FieldLabel>{param.displayName}</FieldLabel>
-                      )}
+                      <FieldLabel required={param.required}>
+                        {param.displayName}
+                      </FieldLabel>
                       <FieldDescription sx={{ mt: "5px" }}>
                         {param.description}
                       </FieldDescription>
@@ -592,8 +664,6 @@ function CreateResourceInstanceForm(props) {
                         }
                         onChange={formData.handleChange}
                         sx={{ marginTop: "16px" }}
-                        modifiable={param.modifiable}
-                        required={param.required == true ? "required" : ""}
                       >
                         <FormControlLabel
                           value={"true"}
@@ -616,11 +686,10 @@ function CreateResourceInstanceForm(props) {
                   const options = param.options ? param.options : [""];
                   return (
                     <FieldContainer key={param.key}>
-                      {param.required == true ? (
-                        <FieldLabel required>{param.displayName}</FieldLabel>
-                      ) : (
-                        <FieldLabel>{param.displayName}</FieldLabel>
-                      )}
+                      <FieldLabel required={param.required}>
+                        {param.displayName}
+                      </FieldLabel>
+
                       <FieldDescription sx={{ mt: "5px" }}>
                         {param.description}
                       </FieldDescription>
@@ -645,9 +714,7 @@ function CreateResourceInstanceForm(props) {
                         renderInput={(params) => (
                           <StyledTextField
                             {...params}
-                            required={
-                              !formData.values.requestParams[param.key]?.length
-                            }
+                            required={param.required}
                           />
                         )}
                       />
@@ -661,14 +728,13 @@ function CreateResourceInstanceForm(props) {
                   const options = param.options ? param.options : [""];
                   return (
                     <FieldContainer key={param.key}>
-                      {param.required == true ? (
-                        <FieldLabel required>{param.displayName}</FieldLabel>
-                      ) : (
-                        <FieldLabel>{param.displayName}</FieldLabel>
-                      )}
+                      <FieldLabel required={param.required}>
+                        {param.displayName}
+                      </FieldLabel>
                       <FieldDescription sx={{ mt: "5px" }}>
                         {param.description}
                       </FieldDescription>
+
                       <Autocomplete
                         fullWidth
                         id={`requestParams.${param.key}`}
@@ -689,7 +755,7 @@ function CreateResourceInstanceForm(props) {
                         renderInput={(params) => (
                           <StyledTextField
                             {...params}
-                            required={!formData.values.requestParams[param.key]}
+                            required={param.required}
                           />
                         )}
                       />
@@ -719,8 +785,8 @@ function CreateResourceInstanceForm(props) {
                         {param.key === "cloud_provider_native_network_id" && (
                           <>
                             {param?.description && <br />}
-                            If you'd like to deploy within your VPC, enter its
-                            ID. Please ensure your VPC meets the{" "}
+                            If you&apos;d like to deploy within your VPC, enter
+                            its ID. Please ensure your VPC meets the{" "}
                             <Link
                               style={{
                                 textDecoration: "underline",
@@ -735,24 +801,24 @@ function CreateResourceInstanceForm(props) {
                             .{" "}
                           </>
                         )}
+
                         {param.key === "aws_account_id" && (
-                          <AWSAccountIDDescription />
+                          <AWSAccountIDDescription context="access" />
                         )}
                         {param.key === "gcp_project_id" && (
-                          <GCPProjectIDDescription />
+                          <GCPProjectIDDescription context="access" />
                         )}
                         {param.key === "gcp_project_number" && (
-                          <GCPProjectNumberDescription />
+                          <GCPProjectNumberDescription context="access" />
                         )}
                       </FieldDescription>
                       <TextField
                         id={`requestParams.${param.key}`}
                         name={`requestParams.${param.key}`}
-                        value={formData.values.requestParams[param.key]}
+                        value={formData.values.requestParams[param.key] ?? ""}
                         onChange={formData.handleChange}
                         sx={{ marginTop: "16px" }}
-                        modifiable={param.modifiable}
-                        required={param.required == true ? "required" : ""}
+                        required={param.required == true ? true : false}
                       />
                     </FieldContainer>
                   );

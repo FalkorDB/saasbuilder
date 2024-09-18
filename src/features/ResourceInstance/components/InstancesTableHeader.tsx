@@ -39,6 +39,7 @@ type InstancesTableHeaderProps = {
   handleRemoveCapacity?: () => void;
   handleRestore?: () => void;
   handleCreate?: () => void;
+  handleConnect?: () => void;
   roleType?: string;
   maxNumberOfInstancesReached?: boolean;
   isDeprecated?: boolean;
@@ -62,6 +63,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
   handleRestore = () => {},
   handleAddCapacity = () => {},
   handleRemoveCapacity = () => {},
+  handleConnect = () => {},
   handleModify,
   handleDelete,
   handleCreate,
@@ -91,6 +93,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
       modify: false,
       addCapacity: false,
       removeCapacity: false,
+      connect: false
     };
 
     if (!selectedInstance) {
@@ -121,6 +124,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
 
     if (status === "RUNNING" && isUpdateAllowedByRBAC && !cliManagedResource) {
       actionsObj.stop = true;
+      actionsObj.connect = true;
     }
 
     if (status === "RUNNING" && isUpdateAllowedByRBAC && !cliManagedResource) {
@@ -236,6 +240,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
             handleModify={handleModify}
             handleRemoveCapacity={handleRemoveCapacity}
             handleAddCapacity={handleAddCapacity}
+            handleConnect={handleConnect}
             isAddCapacity={!actions.addCapacity}
             isRemoveCapacity={!actions.removeCapacity}
             isRestartDisabled={!actions.restart}
@@ -243,6 +248,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
             isStopDisabled={!actions.stop}
             isDeleteDisabled={!actions.delete}
             isRestoreDisabled={!actions.restore}
+            isConnectDisabled={!actions.connect}
             isLoading={isFetchingInstances || !selectedInstance}
             isModifyDisabled={!actions.modify}
             isVisibleRestore={isVisibleRestore}

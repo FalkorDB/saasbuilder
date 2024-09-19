@@ -40,6 +40,7 @@ import Autocomplete, {
 import useCustomNetworks from "src/features/CustomNetworks/hooks/useCustomNetworks";
 import FormTitle from "../FormElements/FormTitle/FormTitle";
 import FormDescription from "../FormElements/FormDescription/FormDescription";
+import Hidden from "@mui/material/Hidden";
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;

@@ -210,8 +210,8 @@ function ResourceInstance() {
   }
 
   const connectToInstanceMutation = useMutation(connectToInstance, {
-    onError: (error) => {
-      snackbar.showError("Failed to open resource instance in browser");
+    onError: () => {
+      console.error("Failed to open resource instance in browser");
     },
   });
 

@@ -83,7 +83,8 @@ const useProductTierRedirect = (opts) => {
     areServiceOfferingsFetched,
     isClientRendered,
     router,
-    serviceOfferingsData
+    serviceOfferingsData,
+    opts?.filterOutFreeDedicatedTier
   ]);
 
   return {

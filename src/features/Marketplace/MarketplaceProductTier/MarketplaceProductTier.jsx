@@ -8,7 +8,7 @@ import useUserSubscriptions from "src/hooks/query/useUserSubscriptions";
 import useProductTierRedirect from "./hooks/useProductTierRedirect";
 import NoServiceFoundUI from "../components/NoServiceFoundUI";
 import useSubscriptionRequests from "./hooks/useSubscriptionRequests";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import useResourcesInstanceIds from "src/hooks/useResourcesInstanceIds";
 import usePublicServiceOfferings from "../PublicServices/hooks/useOrgServiceOfferings";
 

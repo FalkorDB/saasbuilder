@@ -9,4 +9,4 @@ function AwsIcon(props) {
 
 export default AwsIcon;
 
-const Image = styled(NextImage)(({ theme }) => ({}));
+const Image = styled(NextImage)(({}) => ({}));

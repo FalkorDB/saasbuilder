@@ -8,6 +8,7 @@ import { forwardRef, useState } from "react";
 import clipboard from "clipboardy";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import SearchIcon from "@mui/icons-material/Search";
+import IconButton from "@mui/material/IconButton";
 
 const StyledTextField = styled(MuiTextField, {
   shouldForwardProp: (prop) => {

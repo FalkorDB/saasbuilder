@@ -1,6 +1,5 @@
 import {
   Box,
-  Chip,
   CircularProgress,
   MenuItem,
   OutlinedInput,
@@ -15,27 +14,16 @@ import FieldLabel from "../FormElements/FieldLabel/FieldLabel";
 import Form from "../FormElements/Form/Form";
 import { FormControlLabel } from "../FormElements/Radio/Radio";
 import TextField from "../FormElements/TextField/TextField";
-import { H6, P } from "../Typography/Typography";
 import ErrorLabel from "../ErrorLabel/ErrorLabel";
 import { describeServiceOfferingResource } from "../../api/serviceOffering";
 import Select from "../FormElements/Select/Select";
 import { cloudProviderLabels } from "src/constants/cloudProviders";
 import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
 import { PasswordField } from "../FormElementsv2/PasswordField/PasswordField";
-import Autocomplete, {
-  StyledTextField,
-} from "../FormElementsv2/AutoComplete/AutoComplete";
+import Autocomplete from "../FormElementsv2/AutoComplete/AutoComplete";
+import FormTitle from "../FormElements/FormTitle/FormTitle";
+import FormDescription from "../FormElements/FormDescription/FormDescription";
 
-const ITEM_HEIGHT = 48;
-const ITEM_PADDING_TOP = 8;
-const MenuProps = {
-  PaperProps: {
-    style: {
-      maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
-      width: 250,
-    },
-  },
-};
 function ResourceUpdateView(props) {
   const {
     serviceId,
@@ -77,7 +65,7 @@ function ResourceUpdateView(props) {
             );
           }
         } else if (api.verb === "CREATE") {
-          let filteredInputParams = api.inputParameters?.filter(
+          const filteredInputParams = api.inputParameters?.filter(
             (item) => item?.custom && !item?.modifiable
           );
           if (filteredInputParams?.length) {
@@ -87,6 +75,7 @@ function ResourceUpdateView(props) {
       });
     }
     getSchema();
+    /*eslint-disable-next-line react-hooks/exhaustive-deps*/
   }, []);
 
   const shouldShowParamField = useCallback(
@@ -116,10 +105,7 @@ function ResourceUpdateView(props) {
     formData.values.cloud_provider
   );
 
-  const {
-    data: customAvailabilityZoneData,
-    isLoading: isLoadingCustomAvailabilityZone,
-  } = customAvailabilityZoneQuery;
+  const { data: customAvailabilityZoneData } = customAvailabilityZoneQuery;
 
   const customAvailabilityZone = useMemo(() => {
     const availabilityZones = customAvailabilityZoneData?.availabilityZones;
@@ -130,22 +116,12 @@ function ResourceUpdateView(props) {
       }
       return -1;
     });
-  }, [
-    isLoadingCustomAvailabilityZone,
-    customAvailabilityZoneData?.availabilityZones,
-  ]);
+  }, [customAvailabilityZoneData?.availabilityZones]);
 
   return (
     <>
-      <H6 weight="extrabold" variant="mobile">
-        Update {serviceName}
-      </H6>
-      <P
-        weight="semibold"
-        sx={{ color: (theme) => theme.palette.neutral[600], mt: "14px" }}
-      >
-        {serviceName} Instance Details
-      </P>
+      <FormTitle>Update {serviceName}</FormTitle>
+      <FormDescription>{serviceName} Instance Details</FormDescription>
       <Form onSubmit={formData.handleSubmit}>
         <>
           <FieldContainer>

@@ -2,14 +2,31 @@ import { FC, useCallback, useState } from "react";
 import Link from "next/link";
 import clipboard from "clipboardy";
 import { IconButton, Stack, Tooltip, Typography } from "@mui/material";
+import type * as CSS from "csstype";
+
 import DataGridCopyIcon from "../Icons/CopyIcon/DataGridCopyIcon";
+
+type LinkProps = {
+  href: string;
+  target?: "_self" | "_blank";
+  isUnderlined?: boolean;
+};
 
 const colorMap = {
   default: "#475467",
   primary: "#7F56D9",
 };
 
-const DataGridText = ({
+type DataGridTextProps = {
+  children: string;
+  showCopyButton?: boolean;
+  linkProps?: LinkProps;
+  onClick?: () => void;
+  color?: "default" | "primary";
+  style?: CSS.Properties;
+};
+
+const DataGridText: FC<DataGridTextProps> = ({
   children,
   showCopyButton,
   linkProps,
@@ -26,7 +43,7 @@ const DataGridText = ({
       .then(() => setTooltipText("Copied"))
       .catch(() => setTooltipText("Unable to copy to clipboard"))
       .finally(() => setTimeout(() => setTooltipText("Click to copy"), 1500)); // Reset the tooltip text after copying
-  }, []);
+  }, [children]);
 
   const textStyles = {
     fontSize: "12px",

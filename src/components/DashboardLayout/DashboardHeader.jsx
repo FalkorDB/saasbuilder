@@ -4,7 +4,6 @@ import useLogout from "../../hooks/useLogout";
 import useUserData from "../../hooks/usersData";
 import ProfileDropdown from "./ProfileDropdown";
 import { selectUserData } from "src/slices/userDataSlice";
-import { Text } from "../Typography/Typography";
 import { styleConfig } from "src/providerConfig";
 import ServicesDropdown from "./ServicesDropdown";
 import useBillingDetails from "src/hooks/query/useBillingDetails";
@@ -16,10 +15,7 @@ import Tooltip from "../Tooltip/Tooltip";
 
 function DashboardHeader(props) {
   const {
-    isOpen,
-    noSidebar,
     marketplacePage,
-    notificationBarHeight,
     accessPage,
     currentSubscription,
     serviceName,
@@ -71,6 +67,7 @@ function DashboardHeader(props) {
 
         <Stack direction="row" alignItems="center" gap="10px" pr="16px">
           {(serviceName || noServicesAvailable) && serviceLogoURL && (
+            /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={
                 serviceLogoURL ||
@@ -78,6 +75,7 @@ function DashboardHeader(props) {
               }
               height={28}
               style={{ maxHeight: "28px", width: "auto", maxWidth: "180px" }}
+              alt="service-logo"
             />
           )}
           {serviceName && (
@@ -85,20 +83,24 @@ function DashboardHeader(props) {
               isVisible={shouldShowTooltipOnServiceName}
               title={serviceName}
             >
-              <Text
-                color={styleConfig.navbarTextColor}
+              <Box
+                component="p"
+                ref={serviceNameRef}
                 sx={{
+                  fontSize: "14px",
+                  lineHeight: "20px",
+                  fontWeight: 600,
                   width: "100%",
                   maxWidth: "260px",
                   textOverflow: "ellipsis",
                   overflow: "hidden",
                   whiteSpace: "nowrap",
                   display: "block",
+                  color: styleConfig.navbarTextColor,
                 }}
-                ref={serviceNameRef}
               >
                 {serviceName}
-              </Text>
+              </Box>
             </Tooltip>
           )}
           {environmentType !== ENVIRONMENT_TYPES.PROD &&

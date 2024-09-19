@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Text } from "../Typography/Typography";
+import { Box } from "@mui/material";
 
 function EllipsisTooltipText({ text, sx, ...restProps }) {
   const textElementRef = useRef(null);
@@ -20,15 +20,18 @@ function EllipsisTooltipText({ text, sx, ...restProps }) {
     // remove resize listener again on "unmount"
 
     return () => window.removeEventListener("resize", compareSize);
-  }, [textElementRef.current]);
+  }, [textElementRef]);
 
   return (
-    <Text
+    <Box
       sx={{
         width: "100%",
         display: "inline-block",
         overflow: "hidden",
         textOverflow: "ellipsis",
+        fontSize: "14px",
+        lineHeight: "20px",
+        weight: 600,
         ...(sx ? sx : {}),
       }}
       {...restProps}
@@ -36,7 +39,7 @@ function EllipsisTooltipText({ text, sx, ...restProps }) {
       {...(hasEllipsis ? { title: text } : {})}
     >
       {text}
-    </Text>
+    </Box>
   );
 }
 

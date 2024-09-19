@@ -63,7 +63,8 @@ const SignupPage = (props) => {
       return customerUserSignup(payload);
     },
     {
-      onSuccess: (data) => {
+      onSuccess: () => {
+        /* eslint-disable-next-line no-use-before-define*/
         formik.resetForm();
         setShowSuccess(true);
       },
@@ -141,7 +142,8 @@ const SignupPage = (props) => {
         }
       });
     }
-  }, [org, orgUrl, email]);
+    /*eslint-disable-next-line react-hooks/exhaustive-deps*/
+  }, [org, orgUrl, email, userSource]);
 
   const { values, touched, errors, handleChange, handleBlur } = formik;
 
@@ -182,7 +184,7 @@ const SignupPage = (props) => {
   } else if (showGithubLoginButton) {
     policyAgreementText = `By creating your account manually or using your Github account to sign up, you agree to our`;
   }
-  let invitationInfo = {};
+  const invitationInfo = {};
   if (email || org || orgUrl) {
     if (email) {
       invitationInfo.invitedEmail = decodeURIComponent(email);
@@ -315,7 +317,9 @@ const SignupPage = (props) => {
             <SubmitButton
               type="submit"
               onClick={formik.handleSubmit}
-              disabled={!formik.isValid || (isReCaptchaSetup && !isScriptLoaded)}
+              disabled={
+                !formik.isValid || (isReCaptchaSetup && !isScriptLoaded)
+              }
               loading={signupMutation.isLoading}
             >
               Create Account
@@ -424,7 +428,7 @@ const SignupPage = (props) => {
 
 export default SignupPage;
 
-const FormGrid = styled(Box)(({ theme }) => ({
+const FormGrid = styled(Box)(() => ({
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
   columnGap: "22px",

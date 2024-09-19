@@ -1,11 +1,12 @@
 import * as React from "react";
 const PlayIcon = (props) => {
-  let { color, disabled } = props;
+  let { color } = props;
+  const { disabled } = props;
   if (!color) {
     color = "#039855";
   }
   if (disabled) {
-    color = "#E0E0E0";
+    color = "#a3a6ac";
   }
   return (
     <svg

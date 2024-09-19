@@ -23,6 +23,7 @@ import { useEffect, useRef, useState } from "react";
 import useEnvironmentType from "src/hooks/useEnvironmentType";
 import { ENVIRONMENT_TYPES } from "src/constants/environmentTypes";
 import ReCAPTCHA from "react-google-recaptcha";
+import DOMPurify from "dompurify";
 
 const createSigninValidationSchema = Yup.object({
   email: Yup.string()
@@ -73,7 +74,7 @@ const SigninPage = (props) => {
         (destination.startsWith("/service-plans") ||
           destination.startsWith("%2Fservice-plans"))
       ) {
-        router.replace(decodeURIComponent(destination));
+        router.replace(decodeURIComponent(DOMPurify(destination)));
       } else {
         router.replace("/service-plans");
       }

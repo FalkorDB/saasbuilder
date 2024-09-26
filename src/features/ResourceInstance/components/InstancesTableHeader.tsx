@@ -93,7 +93,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
       modify: false,
       addCapacity: false,
       removeCapacity: false,
-      connect: false
+      connect: false,
     };
 
     if (!selectedInstance) {
@@ -124,6 +124,9 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
 
     if (status === "RUNNING" && isUpdateAllowedByRBAC && !cliManagedResource) {
       actionsObj.stop = true;
+    }
+    
+    if (status === "RUNNING") {
       actionsObj.connect = true;
     }
 

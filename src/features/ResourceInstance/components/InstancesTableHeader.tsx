@@ -128,7 +128,6 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
     }
 
     if (status === "RUNNING" && isUpdateAllowedByRBAC && !cliManagedResource) {
-      actionsObj.modify = true;
       actionsObj.addCapacity = true;
       actionsObj.removeCapacity = true;
     }
@@ -140,6 +139,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
       !isCurrentResourceBYOA
     ) {
       actionsObj.restart = true;
+      actionsObj.modify = true;
     }
 
     if (status !== "DELETING" && isDeleteAllowedByRBAC) {

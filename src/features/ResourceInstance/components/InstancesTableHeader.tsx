@@ -93,7 +93,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
       modify: false,
       addCapacity: false,
       removeCapacity: false,
-      connect: false
+      connect: false,
     };
 
     if (!selectedInstance) {
@@ -124,11 +124,13 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
 
     if (status === "RUNNING" && isUpdateAllowedByRBAC && !cliManagedResource) {
       actionsObj.stop = true;
+    }
+    
+    if (status === "RUNNING") {
       actionsObj.connect = true;
     }
 
     if (status === "RUNNING" && isUpdateAllowedByRBAC && !cliManagedResource) {
-      actionsObj.modify = true;
       actionsObj.addCapacity = true;
       actionsObj.removeCapacity = true;
     }
@@ -140,6 +142,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
       !isCurrentResourceBYOA
     ) {
       actionsObj.restart = true;
+      actionsObj.modify = true;
     }
 
     if (status !== "DELETING" && isDeleteAllowedByRBAC) {

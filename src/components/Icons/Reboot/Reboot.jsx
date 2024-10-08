@@ -1,9 +1,15 @@
 import * as React from "react";
 const RebootIcon = (props) => {
   let { color } = props;
+  const { disabled } = props;
   if (!color) {
     color = "#175CD3";
   }
+
+  if (disabled) {
+    color = "#a3a6ac";
+  }
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

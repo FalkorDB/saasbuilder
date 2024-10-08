@@ -1,6 +1,5 @@
 import {
   Box,
-  Chip,
   CircularProgress,
   Link,
   MenuItem,
@@ -13,16 +12,13 @@ import {
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "../Button/Button";
 import FieldContainer from "../FormElements/FieldContainer/FieldContainer";
-import FieldDescription from "../FormElements/FieldDescription/FieldDescription";
+import FieldDescription from "../FormElementsv2/FieldDescription/FieldDescription";
 import FieldLabel from "../FormElements/FieldLabel/FieldLabel";
 import Form from "../FormElements/Form/Form";
 import { FormControlLabel } from "../FormElements/Radio/Radio";
-import TextField from "../FormElements/TextField/TextField";
-import { H6, P } from "../Typography/Typography";
+import TextField from "../FormElementsv2/TextField/TextField";
 import ErrorLabel from "../ErrorLabel/ErrorLabel";
-import { useSelector } from "react-redux";
 import { describeServiceOfferingResource } from "../../api/serviceOffering";
-import { selectCloudProviders } from "../../slices/providerSlice";
 import Select from "../FormElements/Select/Select";
 import useResourcesInstanceIds from "../../hooks/useResourcesInstanceIds";
 import { ACCOUNT_CREATION_METHODS } from "src/utils/constants/accountConfig";
@@ -30,9 +26,22 @@ import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
 import { PasswordField } from "../FormElementsv2/PasswordField/PasswordField";
 import { fromProvider } from "cloud-regions-country-flags";
 import {
+  CLOUD_PROVIDERS,
   cloudProviderLabels,
   cloudProviderIcons,
-} from "src/utils/constants/cloudProviders";
+} from "src/constants/cloudProviders";
+import {
+  AWSAccountIDDescription,
+  GCPProjectIDDescription,
+  GCPProjectNumberDescription,
+} from "./AccountConfigFormElements";
+import Autocomplete, {
+  StyledTextField,
+} from "../FormElementsv2/AutoComplete/AutoComplete";
+import useCustomNetworks from "src/features/CustomNetworks/hooks/useCustomNetworks";
+import FormTitle from "../FormElements/FormTitle/FormTitle";
+import FormDescription from "../FormElements/FormDescription/FormDescription";
+import Hidden from "@mui/material/Hidden";
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -56,9 +65,10 @@ function CreateResourceInstanceForm(props) {
     isBYOA,
     setRequestParams,
     cloudProviderAccounts,
+    cloudProviders,
     service,
     subscriptionId,
-    cloudProviders,
+    isCustomNetworkEnabled = false,
   } = props;
 
   const [isSchemaLoading, setIsSchemaLoading] = useState(true);
@@ -88,6 +98,40 @@ function CreateResourceInstanceForm(props) {
         flag: fromProvider(region, formData.values.cloud_provider.toUpperCase())
           .flag,
       }));
+
+  const customNetworksQuery = useCustomNetworks({
+    enabled: isCustomNetworkEnabled,
+  });
+
+  const { data: customNetworks = [] } = customNetworksQuery;
+
+  const customNetworkOptions = useMemo(() => {
+    let options = customNetworks;
+    const selectedProvider = formData.values.cloud_provider;
+    const selectedRegion = formData.values.region;
+    if (selectedProvider) {
+      options = customNetworks.filter((customNetwork) => {
+        return customNetwork.cloudProviderName === selectedProvider;
+      });
+      //filter the custom networks by supported regions for the selected cloud provider
+      const supportedRegions = regions[selectedProvider] || [];
+      options = customNetworks.filter((customNetwork) => {
+        return supportedRegions.includes(customNetwork.cloudProviderRegion);
+      });
+    }
+    if (selectedRegion) {
+      options = customNetworks.filter((customNetwork) => {
+        return customNetwork.cloudProviderRegion === selectedRegion;
+      });
+    }
+
+    return options;
+  }, [
+    formData.values.cloud_provider,
+    formData.values.region,
+    customNetworks,
+    regions,
+  ]);
 
   useEffect(() => {
     async function getSchema() {
@@ -136,6 +180,7 @@ function CreateResourceInstanceForm(props) {
       setIsSchemaLoading(false);
     }
     getSchema();
+    /*eslint-disable-next-line react-hooks/exhaustive-deps*/
   }, []);
 
   const cloudProviderFieldExists = createSchema.find(
@@ -148,6 +193,9 @@ function CreateResourceInstanceForm(props) {
     (field) => field.key === "region"
   );
 
+  const customNetworkFieldExists = createSchema.find(
+    (field) => field.key === "custom_network_id"
+  );
   const customAvailabilityZoneFieldExists = createSchema.find(
     (field) => field.key === "custom_availability_zone"
   );
@@ -187,10 +235,7 @@ function CreateResourceInstanceForm(props) {
     formData.values.cloud_provider
   );
 
-  const {
-    data: customAvailabilityZoneData,
-    isLoading: isLoadingCustomAvailabilityZone,
-  } = customAvailabilityZoneQuery;
+  const { data: customAvailabilityZoneData } = customAvailabilityZoneQuery;
 
   const customAvailabilityZone = useMemo(() => {
     const availabilityZones = customAvailabilityZoneData?.availabilityZones;
@@ -201,10 +246,9 @@ function CreateResourceInstanceForm(props) {
       }
       return -1;
     });
-  }, [
-    isLoadingCustomAvailabilityZone,
-    customAvailabilityZoneData?.availabilityZones,
-  ]);
+  }, [customAvailabilityZoneData?.availabilityZones]);
+
+  const selectedCustomNetworkId = formData.values?.custom_network_id ?? "";
 
   if (isSchemaLoading)
     return (
@@ -215,6 +259,9 @@ function CreateResourceInstanceForm(props) {
 
   // If schema fields exist: name, description, user, password, sort them in that order
   createSchema.sort((a, b) => {
+    console.log(a.key, b.key);
+    if (a.key.toLowerCase().includes("nodeInstanceType")) return -1;
+    if (b.key.toLowerCase().includes("nodeInstanceType")) return 1;
     if (a.key.toLowerCase().includes("name")) return -1;
     if (b.key.toLowerCase().includes("name")) return 1;
     if (a.key.toLowerCase().includes("description")) return -1;
@@ -223,20 +270,21 @@ function CreateResourceInstanceForm(props) {
     if (b.key.toLowerCase().includes("user")) return 1;
     if (a.key.toLowerCase().includes("password")) return -1;
     if (b.key.toLowerCase().includes("password")) return 1;
+    if (a.key.toLowerCase().includes("enableTLS")) return -1;
+    if (b.key.toLowerCase().includes("enableTLS")) return 1;
+    if (a.key.toLowerCase().includes("RDBPersistenceConfig")) return -1;
+    if (b.key.toLowerCase().includes("RDBPersistenceConfig")) return 1;
+    if (a.key.toLowerCase().includes("AOFPersistenceConfig")) return -1;
+    if (b.key.toLowerCase().includes("AOFPersistenceConfig")) return 1;
     return 0;
   });
 
   return (
     <Box sx={{ width: "100%" }}>
-      <H6 weight="extrabold" variant="mobile">
-        Create {selectedResourceKey.name} Instance
-      </H6>
-      <P
-        weight="semibold"
-        sx={{ color: (theme) => theme.palette.neutral[600], fontSize: "14px" }} //mt: "14px"
-      >
+      <FormTitle> Create {selectedResourceKey.name} Instance</FormTitle>
+      <FormDescription>
         Create new Instance of {selectedResourceKey.name}
-      </P>
+      </FormDescription>
 
       <Form onSubmit={formData.handleSubmit} sx={{ width: "100%" }}>
         {cloudProviderFieldExists && (
@@ -249,10 +297,13 @@ function CreateResourceInstanceForm(props) {
               select
               id="cloud_provider"
               name="cloud_provider"
-              value={formData.values.cloud_provider}
+              value={formData.values.cloud_provider ?? ""}
               onChange={(e) => {
                 if (regionFieldExists) {
                   formData.setFieldValue("region", "");
+                }
+                if (customNetworkFieldExists) {
+                  formData.setFieldValue("custom_network_id", "");
                 }
                 formData.handleChange(e);
               }}
@@ -286,7 +337,7 @@ function CreateResourceInstanceForm(props) {
               select
               id="network_type"
               name="network_type"
-              value={formData.values.network_type}
+              value={formData.values.network_type ?? ""}
               onChange={formData.handleChange}
               sx={{ marginTop: "16px" }}
             >
@@ -309,13 +360,16 @@ function CreateResourceInstanceForm(props) {
               sx={{ marginTop: "16px" }}
               id="region"
               name="region"
-              value={formData.values.region}
+              value={formData.values.region ?? ""}
               onChange={(e) => {
                 if (customAvailabilityZoneFieldExists) {
                   formData.setFieldValue(
                     "requestParams.custom_availability_zone",
                     ""
                   );
+                }
+                if (customNetworkFieldExists) {
+                  formData.setFieldValue("custom_network_id", "");
                 }
                 formData.handleChange(e);
               }}
@@ -340,6 +394,45 @@ function CreateResourceInstanceForm(props) {
             </TextField>
           </FieldContainer>
         )}
+
+        {customNetworkFieldExists && (
+          <FieldContainer>
+            <FieldLabel required>Custom Network</FieldLabel>
+            <TextField
+              select
+              sx={{ marginTop: "16px" }}
+              id="custom_network_id"
+              name="custom_network_id"
+              value={selectedCustomNetworkId}
+              onChange={(e) => {
+                formData.handleChange(e);
+                const selectedCustomNetworkID = e.target.value;
+                const selectedCustomNetwork = customNetworks.find(
+                  (customNetwork) => {
+                    return customNetwork.id === selectedCustomNetworkID;
+                  }
+                );
+
+                //auto select region if not already set
+                if (!formData.values.region) {
+                  formData.setFieldValue(
+                    "region",
+                    selectedCustomNetwork?.cloudProviderRegion
+                  );
+                }
+              }}
+            >
+              <MenuItem disabled value="">
+                <em>None</em>
+              </MenuItem>
+              {customNetworkOptions?.map((customNetwork) => (
+                <MenuItem key={customNetwork.id} value={customNetwork.id}>
+                  {customNetwork.name} - {customNetwork.cidr}
+                </MenuItem>
+              ))}
+            </TextField>
+          </FieldContainer>
+        )}
         {customAvailabilityZoneFieldExists && (
           <FieldContainer>
             <FieldLabel required>Custom Availability Zone</FieldLabel>
@@ -348,7 +441,9 @@ function CreateResourceInstanceForm(props) {
               sx={{ marginTop: "16px" }}
               id="requestParams.custom_availability_zone"
               name="requestParams.custom_availability_zone"
-              value={formData.values?.requestParams?.custom_availability_zone}
+              value={
+                formData.values?.requestParams?.custom_availability_zone ?? ""
+              }
               onChange={formData.handleChange}
             >
               <MenuItem disabled value="">
@@ -386,13 +481,20 @@ function CreateResourceInstanceForm(props) {
                   id="cloud_provider"
                   name="cloud_provider"
                   onChange={(e) => {
-                    formData.setFieldValue(
-                      "configMethod",
-                      ACCOUNT_CREATION_METHODS.TERRAFORM
-                    );
+                    if (e.target.value === CLOUD_PROVIDERS.aws) {
+                      formData.setFieldValue(
+                        "configMethod",
+                        ACCOUNT_CREATION_METHODS.CLOUDFORMATION
+                      );
+                    } else {
+                      formData.setFieldValue(
+                        "configMethod",
+                        ACCOUNT_CREATION_METHODS.TERRAFORM
+                      );
+                    }
                     formData.handleChange(e);
                   }}
-                  value={formData.values.cloud_provider}
+                  value={formData.values.cloud_provider ?? ""}
                   required
                   input={<OutlinedInput />}
                 >
@@ -423,7 +525,10 @@ function CreateResourceInstanceForm(props) {
                 >
                   {accountCreationMethods.map((confgiMethod) => (
                     <MenuItem key={confgiMethod} value={confgiMethod}>
-                      {confgiMethod}
+                      {confgiMethod}{" "}
+                      {confgiMethod ===
+                        ACCOUNT_CREATION_METHODS.CLOUDFORMATION &&
+                        "(Recommended)"}
                     </MenuItem>
                   ))}
                 </Select>
@@ -451,15 +556,10 @@ function CreateResourceInstanceForm(props) {
                       id={`requestParams.${param.key}`}
                       name={`requestParams.${param.key}`}
                       onChange={formData.handleChange}
-                      values={formData.values.requestParams[param.key]}
+                      value={formData.values.requestParams[param.key] ?? ""}
                       onBlur={formData.handleBlur}
-                      required={param.required == true ? "required" : ""}
-                      // TODO: Change logic when param.type Password is added
-                      type={
-                        param.key?.toLowerCase()?.includes("password")
-                          ? "password"
-                          : "text"
-                      }
+                      required={param.required == true ? true : false}
+                      showPasswordGenerator
                     />
                   </FieldContainer>
                 );
@@ -537,9 +637,8 @@ function CreateResourceInstanceForm(props) {
                         }
                         displayEmpty
                         onChange={formData.handleChange}
-                        modifiable={param.modifiable}
                         sx={{ marginTop: "16px" }}
-                        required={param.required == true ? "required" : ""}
+                        required={param.required == true ? true : false}
                       >
                         <MenuItem value={""} disabled={param.required}>
                           None
@@ -556,11 +655,9 @@ function CreateResourceInstanceForm(props) {
                 if (param.custom == true && param.type == "Boolean") {
                   return (
                     <FieldContainer key={param.key}>
-                      {param.required == true ? (
-                        <FieldLabel required>{param.displayName}</FieldLabel>
-                      ) : (
-                        <FieldLabel>{param.displayName}</FieldLabel>
-                      )}
+                      <FieldLabel required={param.required}>
+                        {param.displayName}
+                      </FieldLabel>
                       <FieldDescription sx={{ mt: "5px" }}>
                         {param.description}
                       </FieldDescription>
@@ -576,8 +673,6 @@ function CreateResourceInstanceForm(props) {
                         }
                         onChange={formData.handleChange}
                         sx={{ marginTop: "16px" }}
-                        modifiable={param.modifiable}
-                        required={param.required == true ? "required" : ""}
                       >
                         <FormControlLabel
                           value={"true"}
@@ -600,18 +695,16 @@ function CreateResourceInstanceForm(props) {
                   const options = param.options ? param.options : [""];
                   return (
                     <FieldContainer key={param.key}>
-                      {param.required == true ? (
-                        <FieldLabel required>{param.displayName}</FieldLabel>
-                      ) : (
-                        <FieldLabel>{param.displayName}</FieldLabel>
-                      )}
+                      <FieldLabel required={param.required}>
+                        {param.displayName}
+                      </FieldLabel>
+
                       <FieldDescription sx={{ mt: "5px" }}>
                         {param.description}
                       </FieldDescription>
-                      <Select
+                      <Autocomplete
                         multiple
                         fullWidth
-                        MenuProps={MenuProps}
                         id={`requestParams.${param.key}`}
                         name={`requestParams.${param.key}`}
                         value={
@@ -619,45 +712,21 @@ function CreateResourceInstanceForm(props) {
                             ? formData.values.requestParams[param.key]
                             : []
                         }
-                        renderValue={(selectedList) => {
-                          if (selectedList.length === 0) {
-                            return <em>None</em>;
-                          }
-                          const plist = selectedList
-                            .map((valInList) => {
-                              const returnVal = formData.values.requestParams[
-                                param.key
-                              ].find((val) => {
-                                return val === valInList;
-                              });
-                              return returnVal;
-                            })
-                            .join(", ");
-                          return (
-                            <Box
-                              sx={{
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: 0.5,
-                              }}
-                            >
-                              {plist.split(",").map((value) => (
-                                <Chip key={value} label={value} />
-                              ))}
-                            </Box>
+                        sx={{ marginTop: "16px" }}
+                        options={options?.length > 0 ? options : []}
+                        onChange={(e, value) => {
+                          formData.setFieldValue(
+                            `requestParams.${param.key}`,
+                            value
                           );
                         }}
-                        onChange={formData.handleChange}
-                        modifiable={param.modifiable}
-                        sx={{ marginTop: "16px" }}
-                        required={param.required == true ? "required" : ""}
-                      >
-                        {options.map((option) => (
-                          <MenuItem key={option} value={option}>
-                            {option}
-                          </MenuItem>
-                        ))}
-                      </Select>
+                        renderInput={(params) => (
+                          <StyledTextField
+                            {...params}
+                            required={param.required}
+                          />
+                        )}
+                      />
                     </FieldContainer>
                   );
                 } else if (
@@ -668,17 +737,15 @@ function CreateResourceInstanceForm(props) {
                   const options = param.options ? param.options : [""];
                   return (
                     <FieldContainer key={param.key}>
-                      {param.required == true ? (
-                        <FieldLabel required>{param.displayName}</FieldLabel>
-                      ) : (
-                        <FieldLabel>{param.displayName}</FieldLabel>
-                      )}
+                      <FieldLabel required={param.required}>
+                        {param.displayName}
+                      </FieldLabel>
                       <FieldDescription sx={{ mt: "5px" }}>
                         {param.description}
                       </FieldDescription>
-                      <Select
+
+                      <Autocomplete
                         fullWidth
-                        MenuProps={MenuProps}
                         id={`requestParams.${param.key}`}
                         name={`requestParams.${param.key}`}
                         value={
@@ -696,46 +763,41 @@ function CreateResourceInstanceForm(props) {
                                   ].startsWith("c6g")
                                 ? "c6g.xlarge"
                                 : formData.values.requestParams[param.key]
+                            : ""
+                        }
+                        sx={{ marginTop: "16px" }}
+                        options={
+                          options?.length > 0
+                            ? options.filter((option) => {
+                                // If param.key is nodeInstanceType and cloud provider is gcp, remove all options that don't start with e2
+                                // If param.key is nodeInstanceType and cloud provider is aws, remove all options that don't start with c6g
+                                if (param.key === "nodeInstanceType") {
+                                  if (
+                                    formData.values.cloud_provider === "gcp"
+                                  ) {
+                                    return option.startsWith("e2");
+                                  } else if (
+                                    formData.values.cloud_provider === "aws"
+                                  ) {
+                                    return option.startsWith("c6i");
+                                  }
+                                }
+                              })
                             : []
                         }
-                        renderValue={(selectedVal) => {
-                          return (
-                            <Box
-                              sx={{
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: 0.5,
-                              }}
-                            >
-                              {<Chip key={selectedVal} label={selectedVal} />}
-                            </Box>
+                        onChange={(e, value) => {
+                          formData.setFieldValue(
+                            `requestParams.${param.key}`,
+                            value
                           );
                         }}
-                        onChange={formData.handleChange}
-                        modifiable={param.modifiable}
-                        sx={{ marginTop: "16px" }}
-                        required={param.required == true ? "required" : ""}
-                      >
-                        {options
-                          .filter((option) => {
-                            // If param.key is nodeInstanceType and cloud provider is gcp, remove all options that don't start with e2
-                            // If param.key is nodeInstanceType and cloud provider is aws, remove all options that don't start with c6g
-                            if (param.key === "nodeInstanceType") {
-                              if (formData.values.cloud_provider === "gcp") {
-                                return option.startsWith("e2");
-                              } else if (
-                                formData.values.cloud_provider === "aws"
-                              ) {
-                                return option.startsWith("c6g");
-                              }
-                            }
-                          })
-                          .map((option) => (
-                            <MenuItem key={option} value={option}>
-                              {option}
-                            </MenuItem>
-                          ))}
-                      </Select>
+                        renderInput={(params) => (
+                          <StyledTextField
+                            {...params}
+                            required={param.required}
+                          />
+                        )}
+                      />
                     </FieldContainer>
                   );
                 } else if (
@@ -762,8 +824,8 @@ function CreateResourceInstanceForm(props) {
                         {param.key === "cloud_provider_native_network_id" && (
                           <>
                             {param?.description && <br />}
-                            If you'd like to deploy within your VPC, enter its
-                            ID. Please ensure your VPC meets the{" "}
+                            If you&apos;d like to deploy within your VPC, enter
+                            its ID. Please ensure your VPC meets the{" "}
                             <Link
                               style={{
                                 textDecoration: "underline",
@@ -778,15 +840,27 @@ function CreateResourceInstanceForm(props) {
                             .{" "}
                           </>
                         )}
+
+                        {param.key === "aws_account_id" && (
+                          <AWSAccountIDDescription context="access" />
+                        )}
+                        {param.key === "gcp_project_id" && (
+                          <GCPProjectIDDescription context="access" />
+                        )}
+                        {param.key === "gcp_project_number" && (
+                          <GCPProjectNumberDescription context="access" />
+                        )}
                       </FieldDescription>
                       <TextField
+                        multiline={true}
+                        minRows={1}
+                        maxRows={3}
                         id={`requestParams.${param.key}`}
                         name={`requestParams.${param.key}`}
-                        value={formData.values.requestParams[param.key]}
+                        value={formData.values.requestParams[param.key] ?? ""}
                         onChange={formData.handleChange}
                         sx={{ marginTop: "16px" }}
-                        modifiable={param.modifiable}
-                        required={param.required == true ? "required" : ""}
+                        required={param.required == true ? true : false}
                       />
                     </FieldContainer>
                   );

@@ -9,4 +9,4 @@ function GcpIcon(props) {
 
 export default GcpIcon;
 
-const Image = styled(NextImage)(({ theme }) => ({}));
+const Image = styled(NextImage)(({}) => ({}));

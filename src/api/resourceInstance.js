@@ -13,6 +13,7 @@ export const createResourceInstance = (payload) => {
       network_type: payload.network_type,
       region: payload.region,
       requestParams: payload.requestParams,
+      custom_network_id: payload.custom_network_id,
     },
     { params: queryParams }
   );
@@ -165,13 +166,31 @@ export const deleteResourceInstance = (payload) => {
   );
 };
 
+export const getTerraformKitURL = (
+  serviceProviderId,
+  serviceKey,
+  serviceAPIVersion,
+  serviceEnvironmentKey,
+  serviceModelKey,
+  subscriptionId,
+  cloudProvider
+) => {
+  const queryParams = {};
+
+  if (subscriptionId) {
+    queryParams.subscriptionId = subscriptionId;
+  }
+  return `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/setup-kit/${cloudProvider}?subscriptionId=${subscriptionId}`;
+};
+
 export const getTerraformKit = (
   serviceProviderId,
   serviceKey,
   serviceAPIVersion,
   serviceEnvironmentKey,
   serviceModelKey,
-  subscriptionId
+  subscriptionId,
+  cloudProvider
 ) => {
   const queryParams = {};
 
@@ -179,7 +198,7 @@ export const getTerraformKit = (
     queryParams.subscriptionId = subscriptionId;
   }
   return axios.get(
-    `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/setup-kit`,
+    `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/setup-kit/${cloudProvider}`,
     {
       params: queryParams,
       responseType: "blob",
@@ -214,5 +233,111 @@ export const failoverResourceInstanceNode = (data) => {
       failedReplicaAction,
     },
     { params: queryParams }
+  );
+};
+
+export const restoreResourceInstance = (payload) => {
+  const queryParams = {};
+  if (payload.subscriptionId) {
+    queryParams.subscriptionId = payload.subscriptionId;
+  }
+  return axios.post(
+    `/resource-instance/${payload.serviceProviderId}/${payload.serviceKey}/${payload.serviceAPIVersion}/${payload.serviceEnvironmentKey}/${payload.serviceModelKey}/${payload.productTierKey}/${payload.resourceKey}/${payload.id}/restore`,
+    {
+      targetRestoreTime: payload.targetRestoreTime,
+      network_type: payload.network_type,
+    },
+    { params: queryParams }
+  );
+};
+
+export const addCustomDNSToResourceInstance = (
+  serviceProviderId,
+  serviceKey,
+  serviceAPIVersion,
+  serviceEnvironmentKey,
+  serviceModelKey,
+  productTierKey,
+  resourceKey,
+  instanceId,
+  subscriptionID,
+  payload
+) => {
+  const queryParams = {};
+
+  if (subscriptionID) {
+    queryParams.subscriptionID = subscriptionID;
+  }
+
+  return axios.post(
+    `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/${productTierKey}/${resourceKey}/${instanceId}/custom-dns`,
+    payload,
+    {
+      params: queryParams,
+    }
+  );
+};
+
+export const removeCustomDNSFromResourceInstance = (
+  serviceProviderId,
+  serviceKey,
+  serviceAPIVersion,
+  serviceEnvironmentKey,
+  serviceModelKey,
+  productTierKey,
+  resourceKey,
+  instanceId,
+  subscriptionID
+) => {
+  const queryParams = {};
+
+  if (subscriptionID) {
+    queryParams.subscriptionID = subscriptionID;
+  }
+
+  return axios.delete(
+    `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/${productTierKey}/${resourceKey}/${instanceId}/custom-dns`,
+    {
+      params: queryParams,
+    }
+  );
+};
+
+//Add Capacity to resource instance
+export const addCapacityResourceInstanceAccess = ({ data, count }) => {
+  const {
+    serviceProviderId,
+    serviceKey,
+    serviceAPIVersion,
+    serviceEnvironmentKey,
+    serviceModelKey,
+    productTierKey,
+    resourceKey,
+    instanceId,
+  } = data;
+
+  return axios.post(
+    `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/${productTierKey}/${resourceKey}/${instanceId}/add-capacity`,
+    { capacityToBeAdded: count }
+  );
+};
+
+//Remove Capacity to resource instance
+export const removeCapacityResourceInstanceAccess = ({ data, count }) => {
+  const {
+    serviceProviderId,
+    serviceKey,
+    serviceAPIVersion,
+    serviceEnvironmentKey,
+    serviceModelKey,
+    productTierKey,
+    resourceKey,
+    instanceId,
+  } = data;
+  return axios.post(
+    `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/${productTierKey}/${resourceKey}/${instanceId}/remove-capacity`,
+    {
+      capacityToBeRemoved: count,
+    }
   );
 };

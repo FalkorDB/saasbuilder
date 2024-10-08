@@ -1,13 +1,10 @@
 import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import Image from "next/image";
 import { useRouter } from "next/router";
 import { useFormik } from "formik";
 import { Box, CircularProgress, IconButton, Stack } from "@mui/material";
-
 import DashboardLayout from "components/DashboardLayout/DashboardLayout";
 import DataGrid from "components/DataGrid/DataGrid";
-import MarketplaceServiceSidebar from "components/MarketplaceSidebar/MarketplaceSidebar";
 import { Text } from "components/Typography/Typography";
 import Menu from "components/Menu/Menu";
 import MenuItem from "components/MenuItem/MenuItem";
@@ -16,22 +13,17 @@ import MarketplaceHeader from "components/Headers/MarketplaceHeader";
 
 import formatDateLocal from "src/utils/formatDateLocal";
 import DataGridHeader from "./components/DataGridHeader";
-
-import placeholderService from "public/assets/images/dashboard/service/servicePlaceholder.png";
 import BellRingingIcon from "src/components/Icons/BellRinging/BellRingingIcon";
 import SpeedometerIcon from "src/components/Icons/Speedometer/SpeedometerIcon";
-
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-
 import { deleteSubscription } from "src/api/subscriptions";
 import useSnackbar from "src/hooks/useSnackbar";
-import SubscriptionTypeCell from "./components/SubscriptionTypeCell";
 // import CloudProviderCell from "./components/CloudProviderCell"; - Removed for Now
 import useUserSubscriptions from "src/hooks/query/useUserSubscriptions";
 import { getResourceRouteWithoutEnv } from "src/utils/route/access/accessRoute";
 import GridCellExpand from "src/components/GridCellExpand/GridCellExpand";
-import Head from "next/head";
-import NoLogoImage from "public/assets/images/logos/no-logo.png";
+import SubscriptionTypeDirectIcon from "src/components/Icons/SubscriptionType/SubscriptionTypeDirectIcon";
+import SubscriptionTypeInvitedIcon from "src/components/Icons/SubscriptionType/SubscriptionTypeInvitedIcon";
 
 const ITEM_HEIGHT = 45;
 
@@ -95,7 +87,6 @@ const MySubscriptions = ({ orgName, orgLogoURL }) => {
         return (
           <GridCellExpand
             value={serviceName || ""}
-            width={params.colDef.computedWidth}
             justifyContent="flex-start"
             textStyles={{
               color: "#6941C6",
@@ -119,11 +110,15 @@ const MySubscriptions = ({ orgName, orgLogoURL }) => {
                 height="52px"
                 flexShrink={0}
               >
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   width="50"
                   height="50"
                   style={{ objectFit: "cover" }}
-                  src={serviceLogoURL || placeholderService}
+                  src={
+                    serviceLogoURL ||
+                    "/assets/images/dashboard/service/servicePlaceholder.png"
+                  }
                   alt={serviceName}
                 />
               </Box>
@@ -180,10 +175,18 @@ const MySubscriptions = ({ orgName, orgLogoURL }) => {
       minWidth: 150,
       headerAlign: "center",
       renderCell: (params) => {
-        if (params.row.roleType === "root") {
-          return <SubscriptionTypeCell subscriptionType="Direct" />;
-        }
-        return <SubscriptionTypeCell subscriptionType="Invited" />;
+        return (
+          <GridCellExpand
+            value={params.row.roleType === "root" ? "Direct" : "Invited"}
+            startIcon={
+              params.row.roleType === "root" ? (
+                <SubscriptionTypeDirectIcon />
+              ) : (
+                <SubscriptionTypeInvitedIcon />
+              )
+            }
+          />
+        );
       },
     },
     {
@@ -288,6 +291,7 @@ const MySubscriptions = ({ orgName, orgLogoURL }) => {
       if (values.confirmationText !== "unsubscribe") {
         return snackbar.showError("Please enter unsubscribe");
       }
+      /*eslint-disable-next-line no-use-before-define*/
       unsubscribeMutation.mutate(selectedSubscription.id);
     },
   });
@@ -303,14 +307,11 @@ const MySubscriptions = ({ orgName, orgLogoURL }) => {
 
   return (
     <>
-      <Head>
-        <title>Subscriptions</title>
-      </Head>
       <DashboardLayout
         noSidebar
         // SidebarUI={<MarketplaceServiceSidebar active={"subscription"} />}
         marketplacePage
-        serviceLogoURL={orgLogoURL || NoLogoImage}
+        serviceLogoURL={orgLogoURL}
         serviceName={orgName}
       >
         <Stack sx={{ minHeight: "calc(100vh - 180px)" }}>

@@ -11,6 +11,13 @@ import FieldContainer from "components/NonDashboardComponents/FormElementsV2/Fie
 import FieldLabel from "components/NonDashboardComponents/FormElementsV2/FieldLabel";
 import CenterContentLayout from "components/NonDashboardComponents/Layout/CenterContentLayout";
 import { customerUserResetPassword } from "src/api/customer-user";
+import ReCAPTCHA from "react-google-recaptcha";
+import { useRef, useState } from "react";
+import { Text } from "src/components/Typography/Typography";
+import { styleConfig } from "src/providerConfig";
+
+import Confetti from "public/assets/images/non-dashboard/confetti.svg";
+import Image from "next/image";
 
 const resetPasswordValidationSchema = Yup.object({
   email: Yup.string()
@@ -19,19 +26,24 @@ const resetPasswordValidationSchema = Yup.object({
 });
 
 const ResetPasswordPage = (props) => {
-  const { orgName, orgLogoURL } = props;
+  const { orgName, orgLogoURL, googleReCaptchaSiteKey, isReCaptchaSetup } =
+    props;
   const snackbar = useSnackbar();
+  const reCaptchaRef = useRef(null);
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const resetPasswordMutation = useMutation(
     (payload) => {
+      setShowSuccess(false);
       return customerUserResetPassword(payload);
     },
     {
-      onSuccess: (data) => {
+      onSuccess: () => {
+        /*eslint-disable-next-line no-use-before-define*/
         formik.resetForm();
-        snackbar.showSuccess(
-          "If an account associated with this email exists, you will be sent a link to reset your password"
-        );
+        setShowSuccess(true);
       },
       onError: (error) => {
         if (error.response.data && error.response.data.message) {
@@ -42,26 +54,74 @@ const ResetPasswordPage = (props) => {
     }
   );
 
+  async function handleFormSubmit(values) {
+    const data = {};
+
+    if (reCaptchaRef.current && !hasCaptchaErrored) {
+      const token = await reCaptchaRef.current.executeAsync();
+      reCaptchaRef.current.reset();
+      data["reCaptchaToken"] = token;
+    }
+
+    for (const key in values) {
+      if (values[key]) {
+        data[key] = values[key];
+      }
+    }
+    resetPasswordMutation.mutate(data);
+  }
+
   const formik = useFormik({
     initialValues: {
       email: "",
     },
     enableReinitialize: true,
-    onSubmit: (values) => {
-      let data = {};
-
-      for (let key in values) {
-        if (values[key]) {
-          data[key] = values[key];
-        }
-      }
-
-      resetPasswordMutation.mutate(data);
-    },
+    onSubmit: handleFormSubmit,
     validationSchema: resetPasswordValidationSchema,
   });
 
   const { values, touched, errors, handleChange, handleBlur } = formik;
+
+  if (showSuccess) {
+    return (
+      <CenterContentLayout orgName={orgName} pageTitle="Reset Password">
+        <Image
+          src={Confetti}
+          alt="Confetti"
+          width={265}
+          height={140}
+          style={{ margin: "0 auto" }}
+        />
+
+        <Stack gap="16px">
+          <DisplayHeading>
+            Check Your Email for a Password Reset Link
+          </DisplayHeading>
+          <PageDescription>
+            If an account is associated with the provided email, a password
+            reset link will be sent. Please follow the instructions to reset
+            your password.
+          </PageDescription>
+        </Stack>
+        <SubmitButton href="/signin">Go to Login</SubmitButton>
+
+        <Text
+          size="small"
+          weight="medium"
+          color="#4B5563"
+          style={{ textAlign: "center" }}
+        >
+          Didn&apos;t get a reset password link?{" "}
+          <span
+            onClick={() => setShowSuccess(false)}
+            style={{ color: styleConfig.primaryColor, cursor: "pointer" }}
+          >
+            Try again
+          </span>
+        </Text>
+      </CenterContentLayout>
+    );
+  }
 
   return (
     <CenterContentLayout
@@ -93,11 +153,24 @@ const ResetPasswordPage = (props) => {
       <SubmitButton
         type="submit"
         onClick={formik.handleSubmit}
-        disabled={!formik.isValid}
+        disabled={!formik.isValid || (isReCaptchaSetup && !isScriptLoaded)}
         loading={resetPasswordMutation.isLoading}
       >
         Submit
       </SubmitButton>
+      {isReCaptchaSetup && (
+        <ReCAPTCHA
+          size="invisible"
+          sitekey={googleReCaptchaSiteKey}
+          ref={reCaptchaRef}
+          asyncScriptOnLoad={() => {
+            setIsScriptLoaded(true);
+          }}
+          onErrored={() => {
+            setHasCaptchaErrored(true);
+          }}
+        />
+      )}
     </CenterContentLayout>
   );
 };

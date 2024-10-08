@@ -2,7 +2,7 @@ import * as React from "react";
 import { styled } from "@mui/material/styles";
 import Checkbox from "@mui/material/Checkbox";
 
-const UnCheckedIcon = styled("span")(({ theme }) => ({
+const UnCheckedIcon = styled("span")(() => ({
   borderRadius: 4,
   width: 16,
   height: 16,
@@ -32,7 +32,7 @@ const CheckedIcon = styled(UnCheckedIcon)({
   },
 });
 
-function CustomCheckbox(props) {
+const CustomCheckbox = React.forwardRef(function CustomCheckbox(props, ref) {
   return (
     <Checkbox
       sx={{
@@ -43,9 +43,10 @@ function CustomCheckbox(props) {
       checkedIcon={<CheckedIcon />}
       icon={<UnCheckedIcon />}
       inputProps={{ "aria-label": "Checkbox demo" }}
+      ref={ref}
       {...props}
     />
   );
-}
+});
 
 export default CustomCheckbox;

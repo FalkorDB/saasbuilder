@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useFormik } from "formik";
 import { useMutation } from "@tanstack/react-query";
-import { Stack, Typography } from "@mui/material";
+import { Box, Stack, Typography, styled } from "@mui/material";
 import * as Yup from "yup";
 import { customerUserSignup } from "src/api/customer-user";
 import MainImageLayout from "components/NonDashboardComponents/Layout/MainImageLayout";
@@ -13,10 +13,15 @@ import FieldLabel from "components/NonDashboardComponents/FormElementsV2/FieldLa
 import SubmitButton from "components/NonDashboardComponents/FormElementsV2/SubmitButton";
 import TextField from "components/NonDashboardComponents/FormElementsV2/TextField";
 import PasswordField from "components/NonDashboardComponents/FormElementsV2/PasswordField";
-import SignupNotification from "components/NonDashboardComponents/SignupNotification";
 import useSnackbar from "src/hooks/useSnackbar";
 import { passwordRegex, passwordText } from "src/utils/passwordRegex";
 import FieldError from "src/components/FormElementsv2/FieldError/FieldError";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+import GoogleLogin from "../Signin/components/GoogleLogin";
+import GithubLogin from "../Signin/components/GitHubLogin";
+import { IDENTITY_PROVIDER_STATUS_TYPES } from "../Signin/constants";
+import ReCAPTCHA from "react-google-recaptcha";
+import SuccessBox from "src/components/SuccessBox/SuccessBox";
 
 const signupValidationSchema = Yup.object({
   name: Yup.string().required("Name is required"),
@@ -33,11 +38,62 @@ const signupValidationSchema = Yup.object({
 });
 
 const SignupPage = (props) => {
-  const { orgName, orgLogoURL } = props;
+  const {
+    orgName,
+    orgLogoURL,
+    googleIdentityProvider,
+    githubIdentityProvider,
+    saasBuilderBaseURL,
+    googleReCaptchaSiteKey,
+    isReCaptchaSetup,
+  } = props;
+
   const router = useRouter();
   const { org, orgUrl, email, userSource } = router.query;
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
+
   const snackbar = useSnackbar();
+  const reCaptchaRef = useRef(null);
+
+  const signupMutation = useMutation(
+    (payload) => {
+      setShowSuccess(false);
+      return customerUserSignup(payload);
+    },
+    {
+      onSuccess: () => {
+        /* eslint-disable-next-line no-use-before-define*/
+        formik.resetForm();
+        setShowSuccess(true);
+      },
+      onError: (error) => {
+        if (error.response.data && error.response.data.message) {
+          const errorMessage = error.response.data.message;
+          snackbar.showError(errorMessage);
+        }
+      },
+    }
+  );
+
+  async function handleFormSubmit(values) {
+    const data = {};
+
+    if (reCaptchaRef.current && !hasCaptchaErrored) {
+      const token = await reCaptchaRef.current.executeAsync();
+      reCaptchaRef.current.reset();
+      data["reCaptchaToken"] = token;
+    }
+
+    for (const key in values) {
+      if (values[key]) {
+        data[key] = values[key];
+      }
+    }
+
+    signupMutation.mutate(data);
+  }
 
   const formik = useFormik({
     initialValues: {
@@ -51,38 +107,9 @@ const SignupPage = (props) => {
       userSource: "",
     },
     enableReinitialize: true,
-    onSubmit: (values) => {
-      let data = {};
-
-      for (let key in values) {
-        if (values[key]) {
-          data[key] = values[key];
-        }
-      }
-
-      signupMutation.mutate(data);
-    },
+    onSubmit: handleFormSubmit,
     validationSchema: signupValidationSchema,
   });
-
-  const signupMutation = useMutation(
-    (payload) => {
-      setShowSuccess(false);
-      return customerUserSignup(payload);
-    },
-    {
-      onSuccess: (data) => {
-        formik.resetForm();
-        setShowSuccess(true);
-      },
-      onError: (error) => {
-        if (error.response.data && error.response.data.message) {
-          const errorMessage = error.response.data.message;
-          snackbar.showError(errorMessage);
-        }
-      },
-    }
-  );
 
   useEffect(() => {
     const updatedValues = {};
@@ -115,23 +142,85 @@ const SignupPage = (props) => {
         }
       });
     }
-  }, [org, orgUrl, email]);
+    /*eslint-disable-next-line react-hooks/exhaustive-deps*/
+  }, [org, orgUrl, email, userSource]);
 
   const { values, touched, errors, handleChange, handleBlur } = formik;
 
+  let googleIDPClientID = null;
+  let showGoogleLoginButton = false;
+  let isGoogleLoginDisabled = false;
+
+  if (googleIdentityProvider) {
+    showGoogleLoginButton = true;
+    googleIDPClientID = googleIdentityProvider.clientId;
+
+    const { status } = googleIdentityProvider;
+
+    if (status === IDENTITY_PROVIDER_STATUS_TYPES.FAILED) {
+      isGoogleLoginDisabled = true;
+    }
+  }
+
+  let githubIDPClientID = null;
+  let showGithubLoginButton = false;
+  let isGithubLoginDisabled = false;
+
+  if (githubIdentityProvider) {
+    showGithubLoginButton = true;
+    githubIDPClientID = githubIdentityProvider.clientId;
+    const { status } = githubIdentityProvider;
+
+    if (status === IDENTITY_PROVIDER_STATUS_TYPES.FAILED) {
+      isGithubLoginDisabled = true;
+    }
+  }
+
+  let policyAgreementText = `By creating your account, you agree to our`;
+  if (showGoogleLoginButton && showGithubLoginButton) {
+    policyAgreementText = `By creating your account manually or using your Google or GitHub account to sign up, you agree to our`;
+  } else if (showGoogleLoginButton) {
+    policyAgreementText = `By creating your account manually or using your Google account to sign up, you agree to our`;
+  } else if (showGithubLoginButton) {
+    policyAgreementText = `By creating your account manually or using your Github account to sign up, you agree to our`;
+  }
+  const invitationInfo = {};
+  if (email || org || orgUrl) {
+    if (email) {
+      invitationInfo.invitedEmail = decodeURIComponent(email);
+    }
+    if (org) {
+      invitationInfo.legalCompanyName = decodeURIComponent(org);
+    }
+    if (orgUrl) {
+      invitationInfo.companyUrl = decodeURIComponent(orgUrl);
+    }
+  }
+
+  if (showSuccess) {
+    return (
+      <MainImageLayout showArrow orgName={orgName} contentMaxWidth={650}>
+        <SuccessBox
+          title="Verify Your Email to Activate Your Account"
+          description="Thank you for signing up! We've sent a confirmation link to your email. Please check your inbox and click the link to verify your email address and complete the activation process."
+        />
+      </MainImageLayout>
+    );
+  }
+
   return (
     <>
-      <SignupNotification isVisible={showSuccess} />
       <MainImageLayout
         orgName={orgName}
         orgLogoURL={orgLogoURL}
         pageTitle="Sign up"
+        contentMaxWidth={650}
       >
-        <DisplayHeading>Get Started Today</DisplayHeading>
+        <DisplayHeading mt="24px">Get Started Today</DisplayHeading>
 
-        <Stack component="form" gap="32px" autoComplete="off">
+        <Box component="form" mt="44px" autoComplete="off">
           {/* Signup Form */}
-          <Stack gap="10px">
+          <FormGrid>
             <FieldContainer>
               <FieldLabel required>Name</FieldLabel>
               <TextField
@@ -231,49 +320,106 @@ const SignupPage = (props) => {
                 {touched.confirmPassword && errors.confirmPassword}
               </FieldError>
             </FieldContainer>
-          </Stack>
-          
-          <Typography
-            fontWeight="500"
-            fontSize="14px"
-            lineHeight="22px"
-            color="#A0AEC0"
-            textAlign="start"
-          >
-            By creating an account, you agree to the{" "}
-            <Link
-              target="_blank"
-              href="/terms-of-use"
-              style={{ color: "#27A376" }}
-            >
-              Terms & Conditions
-            </Link>{" "}
-            and{" "}
-            <Link
-              target="_blank"
-              href="/privacy-policy"
-              style={{ color: "#27A376" }}
-            >
-              Privacy Policy
-            </Link>
-            .
-          </Typography>
+          </FormGrid>
 
           {/* Login and Google Button */}
-          <Stack gap="16px">
+          <Stack mt="32px" width="480px" mx="auto">
             <SubmitButton
               type="submit"
               onClick={formik.handleSubmit}
-              disabled={!formik.isValid}
+              disabled={
+                !formik.isValid || (isReCaptchaSetup && !isScriptLoaded)
+              }
               loading={signupMutation.isLoading}
             >
               Create Account
             </SubmitButton>
+            {isReCaptchaSetup && (
+              <ReCAPTCHA
+                size="invisible"
+                sitekey={googleReCaptchaSiteKey}
+                ref={reCaptchaRef}
+                asyncScriptOnLoad={() => {
+                  setIsScriptLoaded(true);
+                }}
+                onErrored={() => {
+                  setHasCaptchaErrored(true);
+                }}
+              />
+            )}
           </Stack>
-        </Stack>
+        </Box>
+        {Boolean(googleIdentityProvider || githubIdentityProvider) && (
+          <>
+            <Box borderTop="1px solid #F1F2F4" textAlign="center" mt="40px">
+              <Box
+                display="inline-block"
+                paddingLeft="16px"
+                paddingRight="16px"
+                color="#687588"
+                bgcolor="white"
+                fontSize="14px"
+                fontWeight="500"
+                lineHeight="22px"
+                sx={{ transform: "translateY(-50%)" }}
+              >
+                Or use one of these options
+              </Box>
+            </Box>
+            <Stack direction="row" justifyContent="center" mt="20px" gap="16px">
+              {showGoogleLoginButton && (
+                <GoogleOAuthProvider
+                  clientId={googleIDPClientID}
+                  onScriptLoadError={() => {}}
+                  onScriptLoadSuccess={() => {}}
+                >
+                  <GoogleLogin
+                    disabled={isGoogleLoginDisabled}
+                    saasBuilderBaseURL={saasBuilderBaseURL}
+                    invitationInfo={invitationInfo}
+                  />
+                </GoogleOAuthProvider>
+              )}
+              {showGithubLoginButton && (
+                <GithubLogin
+                  githubClientID={githubIDPClientID}
+                  disabled={isGithubLoginDisabled}
+                  saasBuilderBaseURL={saasBuilderBaseURL}
+                  invitationInfo={invitationInfo}
+                />
+              )}
+            </Stack>
+          </>
+        )}
 
+        <Typography
+          mt="22px"
+          fontWeight="500"
+          fontSize="14px"
+          lineHeight="22px"
+          color="#A0AEC0"
+          textAlign="center"
+        >
+          {policyAgreementText}{" "}
+          <Link
+            target="_blank"
+            href="/terms-of-use"
+            style={{ color: "#27A376" }}
+          >
+            Terms & Conditions
+          </Link>{" "}
+          and{" "}
+          <Link
+            target="_blank"
+            href="/privacy-policy"
+            style={{ color: "#27A376" }}
+          >
+            Privacy Policy
+          </Link>
+        </Typography>
         {/* Signup Link */}
         <Typography
+          mt="20px"
           fontWeight="500"
           fontSize="14px"
           lineHeight="22px"
@@ -291,3 +437,14 @@ const SignupPage = (props) => {
 };
 
 export default SignupPage;
+
+const FormGrid = styled(Box)(() => ({
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  columnGap: "22px",
+  rowGap: "27px",
+  "@media (max-width: 1280px)": {
+    gridTemplateColumns: "1fr",
+    rowGap: "22px",
+  },
+}));

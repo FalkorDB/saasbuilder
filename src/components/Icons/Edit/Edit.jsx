@@ -1,12 +1,14 @@
 import * as React from "react";
 
 const EditIcon = (props) => {
-  let { color, disabled = false } = props;
+  let { color } = props;
+  const { disabled = false } = props;
+  
   if (!color) {
     color = "#9F1AB1";
   }
   if (disabled) {
-    color = "#E0E0E0";
+    color = "#a3a6ac";
   }
   return (
     <svg

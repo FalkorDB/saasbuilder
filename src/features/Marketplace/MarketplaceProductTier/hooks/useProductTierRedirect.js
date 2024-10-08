@@ -31,13 +31,15 @@ const useProductTierRedirect = (opts) => {
       (!serviceId || !environmentId)
     ) {
       if (serviceOfferingsData.length > 0) {
+
         let selectedServiceOffering;
 
         if (!serviceId
         ) {
           selectedServiceOffering = serviceOfferingsData.find(s => {
             if (opts.filterOutFreeDedicatedTier) {
-              return s.serviceId !== "s-KgFDwg5vBS"
+              return s.productTierID !== "pt-phFY4aK6Cq" &&
+                s.productTierID !== "pt-m2FKdsSXSi"
             }
             return true
           })
@@ -58,7 +60,8 @@ const useProductTierRedirect = (opts) => {
         if (!selectedServiceOffering) {
           setServiceNotFound(true);
         } else {
-          if (selectedServiceOffering.serviceId === "s-KgFDwg5vBS" && opts?.filterOutFreeDedicatedTier) {
+          if ((selectedServiceOffering.productTierID === "pt-phFY4aK6Cq" ||
+            selectedServiceOffering.productTierID === "pt-m2FKdsSXSi") && opts?.filterOutFreeDedicatedTier) {
             return
           }
 
@@ -79,7 +82,9 @@ const useProductTierRedirect = (opts) => {
     environmentId,
     areServiceOfferingsFetched,
     isClientRendered,
-    router.isReady,
+    router,
+    serviceOfferingsData,
+    opts?.filterOutFreeDedicatedTier
   ]);
 
   return {

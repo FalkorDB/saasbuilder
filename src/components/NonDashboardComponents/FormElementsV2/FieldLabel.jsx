@@ -1,13 +1,13 @@
 import { Box } from "@mui/material";
 
-const FieldLabel = ({ required, children, ...restProps }) => {
+const FieldLabel = ({ required, children}) => {
   return (
     <Box
       component="label"
       sx={{
         fontWeight: 500,
         fontSize: "14px",
-        lineHeight: "22px",
+        lineHeight: "20px",
         color: "#111827",
       }}
     >

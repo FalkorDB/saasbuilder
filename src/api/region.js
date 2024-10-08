@@ -1,13 +1,19 @@
 import axios from "../axios";
 
 export function getRegionIdsByCloudProviderWithParams(
-  cloudProviderName,
   serviceId,
-  serviceModelId
+  productTierId,
+  cloudProviderName
 ) {
-  return axios.get(
-    `/region/cloudprovider/${cloudProviderName}?serviceId=${serviceId}&serviceModelId=${serviceModelId}`
-  );
+  const queryParams = {};
+  if (serviceId && productTierId) {
+    queryParams["serviceId"] = serviceId;
+    queryParams["productTierId"] = productTierId;
+  }
+
+  return axios.get(`/region/cloudprovider/${cloudProviderName}`, {
+    params: queryParams,
+  });
 }
 
 export function getRegionById(regionId) {

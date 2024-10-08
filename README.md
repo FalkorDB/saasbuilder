@@ -87,6 +87,8 @@ yarn install
 | MAIL_USER_PASSWORD    | The email account password |
 | MAIL_FROM | Gmail account from which emails will be sent (might be different than MAIL_USER_EMAIL). If this environment variable is not configured, the mails will be sent using MAIL_USER_EMAIL |
 | GOOGLE_ANALYTICS_TAG_ID | Google Analytics tag ID |
+| GOOGLE_RECAPTCHA_SITE_KEY | Google reCAPTCHA v2 (Invisible) Site Key |
+| GOOGLE_RECAPTCHA_SECRET_KEY | Google reCAPTCHA v2 (Invisible) Secret Key |
 
 6. Run the development server:
 
@@ -130,7 +132,7 @@ For a video guide covering all the below steps, you can follow it [here](https:/
 - Choose your service model i.e. Provider Hosted, to create your service.
 - Follow the prompt to launch an instance of the SaaSBuilder Service.
 - Specify instance details: type, Omnistrate account and password, SMTP email and password, and hosting domain.
-- Post-creation, navigate to the "Network" tab, copy the cluster endpoint.
+- Post-creation, navigate to the "Connectivity" tab, copy the cluster endpoint.
 - Access the SaaSBuilder App through the copied endpoint to reach the login page.
 - Once you have confirmed that you can access the SaaSBuilder app. You are ready to configure your domain.
 
@@ -187,6 +189,21 @@ Configuring Google Account for sending out emails is a two step process. First t
   ![Alt text](https://drive.google.com/uc?id=1N_COKw_GX9rwgpdLKWzrchaclfamK6JH "Copy App Password")
 
   8. Treat the app password like your regular password and store it securely.
+
+#### How to configure Google reCAPTCHA?
+
+SaaSBuilder uses Google reCAPTCHA v2 (Invisible) to protect certain pages from attacks against bots. To configure reCAPTCHA,
+  1. Register a new site by navigating to https://www.google.com/recaptcha/admin/create
+  2. On the site registration form, choose "Challenge(v2)" as the reCAPTCHA type and then choose the 
+  "Invisible reCAPTCHA badge" option
+
+  ![Alt text](https://drive.google.com/uc?id=1_LsnRbSX4-XHEw3IAXZHKYqaetH7tqFn "reCAPTHCA Site Registration")
+
+  3. Provide the other required details and submit the form.
+  4. Google will generate a Site Key and a Secret Key for your site.
+
+  ![Alt text](https://drive.google.com/uc?id=1Ntk2NzpRC545X-7pw24nxs-ZhjVLiS_E "reCAPTHCA Key")
+
 
 #### How do I resolve "node version not compatible" errors?
 

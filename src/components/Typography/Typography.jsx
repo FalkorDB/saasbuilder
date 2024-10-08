@@ -1,11 +1,11 @@
-import { styled } from "@mui/material";
+import { Typography, styled } from "@mui/material";
 
 const variantTypes = {
   desktop: "desktop",
   mobile: "mobile",
 };
 
-const weightTypes = {
+export const weightTypes = {
   medium: "medium",
   regular: "regular",
   semibold: "semibold",
@@ -27,7 +27,7 @@ const shouldForwardProp = (prop) => {
 
 export const H3 = styled("h3", {
   shouldForwardProp,
-})(({ theme, variant = variantTypes.desktop, weight = weightTypes.bold }) => ({
+})(({  variant = variantTypes.desktop, weight = weightTypes.bold }) => ({
   fontSize: variant === variantTypes.desktop ? 32 : 28,
   lineHeight: variant === variantTypes.desktop ? 40 : 36,
   fontWeight: weights[weight],
@@ -35,7 +35,7 @@ export const H3 = styled("h3", {
 
 export const H5 = styled("h5", {
   shouldForwardProp,
-})(({ theme, variant = variantTypes.desktop, weight = weightTypes.bold }) => ({
+})(({  variant = variantTypes.desktop, weight = weightTypes.bold }) => ({
   fontSize: variant === variantTypes.desktop ? 24 : 20,
   lineHeight: variant === variantTypes.desktop ? "32px" : "28px",
   fontWeight: weights[weight],
@@ -43,7 +43,7 @@ export const H5 = styled("h5", {
 
 export const H6 = styled("h6", {
   shouldForwardProp,
-})(({ theme, variant = variantTypes.desktop, weight = weightTypes.bold }) => ({
+})(({  variant = variantTypes.desktop, weight = weightTypes.bold }) => ({
   fontSize: variant === variantTypes.desktop ? 20 : 18,
   lineHeight: variant === variantTypes.desktop ? "28px" : "24px",
   fontWeight: weights[weight],
@@ -98,7 +98,6 @@ export const P = styled("p", {
   shouldForwardProp: (prop) => prop !== "size" && prop !== "weight",
 })(
   ({
-    theme,
     size = paragraphSizeTypes.medium,
     weight = paragraphWeightTypes.medium,
   }) => ({
@@ -143,77 +142,62 @@ export const DisplayText = styled("h2", {
     !["size", "weight", "sx", "color", "mt", "mb", "pt", "pb"].includes(prop),
 })(
   ({
-    theme,
     size = displayTextSizeTypes.small,
     weight = weightTypes.semibold,
-    color = "black",
-    mt = 0,
-    mb = 0,
-    pt = 0,
-    pb = 0,
   }) => ({
     ...displayTextSizes[size],
     fontWeight: weights[weight],
-    wordBreak: "break-all",
   })
 );
 
-const textStyleTypes = {
+export const textSizeTypes = {
+  xlarge: "xlarge",
   large: "large",
   medium: "medium",
+  small: "small",
+  xsmall: "xsmall",
+  heading: "heading",
 };
 
 const styles = {
-  xlarge: {
+  [textSizeTypes.xlarge]: {
     fontSize: "20px",
     lineHeight: "30px",
   },
-  large: {
+  [textSizeTypes.large]: {
     fontSize: "18px",
     lineHeight: "28px",
   },
-  medium: {
+  [textSizeTypes.medium]: {
     fontSize: "16px",
     lineHeight: "24px",
   },
-  small: {
+  [textSizeTypes.small]: {
     fontSize: "14px",
     lineHeight: "20px",
   },
-  xsmall: {
+  [textSizeTypes.xsmall]: {
     fontSize: "12px",
-    lineHeight: "20px",
+    lineHeight: "18px",
   },
-  heading: {
+  [textSizeTypes.heading]: {
     fontSize: "22px",
     lineHeight: "22px",
   },
 };
 
-export const Text = styled("p", {
-  shouldForwardProp: (prop) =>
-    ![
-      "size",
-      "weight",
-      "sx",
-      "color",
-      "mt",
-      "mb",
-      "pt",
-      "pb",
-      "ml",
-      "mr",
-    ].includes(prop),
-})(({
-  size = styles.large,
+export const Text = ({
+  size = "small",
   weight = weightTypes.semibold,
+  sx = {},
   color = "#101828",
   mt = 0,
-  mb = 0,
-  pt = 0,
-  pb = 0,
   ml = 0,
-  mr = 0,
+  ellipsis = false,
+  width = 0, // Default value to avoid Typescript errors
+  maxWidth = "auto", // Default value to avoid Typescript errors
+  children,
+  ...otherProps
 }) => {
   let marginTop = "0px";
   if (typeof mt === "number") {
@@ -227,18 +211,43 @@ export const Text = styled("p", {
   if (typeof ml === "number") {
     marginLeft = ml * 8;
   }
-  if (typeof mt === "string") {
+  if (typeof ml === "string") {
     marginLeft = ml;
   }
 
-  return {
-    ...styles[size],
-    fontWeight: weights[weight],
-    color: color,
-    marginTop: marginTop,
-    marginLeft: marginLeft,
-    // mb: mb,
-    // pt: pt,
-    // pb: pb,
-  };
-});
+  let ellipsisObj = {};
+  if (ellipsis) {
+    ellipsisObj = {
+      textOverflow: "ellipsis",
+      overflow: "hidden",
+    };
+
+    if (width) {
+      ellipsisObj.width = width;
+      ellipsisObj.whiteSpace = "nowrap";
+    }
+
+    if (maxWidth) {
+      ellipsisObj.maxWidth = maxWidth;
+      ellipsisObj.whiteSpace = "nowrap";
+    }
+  }
+
+  return (
+    <Typography
+      component="p"
+      sx={{
+        ...styles[size],
+        fontWeight: weights[weight],
+        color: color,
+        marginTop: marginTop,
+        marginLeft: marginLeft,
+        ...ellipsisObj,
+        ...sx,
+      }}
+      {...otherProps}
+    >
+      {children}
+    </Typography>
+  );
+};

@@ -1,9 +1,15 @@
 import * as React from "react";
 const StopIcon = (props) => {
   let { color } = props;
+  const { disabled } = props;
   if (!color) {
     color = "#D92D20";
   }
+
+  if (disabled) {
+    color = "#a3a6ac";
+  }
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

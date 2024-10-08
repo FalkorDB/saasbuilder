@@ -1,10 +1,13 @@
 import * as React from "react";
 
 const FailoverIcon = (props) => {
-  let { color } = props;
-  if (!color) {
-    color = "#D92D20";
+  let { color = "#D92D20" } = props;
+  const { disabled } = props;
+
+  if (disabled) {
+    color = "#D0D5DD";
   }
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

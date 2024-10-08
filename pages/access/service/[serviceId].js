@@ -1,5 +1,4 @@
-import AddIcon from "@mui/icons-material/Add";
-import { Box, CircularProgress, Divider, Stack, styled } from "@mui/material";
+import { Box, CircularProgress, Stack } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { useFormik } from "formik";
 import Image from "next/image";
@@ -15,9 +14,6 @@ import {
   getResourceInstanceDetails,
   getResourceInstanceIds,
   getTerraformKit,
-} from "../../../src/api/resourceInstance";
-import { describeServiceOfferingResource } from "../../../src/api/serviceOffering";
-import {
   createResourceInstance,
   restartResourceInstance,
   startResourceInstance,
@@ -25,9 +21,8 @@ import {
   updateResourceInstance,
   connectToInstance,
 } from "../../../src/api/resourceInstance";
-import Button from "../../../src/components/Button/Button";
+import { describeServiceOfferingResource } from "../../../src/api/serviceOffering";
 import Card from "../../../src/components/Card/Card";
-import LoadingSpinnerSmall from "../../../src/components/CircularProgress/CircularProgress";
 import DashboardLayout from "../../../src/components/DashboardLayout/DashboardLayout";
 import DataGrid, {
   selectSingleItem,
@@ -35,17 +30,7 @@ import DataGrid, {
 import ConfirmationDialog from "../../../src/components/Dialog/ConfirmDialog";
 import CreateResourceInstanceForm from "../../../src/components/Forms/CreateResourceInstanceForm";
 import GridCellExpand from "../../../src/components/GridCellExpand/GridCellExpand";
-import HeaderTitle from "../../../src/components/Headers/Header";
 import LogoHeader from "../../../src/components/Headers/LogoHeader";
-import DeleteIcon from "../../../src/components/Icons/Delete/Delete";
-import DeprecateIcon from "../../../src/components/Icons/DeprecateIcon/DeprecateIcon";
-import EditIcon from "../../../src/components/Icons/Edit/Edit";
-import ConnectIcon from "../../../src/components/Icons/Connect/Connect";
-import PlayIcon from "../../../src/components/Icons/Play/Play";
-import RebootIcon from "../../../src/components/Icons/Reboot/Reboot";
-import RefreshIcon from "../../../src/components/Icons/Refresh/Refresh";
-import RefreshIconDisabled from "../../../src/components/Icons/Refresh/RefreshDisabled";
-import StopIcon from "../../../src/components/Icons/Stop/Stop";
 import AwsCloudIcon from "../../../public/assets/images/logos/awsCloud.svg";
 import GcpCloudIcon from "../../../public/assets/images/logos/gcpCloud.svg";
 import AwsLogo from "../../../src/components/Logos/AwsLogo/AwsLogo";
@@ -57,11 +42,8 @@ import RegionIcon from "../../../src/components/Region/RegionIcon";
 import SideDrawerRight from "../../../src/components/SideDrawerRight/SideDrawerRight";
 import StatusChip from "../../../src/components/StatusChip/StatusChip";
 import { Text } from "../../../src/components/Typography/Typography";
-import useCloudProviderRegions from "../../../src/hooks/useCloudProviderRegions";
-import useCloudProviders from "../../../src/hooks/useCloudProviders";
 import useServiceOffering from "../../../src/hooks/useServiceOffering";
 import useSnackbar from "../../../src/hooks/useSnackbar";
-import { selectAllRegions } from "../../../src/slices/regionSlice";
 import {
   selectResourceInstanceList,
   selectResourceInstanceListLoadingStatus,
@@ -69,15 +51,8 @@ import {
   setResourceInstanceListLoadingStatus,
   setResourceInstanceListToEmpty,
 } from "../../../src/slices/resourceInstanceListSlice";
-import { selectUserrootData } from "../../../src/slices/userDataSlice";
 import loadingStatuses from "../../../src/utils/constants/loadingStatuses";
 import formatDateLocal from "../../../src/utils/formatDateLocal";
-import {
-  getEnumFromUserRoleString,
-  isOperationAllowedByRBAC,
-  operationEnum,
-  viewEnum,
-} from "../../../src/utils/isAllowedByRBAC";
 import MarketplaceServiceSidebar from "../../../src/components/MarketplaceServiceSidebar/MarketplaceServiceSidebar";
 import AccessHeaderCard from "src/components/AccessHeader/AccessHeaderCard";
 import { AccessSupport } from "src/components/Access/AccessSupport";
@@ -89,30 +64,31 @@ import {
 import useSubscriptionForProductTierAccess from "src/hooks/query/useSubscriptionForProductTierAccess";
 import SubscriptionNotFoundUI from "src/components/Access/SubscriptionNotFoundUI";
 import CloudProviderAccountOrgIdModal from "src/components/CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
-import { getAwsBootstrapArn } from "src/utils/accountConfig/accountConfig";
+import {
+  getAwsBootstrapArn,
+  getGcpServiceEmail,
+} from "src/utils/accountConfig/accountConfig";
 import GradientProgressBar from "src/components/GradientProgessBar/GradientProgressBar";
-import ServiceOfferingUnavailableUI from "src/components/ServiceOfferingUnavailableUI/ServiceOfferingUnavailableUI";
-import Head from "next/head";
-import CopyButton from "src/components/Button/CopyButton";
 import { ACCOUNT_CREATION_METHODS } from "src/utils/constants/accountConfig";
 import Tooltip from "src/components/Tooltip/Tooltip";
 import ViewInstructionsIcon from "src/components/Icons/AccountConfig/ViewInstrcutionsIcon";
 import DeleteAccountConfigConfirmationDialog from "src/components/DeleteAccountConfigConfirmationDialog/DeleteAccountConfigConfirmationDialog";
+import { selectUserrootData } from "src/slices/userDataSlice";
 import { cloneDeep } from "lodash";
 import { calculateInstanceHealthPercentage } from "src/utils/instanceHealthPercentage";
+import AccessServiceHealthStatus from "src/components/ServiceHealthStatus/AccessServiceHealthStatus";
+import AccessSideRestoreInstance from "src/components/RestoreInstance/AccessSideRestoreInstance";
+import DataGridText from "src/components/DataGrid/DataGridText";
+import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
+import CustomNetworks from "src/features/CustomNetworks/CustomNetworks";
+import CapacityDialog from "src/components/CapacityDialog/CapacityDialog";
+import InstancesTableHeader from "src/features/ResourceInstance/components/InstancesTableHeader";
+import { CLOUD_PROVIDERS } from "src/constants/cloudProviders";
 
-const instanceStatuses = {
-  FAILED: "FAILED",
-  CANCELLED: "CANCELLED",
-  PENDING_DEPENDENCY: "PENDING_DEPENDENCY",
-  PENDING: "PENDING",
-  RUNNING: "RUNNING",
-  DEPLOYING: "DEPLOYING",
-  READY: "READY",
-  SUCCESS: "SUCCESS",
-  COMPLETE: "COMPLETE",
-  STOPPED: "STOPPED",
-  DELETING: "DELETING",
+export const getServerSideProps = async () => {
+  return {
+    props: {},
+  };
 };
 
 function MarketplaceService() {
@@ -122,18 +98,25 @@ function MarketplaceService() {
   const [currentSource, setCurrentSource] = React.useState("");
   const [cloudProviderAccounts, setCloudProviderAccounts] = useState([]);
   const [cloudProviderResource, setCloudProviderResource] = useState(null);
+  const [searchText, setSearchText] = useState(""); // Data Grid Search Field Text
+  const [isRestoreInstanceModalOpen, setIsResourceInstanceModalOpen] =
+    useState(false);
 
   const [isOrgIdModalOpen, setIsOrgIdModalOpen] = useState(false);
+
   //this is required to show some extra text on CloudProviderAccountModal on creation
   const [isAccountCreation, setIsAccountCreation] = useState(false);
-
-  const [isCloudFormation, setIsCloudFormation] = useState(false); //false implies cloud provider account created using terraform
+  const [accountConfigMethod, setAccountConfigMethod] = useState(); // CloudFormation or Terraform
   const [cloudProvider, setCloudProvider] = useState("");
   const [cloudFormationTemplateUrl, setCloudFormationTemplateUrl] =
+    useState("");
+  const [cloudFormationTemplateUrlNoLB, setCloudFormationTemplateUrlNoLB] =
     useState("");
   const [accountConfigStatus, setAccountConfigStatus] = useState("");
   const [accountConfigId, setAccountConfigId] = useState("");
   //this is required to show some extra text on CloudProviderAccountModal on creation
+  const [showCapacityDialog, setShowCapacityDialog] = useState(false);
+  const [currentCapacityAction, setCurrentCapacityAction] = useState("add");
 
   const [isCreateInstanceSchemaFetching, setIsCreateInstanceSchemaFetching] =
     useState(false);
@@ -146,6 +129,25 @@ function MarketplaceService() {
     setIsOrgIdModalOpen(false);
   }
 
+  const handleRestoreInstanceModalOpen = () => {
+    setIsResourceInstanceModalOpen(true);
+  };
+
+  const handleRestoreInstanceModalClose = () => {
+    setIsResourceInstanceModalOpen(false);
+  };
+  const filteredInstances = useMemo(() => {
+    if (!resourceInstanceList?.length) {
+      return [];
+    }
+
+    if (searchText) {
+      return resourceInstanceList.filter((instance) =>
+        instance?.id.toLowerCase().includes(searchText.toLowerCase())
+      );
+    }
+    return resourceInstanceList;
+  }, [resourceInstanceList, searchText]);
   const resourceInstancesHashmap = useMemo(() => {
     const hashmap = {};
     resourceInstanceList.forEach((instance) => {
@@ -165,6 +167,8 @@ function MarketplaceService() {
     id: "",
     name: "",
     isDeprecated: false,
+    isBackupEnabled: false,
+    resourceType: "",
   });
 
   let isCurrentResourceBYOA = false;
@@ -173,7 +177,7 @@ function MarketplaceService() {
     selectedResource.id.includes("r-injectedaccountconfig")
   )
     isCurrentResourceBYOA = true;
-
+  const selectedUser = useSelector(selectUserrootData);
   const isUnmounted = useRef(false);
   const router = useRouter();
   const {
@@ -181,14 +185,29 @@ function MarketplaceService() {
     source,
     productTierId,
     resourceId,
-    support,
     subscriptionId,
+    viewType,
   } = router.query;
   const {
     data: service,
     status: servicesLoadingStatus,
     isLoading: isServiceLoading,
   } = useServiceOffering(serviceId, productTierId);
+
+  const maxNumberOfInstancesReached = useMemo(() => {
+    if (!service || !resourceInstanceList || !service.billingPlans) {
+      return false;
+    }
+
+    // Count Instances that are not in FAILED, DELETING, DELETED status
+    const instancesToCount = resourceInstanceList.filter(
+      (el) => !["FAILED", "DELETING", "DELETED"].includes(el.status)
+    );
+
+    return (
+      instancesToCount.length >= service.billingPlans?.[0]?.maxNumberofInstances
+    );
+  }, [resourceInstanceList, service]);
 
   const environmentId = service?.serviceEnvironmentID;
 
@@ -197,7 +216,6 @@ function MarketplaceService() {
   const [currentTabValue, setCurrentTabValue] = useState(false);
   const [viewInfoDrawerOpen, setViewInfoDrawerOpen] = useState(false);
   const [updateDrawerOpen, setUpdateDrawerOpen] = useState(false);
-
   const timeoutID = useRef(null);
   const currentResourceInfo = useRef({ resourceKey: null, resourceId: null });
   useEffect(() => {
@@ -217,24 +235,18 @@ function MarketplaceService() {
     isFetched: isSubscriptionDataFetched,
   } = subscriptionQuery;
 
-  const role = getEnumFromUserRoleString(subscriptionData?.roleType);
-  const view = viewEnum.Access_Resources;
+  const isCustomNetworkEnabled = useMemo(() => {
+    let enabled = false;
 
-  const createAccessServiceAllowed = isOperationAllowedByRBAC(
-    operationEnum.Create,
-    role,
-    view
-  );
-  const modifyAccessServiceAllowed = isOperationAllowedByRBAC(
-    operationEnum.Update,
-    role,
-    view
-  );
-  const deleteAccessServiceAllowed = isOperationAllowedByRBAC(
-    operationEnum.Delete,
-    role,
-    view
-  );
+    if (
+      service?.serviceModelFeatures?.find((featureObj) => {
+        return featureObj.feature === "CUSTOM_NETWORKS";
+      })
+    )
+      enabled = true;
+
+    return enabled;
+  }, [service]);
 
   const columns = useMemo(() => {
     const columnDefinition = [
@@ -247,11 +259,10 @@ function MarketplaceService() {
         headerAlign: "center",
         renderCell: (params) => {
           const instanceId = params.row.id;
-          const isActive = params.row.active;
-
           const instanceIdDisplay = isCurrentResourceBYOA
             ? "account-" + instanceId
             : instanceId;
+
           const resourceInstanceUrlLink = getResourceInstancesDetailsRoute(
             serviceId,
             environmentId,
@@ -262,14 +273,15 @@ function MarketplaceService() {
           );
 
           return (
-            <Box display="flex" gap="8px" alignItems="center">
-              <GridCellExpand
-                href={resourceInstanceUrlLink}
-                value={instanceIdDisplay ?? ""}
-                width={params.colDef.computedWidth}
-              />
-              <CopyButton text={instanceIdDisplay} />
-            </Box>
+            <DataGridText
+              color="primary"
+              showCopyButton
+              linkProps={{
+                href: resourceInstanceUrlLink,
+              }}
+            >
+              {instanceIdDisplay}
+            </DataGridText>
           );
         },
       },
@@ -279,7 +291,7 @@ function MarketplaceService() {
         flex: 0.9,
         align: "center",
         headerAlign: "center",
-        minWidth: 155,
+        minWidth: 160,
         renderCell: (params) => {
           const status = params.row.status;
           const showInstructions =
@@ -291,6 +303,8 @@ function MarketplaceService() {
               "UNKNOWN",
               "DEPLOYING",
             ].includes(status);
+          const statusSytlesAndLabel =
+            getResourceInstanceStatusStylesAndLabel(status);
           return (
             <Stack
               direction={"row"}
@@ -298,7 +312,7 @@ function MarketplaceService() {
               alignItems={"center"}
               gap="4px"
             >
-              <StatusChip status={status} />
+              <StatusChip status={status} {...statusSytlesAndLabel} />
               {showInstructions && (
                 <Tooltip
                   title={
@@ -316,10 +330,23 @@ function MarketplaceService() {
                       alignItems: "center",
                     }}
                     onClick={() => {
-                      const row = params?.row;
-                      setCloudProvider("aws");
+                      const result_params = params.row.result_params;
+                      setCloudProvider(
+                        result_params?.cloud_provider ||
+                          !!result_params?.aws_account_id
+                          ? "aws"
+                          : "gcp"
+                      );
                       setCloudFormationTemplateUrl(
-                        row?.result_params?.cloudformation_url
+                        result_params?.cloudformation_url
+                      );
+
+                      setCloudFormationTemplateUrlNoLB(
+                        result_params?.cloudformation_url_no_lb
+                      );
+
+                      setAccountConfigMethod(
+                        result_params?.account_configuration_method
                       );
                       handleOrgIdModalOpen();
                     }}
@@ -391,14 +418,17 @@ function MarketplaceService() {
         renderCell: (params) => {
           const status = params?.row?.status;
 
-          const healthStatusPercent = calculateInstanceHealthPercentage(
+          if (status === "STOPPED")
+            return <StatusChip category="unknown" label="N/A" />;
+
+          const healthPercentage = calculateInstanceHealthPercentage(
             params.row.detailedNetworkTopology,
             status
           );
 
           return (
             <GradientProgressBar
-              percentage={healthStatusPercent}
+              percentage={healthPercentage}
               marginTop="10px"
             />
           );
@@ -434,7 +464,7 @@ function MarketplaceService() {
     ) {
       columnDefinition.splice(1, 0, {
         field: "cloud_provider",
-        headerName: "Account Config ID",
+        headerName: "Account ID",
         flex: 0.8,
         align: "center",
         headerAlign: "center",
@@ -460,28 +490,34 @@ function MarketplaceService() {
         headerAlign: "center",
         minWidth: 130,
         renderCell: (params) => {
-          return !isCurrentResourceBYOA ? (
-            params.row.cloud_provider === "aws" ? (
-              <AwsLogo />
-            ) : params.row.cloud_provider === "azure" ? (
-              <AzureLogo />
-            ) : params.row.cloud_provider === "gcp" ? (
-              <GcpLogo />
-            ) : (
-              <GridCellExpand
-                value={"Everywhere"}
-                width={params.colDef.computedWidth}
-              />
-            )
-          ) : (
+          const cloudProvider = isCurrentResourceBYOA
+            ? params.row.result_params.cloud_provider
+            : params.row.cloud_provider;
+
+          return cloudProvider === "aws" ? (
             <AwsLogo />
+          ) : cloudProvider === "gcp" ? (
+            <GcpLogo />
+          ) : cloudProvider === "azure" ? (
+            <AzureLogo />
+          ) : (
+            "-"
           );
         },
       });
     }
 
     return columnDefinition;
-  }, [serviceId, selectedResource, resourceInstanceList]);
+  }, [
+    serviceId,
+    selectedResource,
+    resourceInstanceList,
+    currentSource,
+    environmentId,
+    isCurrentResourceBYOA,
+    subscriptionData?.id,
+    productTierId,
+  ]);
 
   const snackbar = useSnackbar();
   const dispatch = useDispatch();
@@ -489,6 +525,7 @@ function MarketplaceService() {
   const handleConfirmationClose = () => {
     setIsConfirmationDialog(false);
   };
+  let selectedResourceInstance = null;
 
   const loadingStatus = useSelector(selectResourceInstanceListLoadingStatus);
   const isLoading = loadingStatus === loadingStatuses.loading;
@@ -498,6 +535,7 @@ function MarketplaceService() {
     },
     onSubmit: (values) => {
       if (values.deleteme === "deleteme") {
+        /*eslint-disable-next-line no-use-before-define*/
         deleteResourceInstanceMutation.mutate();
       } else {
         snackbar.showError("Please enter deleteme");
@@ -529,16 +567,20 @@ function MarketplaceService() {
       return Promise.allSettled(instanceDeletePromises);
     },
     {
-      onSuccess: async (response) => {
+      onSuccess: async () => {
+        if (selectedResource?.id.includes("r-injectedaccountconfig")) {
+          snackbar.showSuccess("Deleting Cloud Provider Account");
+        } else {
+          snackbar.showSuccess("Deleting Resource Instance");
+        }
         setSelectionModel([]);
         fetchResourceInstances(selectedResource);
-        //handleClose();
         deleteformik.resetForm();
         setCreationDrawerOpen(false);
         setViewInfoDrawerOpen(false);
         setIsConfirmationDialog(false);
       },
-      onError: (error) => {
+      onError: () => {
         deleteformik.resetForm();
       },
     }
@@ -553,7 +595,8 @@ function MarketplaceService() {
           service.serviceAPIVersion,
           service.serviceEnvironmentURLKey,
           service.serviceModelURLKey,
-          subscriptionData?.id
+          subscriptionData?.id,
+          cloudProvider
         );
       }
     },
@@ -568,7 +611,6 @@ function MarketplaceService() {
         document.body.removeChild(link);
         URL.revokeObjectURL(href);
       },
-      onError: (error) => { },
     }
   );
 
@@ -584,17 +626,8 @@ function MarketplaceService() {
       setIsConfirmationDialog(false);
       snackbar.showError("Select a resource to modify");
     } else {
-      //setIsConfirmationDialog(true);
       setUpdateDrawerOpen(true);
     }
-  };
-
-  const closeUpdateDrawer = () => {
-    setUpdateDrawerOpen(false);
-  };
-
-  const closeCreationDrawer = () => {
-    setCreationDrawerOpen(false);
   };
 
   const closeSupportDrawer = () => {
@@ -609,11 +642,19 @@ function MarketplaceService() {
     setViewInfoDrawerOpen(false);
   };
 
+  let defaultCloudProvider = "";
+  if (service?.cloudProviders?.length > 0) {
+    if (service?.cloudProviders?.includes("aws")) {
+      defaultCloudProvider = "aws";
+    } else if (service?.cloudProviders?.includes("gcp")) {
+      defaultCloudProvider = "gcp";
+    }
+  }
   //create resource instance
   const createformik = useFormik({
     initialValues: {
       serviceId: serviceId,
-      cloud_provider: "",
+      cloud_provider: defaultCloudProvider,
       network_type: "",
       region: "",
       requestParams: { ...requestParams },
@@ -626,13 +667,18 @@ function MarketplaceService() {
       resourceKey: selectedResource.key,
       subscriptionId: subscriptionData?.id,
       ...(isCurrentResourceBYOA
-        ? { configMethod: ACCOUNT_CREATION_METHODS.CLOUDFORMATION }
+        ? {
+            configMethod:
+              defaultCloudProvider == CLOUD_PROVIDERS.aws
+                ? ACCOUNT_CREATION_METHODS.CLOUDFORMATION
+                : ACCOUNT_CREATION_METHODS.TERRAFORM,
+          }
         : {}),
     },
     enableReinitialize: true,
     onSubmit: (values) => {
       const data = {};
-      for (let key in values) {
+      for (const key in values) {
         if (values[key]) {
           if (values[key] === "requestParams") {
             data["requestParams"] = cloneDeep(values["requestParams"]);
@@ -641,10 +687,11 @@ function MarketplaceService() {
           }
         }
       }
+
       async function getSchema() {
         try {
           let schemaArray = [];
-          let schema = await describeServiceOfferingResource(
+          const schema = await describeServiceOfferingResource(
             serviceId,
             selectedResource.id,
             "none"
@@ -677,7 +724,7 @@ function MarketplaceService() {
                 break;
               case "Float64":
                 {
-                  var output = Number(data.requestParams[key]);
+                  const output = Number(data.requestParams[key]);
                   {
                     if (!Number.isNaN(output)) {
                       data.requestParams[key] = Number(data.requestParams[key]);
@@ -699,22 +746,36 @@ function MarketplaceService() {
 
           //remove empty fields from data.requestParams
           //remove the field from payload if it has an empty value ("", )
-          for (let key in data.requestParams) {
-            let value = data.requestParams[key];
+          for (const key in data.requestParams) {
+            const value = data.requestParams[key];
 
-            if (value === undefined) {
+            //for gcp cloud provider remove cloud_provider_native_network_id field
+            if (
+              key === "cloud_provider_native_network_id" &&
+              values.cloud_provider === "gcp"
+            ) {
+              delete data.requestParams[key];
+            }
+
+            if (value === undefined || value === "") {
               delete data.requestParams[key];
             }
           }
+
           //Check if any of the required parameters is not present in payload
           //cloud_provider, network_type and region if required should be present as direct property of data object
           //other required parameters should be present in data.requestParameters
           let isError = false;
           let requiredFieldName = "";
-          for (let param of schemaArray) {
+          for (const param of schemaArray) {
             if (param.required) {
               if (
-                ["cloud_provider", "network_type", "region"].includes(param.key)
+                [
+                  "cloud_provider",
+                  "network_type",
+                  "region",
+                  "custom_network_id",
+                ].includes(param.key)
               ) {
                 if (data[param.key] === undefined) {
                   isError = true;
@@ -731,6 +792,7 @@ function MarketplaceService() {
                 }
               }
             }
+
             if (
               param.key === "custom_availability_zone" &&
               data.requestParams[param.key] === ""
@@ -739,14 +801,43 @@ function MarketplaceService() {
               requiredFieldName = param.displayName;
               break;
             }
+
+            if (isCurrentResourceBYOA) {
+              // For BYOA Cloud Provider Resource, we need to set a few additional parameters
+              if (values.cloud_provider === "gcp") {
+                if (!data.requestParams.gcp_project_number) {
+                  isError = true;
+                  requiredFieldName = "Project Number";
+                } else if (!data.requestParams.gcp_project_id) {
+                  isError = true;
+                  requiredFieldName = "Project ID";
+                } else {
+                  data.requestParams.gcp_service_account_email =
+                    getGcpServiceEmail(
+                      data.requestParams.gcp_project_id,
+                      selectedUser.orgId.toLowerCase()
+                    );
+                }
+              } else if (values.cloud_provider === "aws") {
+                if (!data.requestParams.aws_account_id) {
+                  isError = true;
+                  requiredFieldName = "Account ID";
+                }
+              }
+
+              data.requestParams.account_configuration_method =
+                values.configMethod;
+            }
           }
+
           if (isError) {
             snackbar.showError(`${requiredFieldName} is required`);
           } else {
+            /* eslint-disable-next-line no-use-before-define */
             createResourceInstanceMutation.mutate(data);
           }
         } catch (err) {
-          console.error("error", err?.response?.data);
+          console.error("error", err);
         } finally {
           setIsCreateInstanceSchemaFetching(false);
         }
@@ -798,6 +889,11 @@ function MarketplaceService() {
             setCloudFormationTemplateUrl(url);
           }
 
+          const urlNoLB =
+            resourceInstance?.result_params?.cloudformation_url_no_lb;
+          if (urlNoLB) {
+            setCloudFormationTemplateUrlNoLB(urlNoLB);
+          }
           snackbar.showSuccess("Cloud Provider Account Created");
           setAccountConfigStatus(resourceInstance?.status);
           setAccountConfigId(resourceInstance?.id);
@@ -812,7 +908,6 @@ function MarketplaceService() {
         createformik.resetForm();
         setCreationDrawerOpen(false);
       },
-      onError: (error) => { },
     }
   );
 
@@ -821,96 +916,75 @@ function MarketplaceService() {
   useEffect(() => {
     if (!isOrgIdModalOpen) {
       setIsAccountCreation(false);
-      setIsCloudFormation(false);
+      setAccountConfigMethod(undefined);
       setCloudProvider("");
       setCloudFormationTemplateUrl("");
+      setCloudFormationTemplateUrlNoLB("");
       setAccountConfigStatus("");
       setAccountConfigId("");
     }
   }, [isOrgIdModalOpen]);
 
   const updateResourceInstanceMutation = useMutation(updateResourceInstance, {
-    onSuccess: async (response) => {
+    onSuccess: async () => {
       setSelectionModel([]);
       setUpdateDrawerOpen(false);
       fetchResourceInstances(selectedResource);
+      /*eslint-disable-next-line no-use-before-define*/
       updateformik.resetForm();
       snackbar.showSuccess("Updated Resource Instance");
     },
-    onError: (error) => { },
   });
 
   //-----------------------modify ends-------------------------------------
 
   const startResourceInstanceMutation = useMutation(startResourceInstance, {
-    onSuccess: async (response) => {
+    onSuccess: async () => {
       setSelectionModel([]);
 
       fetchResourceInstances(selectedResource);
       snackbar.showSuccess("Starting Resource Instance");
     },
-    onError: (error) => { },
   });
 
   const stopResourceInstanceMutation = useMutation(stopResourceInstance, {
-    onSuccess: async (response) => {
+    onSuccess: async () => {
       setSelectionModel([]);
 
       fetchResourceInstances(selectedResource);
       snackbar.showSuccess("Stopping Resource Instance");
     },
-    onError: (error) => { },
   });
 
   const restartResourceInstanceMutation = useMutation(restartResourceInstance, {
-    onSuccess: async (response) => {
+    onSuccess: async () => {
       setSelectionModel([]);
       fetchResourceInstances(selectedResource);
       snackbar.showSuccess("Rebooting Resource Instance");
     },
-    onError: (error) => { },
   });
 
   const openResourceInstanceMutation = useMutation(connectToInstance, {
-    onError: (error) => {
-      snackbar.showError("Failed to open resource instance in browser");
-    },
   });
+
+  const handleConnect = () => {
+    const resourceInstance = selectedResourceInstances[0];
+    const resourceInstanceResource = Object.values(resourceInstance.detailedNetworkTopology).find(r => r.publiclyAccessible && r.clusterEndpoint?.length && !r.resourceKey.startsWith("omnistrateobserv"));
+    console.log({ resourceInstance, resourceInstanceResource });
+
+    const payload = {
+      host: resourceInstanceResource?.clusterEndpoint,
+      port: resourceInstanceResource.clusterPorts[0],
+      region: resourceInstance.region,
+      username: resourceInstance.result_params.falkordbUser
+    }
+    openResourceInstanceMutation.mutate(payload);
+
+  };
+
 
   const handleRefresh = () => {
     fetchResourceInstances(selectedResource);
-  };
-
-  const handleStart = () => {
-    if (isStartActionEnabled) {
-      startResourceInstanceMutation.mutate(updateformik.values);
-    }
-  };
-
-  const handleStop = () => {
-    if (isStopActionEnabled) {
-      stopResourceInstanceMutation.mutate(updateformik.values);
-    }
-  };
-
-  const handleReboot = () => {
-    if (isRebootActiondEnabled) {
-      restartResourceInstanceMutation.mutate(updateformik.values);
-    }
-  };
-
-  const handleConnect = () => {
-    if (isConnectActionEnabled) {
-      const resourceInstance = selectedResourceInstances[0];
-      const resourceInstanceResource = Object.values(resourceInstance.detailedNetworkTopology).find(r => r.resourceKey.startsWith('node'));
-      const payload = {
-        host: resourceInstanceResource?.clusterEndpoint,
-        port: resourceInstanceResource.clusterPorts[0],
-        region: resourceInstance.region,
-        username: resourceInstance.result_params.falkordbUser
-      }
-      openResourceInstanceMutation.mutate(payload);
-    }
   };
 
   const AccountConfigCell = ({ id, logo: Logo }) => {
@@ -941,14 +1015,14 @@ function MarketplaceService() {
       isSubscriptionDataFetched
     ) {
       if (service?.resourceParameters?.length > 0) {
-        let cloudProviderRes = service.resourceParameters.filter(
+        const cloudProviderRes = service.resourceParameters.filter(
           // this is a temporary fix to unblock production for customer
           // but backend should ensure that id should always be exactly r-injectedaccountconfig
-          (param) => param.resourceId.startsWith("r-injectedaccountconfig")
+          (param) => param.resourceId?.startsWith("r-injectedaccountconfig")
         );
 
         if (cloudProviderRes?.length > 0) {
-          let cloudProviderResourceInfo = {
+          const cloudProviderResourceInfo = {
             key: cloudProviderRes[0].urlKey,
             id: cloudProviderRes[0].resourceId,
             name: cloudProviderRes[0].name,
@@ -970,6 +1044,8 @@ function MarketplaceService() {
             id: selectedResource.resourceId,
             name: selectedResource.name,
             isDeprecated: selectedResource.isDeprecated,
+            isBackupEnabled: selectedResource.isBackupEnabled,
+            resourceType: selectedResource.resourceType,
           };
         } else {
           selectedResourceInfo = {
@@ -977,6 +1053,8 @@ function MarketplaceService() {
             id: service?.resourceParameters[0].resourceId,
             name: service?.resourceParameters[0].name,
             isDeprecated: service?.resourceParameters[0].isDeprecated,
+            isBackupEnabled: service?.resourceParameters[0].isBackupEnabled,
+            resourceType: selectedResource.resourceType,
           };
         }
 
@@ -989,6 +1067,7 @@ function MarketplaceService() {
         setViewInfoDrawerOpen(false);
       }
     }
+    /*eslint-disable-next-line react-hooks/exhaustive-deps*/
   }, [servicesLoadingStatus, resourceId, isSubscriptionDataFetched]);
 
   async function fetchCloudProviderResourceInstances(
@@ -1007,7 +1086,7 @@ function MarketplaceService() {
 
     const cloudProviderResourceInstanceIds =
       resourceInstanceIdsResponse.data.ids;
-    let cloudProviderResInstances = [];
+    const cloudProviderResInstances = [];
 
     await Promise.all(
       cloudProviderResourceInstanceIds.map(async (instanceId) => {
@@ -1035,7 +1114,7 @@ function MarketplaceService() {
           cloudProviderResInstances.push(cloudProviderAccount);
         }
         //gcp
-        if (cloudProviderResourceInstance?.result_params?.gcp_account_id) {
+        if (cloudProviderResourceInstance?.result_params?.gcp_project_id) {
           const cloudProviderAccount = {
             id: instanceId,
             type: "gcp",
@@ -1115,7 +1194,7 @@ function MarketplaceService() {
       }
     } catch (err) {
       dispatch(setResourceInstanceListLoadingStatus(loadingStatuses.error));
-      console.error("error", err?.response?.data);
+      console.error("error", err);
       if (
         resourceInfo.id === currentResourceInfo.current.resourceId &&
         resourceInfo.key === currentResourceInfo.current.resourceKey &&
@@ -1127,6 +1206,10 @@ function MarketplaceService() {
         timeoutID.current = id;
       }
     }
+  }
+
+  function fetchResourceInstancesOfSelectedResource() {
+    return fetchResourceInstances(selectedResource);
   }
 
   async function getResourceSchema(resourceId) {
@@ -1162,7 +1245,7 @@ function MarketplaceService() {
       selectedInstances.push(instance);
     });
     setSelectedResourceInstances(selectedInstances);
-  }, [selectionModel]);
+  }, [selectionModel, resourceInstancesHashmap]);
 
   const openClickDelete = () => {
     setIsConfirmationDialog(true);
@@ -1170,50 +1253,8 @@ function MarketplaceService() {
 
   const isSingleInstanceSelected = selectedResourceInstances.length === 1;
 
-  let isStartActionEnabled = false;
-  let isStopActionEnabled = false;
-  let isRebootActiondEnabled = false;
-  let isModifyActionEnabled = false;
-  let isDeleteActionEnabled = false;
-  let isConnectActionEnabled = false;
-
-  let selectedResourceInstance = null;
   if (isSingleInstanceSelected) {
     selectedResourceInstance = selectedResourceInstances[0];
-    if (selectedResourceInstance) {
-      const instanceStatus = selectedResourceInstance.status;
-
-      //enable start action depending on selected Service Component status
-      if (instanceStatus === instanceStatuses.STOPPED) {
-        isStartActionEnabled = true;
-      }
-      //enable stop action
-      if (instanceStatus === instanceStatuses.RUNNING) {
-        isStopActionEnabled = true;
-        isConnectActionEnabled = true;
-      }
-
-      //enable modify action
-      if (
-        [
-          instanceStatuses.FAILED,
-          instanceStatuses.RUNNING,
-          instanceStatuses.READY,
-          instanceStatuses.STOPPED,
-        ].includes(instanceStatus)
-      ) {
-        isModifyActionEnabled = true;
-      }
-
-      //enable reboot action
-      if (instanceStatus === instanceStatuses.RUNNING) {
-        isRebootActiondEnabled = true;
-      }
-
-      if (instanceStatus !== instanceStatuses.DELETING) {
-        isDeleteActionEnabled = true;
-      }
-    }
   }
 
   //--------------------modify Service Component instance---------------------------
@@ -1221,7 +1262,9 @@ function MarketplaceService() {
     initialValues: {
       serviceId: serviceId,
       id: selectedResourceInstance?.id,
-      cloud_provider: selectedResourceInstance?.cloud_provider,
+      cloud_provider:
+        selectedResourceInstance?.result_params?.cloud_provider ||
+        selectedResourceInstance?.cloud_provider, // The first item would be defined in case of BYOA Provider Account Instances
       network_type: selectedResourceInstance?.network_type,
       region: selectedResourceInstance?.region,
       serviceProviderId: service?.serviceProviderId,
@@ -1231,79 +1274,136 @@ function MarketplaceService() {
       serviceModelKey: service?.serviceModelURLKey,
       productTierKey: service?.productTierURLKey,
       resourceKey: selectedResource.key,
-      requestParams: selectedResourceInstance?.result_params,
+      requestParams: selectedResourceInstance?.result_params || {},
       subscriptionId: subscriptionData?.id,
     },
-    onSubmit: (values) => {
+    onSubmit: async (values) => {
       const data = { ...values };
-      async function getSchema() {
-        try {
-          let schemaArray = [];
-          let schema = await describeServiceOfferingResource(
-            serviceId,
-            selectedResource.id,
-            values.id
-          );
 
-          schema.data.apis.forEach((api) => {
-            if (api.verb === "UPDATE") {
-              schemaArray = api.inputParameters;
+      try {
+        let schemaArray = [];
+        const schema = await describeServiceOfferingResource(
+          serviceId,
+          selectedResource.id,
+          values.id
+        );
+
+        schema.data.apis.forEach((api) => {
+          if (api.verb === "UPDATE") {
+            schemaArray = api.inputParameters;
+          }
+        });
+
+        schemaArray
+          .filter((field) => field.type === "Boolean" && field.custom === true)
+          .forEach((field) => {
+            if (!data.requestParams[field.key]) {
+              data.requestParams[field.key] = "false";
             }
           });
 
-          schemaArray
-            .filter(
-              (field) => field.type === "Boolean" && field.custom === true
-            )
-            .forEach((field) => {
-              if (!data.requestParams[field.key]) {
-                data.requestParams[field.key] = "false";
-              }
-            });
+        // Only send the fields that have changed
+        const requestParams = {},
+          oldResultParams = selectedResourceInstance?.result_params;
 
-          Object.keys(data.requestParams).forEach((key) => {
-            const result = schemaArray.find((schemaParam) => {
-              return schemaParam.key === key;
-            });
-
-            switch (result?.type) {
-              case "Number":
-                {
-                  data.requestParams[key] = Number(data.requestParams[key]);
-                }
-                break;
-              case "Float64":
-                {
-                  var output = Number(data.requestParams[key]);
-                  {
-                    if (!Number.isNaN(output)) {
-                      data.requestParams[key] = Number(data.requestParams[key]);
-                    } else {
-                      snackbar.showError(`Invalid data in ${key}`);
-                    }
-                  }
-                }
-                break;
-              case "Boolean":
-                {
-                  if (data.requestParams[key] === "true")
-                    data.requestParams[key] = true;
-                  else data.requestParams[key] = false;
-                }
-                break;
-            }
-          });
-
-          updateResourceInstanceMutation.mutate(data);
-        } catch (err) {
-          //console.error("error", err);
+        for (const key in data.requestParams) {
+          const value = data.requestParams[key];
+          if (oldResultParams[key] !== value) {
+            requestParams[key] = value;
+          }
         }
+
+        data.requestParams = requestParams;
+
+        if (!Object.keys(requestParams).length) {
+          return snackbar.showError(
+            "Please update at least one field before submitting"
+          );
+        }
+
+        Object.keys(data.requestParams).forEach((key) => {
+          const result = schemaArray.find((schemaParam) => {
+            return schemaParam.key === key;
+          });
+
+          switch (result?.type) {
+            case "Number":
+              data.requestParams[key] = Number(data.requestParams[key]);
+              break;
+            case "Float64":
+              const output = Number(data.requestParams[key]);
+              if (!Number.isNaN(output)) {
+                data.requestParams[key] = Number(data.requestParams[key]);
+              } else {
+                snackbar.showError(`Invalid data in ${key}`);
+              }
+              break;
+            case "Boolean":
+              if (data.requestParams[key] === "true")
+                data.requestParams[key] = true;
+              else data.requestParams[key] = false;
+              break;
+          }
+        });
+
+        // Remove Empty Fields from data.requestParams
+        for (const key in data.requestParams) {
+          const value = data.requestParams[key];
+
+          if (
+            value === undefined ||
+            (typeof value === "string" && !value.trim())
+          ) {
+            delete data.requestParams[key];
+          }
+        }
+
+        updateResourceInstanceMutation.mutate(data);
+      } catch (err) {
+        console.error("error", err);
       }
-      getSchema();
+
     },
     validateOnChange: false,
     enableReinitialize: true,
   });
+
+  const closeUpdateDrawer = () => {
+    setUpdateDrawerOpen(false);
+
+    updateformik.resetForm();
+  };
+
+  const closeCreationDrawer = () => {
+    setCreationDrawerOpen(false);
+    createformik.resetForm();
+  };
+
+  const handleStart = () => {
+    startResourceInstanceMutation.mutate(updateformik.values);
+  };
+
+  const handleStop = () => {
+    stopResourceInstanceMutation.mutate(updateformik.values);
+  };
+
+  const handleReboot = () => {
+    restartResourceInstanceMutation.mutate(updateformik.values);
+  };
+
+  //Capacity payload data
+  const capacityData = useMemo(() => {
+    return {
+      instanceId: selectedResourceInstance?.id,
+      serviceProviderId: service?.serviceProviderId,
+      serviceKey: service?.serviceURLKey,
+      serviceAPIVersion: service?.serviceAPIVersion,
+      serviceEnvironmentKey: service?.serviceEnvironmentURLKey,
+      serviceModelKey: service?.serviceModelURLKey,
+      productTierKey: service?.productTierURLKey,
+      resourceKey: selectedResource?.key,
+    };
+  }, [selectedResourceInstance, service, selectedResource]);
 
   if (isServiceLoading || isLoadingSubscription) {
     return (
@@ -1313,13 +1413,10 @@ function MarketplaceService() {
         isNotShow
         accessPage
         marketplacePage={currentSource === "access" ? false : true}
-        SidebarUI={<div></div>}
+        SidebarUI={""}
         customLogo
         currentSubscription={subscriptionData}
       >
-        <Head>
-          <title>Resources</title>
-        </Head>
         <Box
           display="flex"
           justifyContent="center"
@@ -1334,16 +1431,6 @@ function MarketplaceService() {
     );
   }
 
-  const modelType = service?.serviceModelType;
-  let deploymentHeader = "";
-  if (modelType === "CUSTOMER_HOSTED") {
-    deploymentHeader = "Provider Account";
-  } else if (modelType === "OMNISTRATE_HOSTED") {
-    deploymentHeader = "Omnistrate Account";
-  } else if (modelType === "BYOA") {
-    deploymentHeader = "Bring Your Own Account (BYOA)";
-  }
-
   const servicePlanUrlLink = getMarketplaceRoute(
     serviceId,
     environmentId,
@@ -1354,6 +1441,7 @@ function MarketplaceService() {
     serviceId,
     environmentId,
     productTierId,
+    currentSource,
     subscriptionData?.id
   );
 
@@ -1372,10 +1460,7 @@ function MarketplaceService() {
         accessPage
         currentSubscription={subscriptionData}
       >
-        <Head>
-          <title>Resources</title>
-        </Head>
-        <ServiceOfferingUnavailableUI />
+        <OfferingUnavailableUI />
       </DashboardLayout>
     );
   }
@@ -1416,9 +1501,6 @@ function MarketplaceService() {
           />
         }
       >
-        <Head>
-          <title>Resources</title>
-        </Head>
         <Card mt={3} style={{ height: "700px", width: "100%" }}>
           <Box>
             <Image
@@ -1513,6 +1595,8 @@ function MarketplaceService() {
     }
   }
 
+  const isCustomNetworksView = viewType === "custom-networks";
+
   if (!isLoadingSubscription && !subscriptionData?.id) {
     return (
       <DashboardLayout
@@ -1527,9 +1611,6 @@ function MarketplaceService() {
         currentSubscription={subscriptionData}
       >
         <>
-          <Head>
-            <title>Resources</title>
-          </Head>
           <SubscriptionNotFoundUI />
         </>
       </DashboardLayout>
@@ -1538,7 +1619,7 @@ function MarketplaceService() {
 
   if (service) {
     const modelType = service?.serviceModelType;
-    let deploymentHeader = getTheHostingModel(modelType);
+    const deploymentHeader = getTheHostingModel(modelType);
 
     return (
       <DashboardLayout
@@ -1568,17 +1649,27 @@ function MarketplaceService() {
             currentSource={currentSource}
             selectedResource={selectedResource.key}
             currentSubscription={subscriptionData}
+            isCustomNetworkEnabled={isCustomNetworkEnabled}
+            isCustomNetworkActive={isCustomNetworksView}
           />
         }
       >
-        <Head>
-          <title>Resources</title>
-        </Head>
-        <LogoHeader
-          title={`${selectedResource?.name} Instances`}
-          desc="Some Description"
-          newicon={resourceInstnaceIcon}
-        />
+        <Stack
+          direction="row"
+          justifyContent={"space-between"}
+          alignItems={"center"}
+        >
+          <LogoHeader
+            title={
+              isCustomNetworksView
+                ? "Custom Networks"
+                : `${selectedResource?.name} Instances`
+            }
+            desc="Some Description"
+            newicon={resourceInstnaceIcon}
+          />
+          <AccessServiceHealthStatus />
+        </Stack>
 
         <AccessHeaderCard
           serviceName={service?.serviceName}
@@ -1589,262 +1680,84 @@ function MarketplaceService() {
           currentSubscription={subscriptionData}
           cloudProviders={service?.cloudProviders}
         />
-
-        <Card mt={3}>
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            mb={2}
-          >
-            <Stack direction="row" alignItems="center" gap="20px">
-              <HeaderTitle
-                title={`List of ${selectedResource?.name} Resources`}
-                desc={`Details of selected ${selectedResource?.name} resource instances`}
-              />
-
-              {loadingStatus === loadingStatuses.refetching && (
-                <LoadingSpinnerSmall size={20} sx={{ color: "#7F56D9" }} />
-              )}
-            </Stack>
-            <Box>
-              <Box>
-                <Box display="flex" justifyContent="right">
-                  <Button
-                    variant="contained"
-                    sx={{ ml: 1.5 }}
-                    disabled={
-                      !service.resourceParameters ||
-                      selectedResource.isDeprecated ||
-                      !createAccessServiceAllowed
-                    }
-                    onClick={openCreationDrawer}
-                    startIcon={<AddIcon />}
-                  >
-                    Create {selectedResource.name} Instance
-                  </Button>
-                </Box>
-                <Box>
-                  {selectedResource.isDeprecated && (
-                    <Box display="flex" sx={{ marginTop: "15px" }}>
-                      <Box>
-                        <DeprecateIcon />
-                      </Box>
-                      <Text
-                        size="small"
-                        weight="semibold"
-                        sx={{
-                          marginLeft: "10px",
-                          marginTop: "3px",
-                          color: "#B42318",
-                        }}
-                      >
-                        {"Resource deprecated, instance creation not allowed"}{" "}
-                      </Text>
-                    </Box>
-                  )}
-                </Box>
-              </Box>
-            </Box>
-          </Box>
-          <Divider sx={{ marginBottom: 1.5 }} />
-
-          <Box
-            display="flex"
-            justifyContent="flex-end"
-            alignItems="center"
-            marginBottom={1.5}
-          >
-            <Button
-              variant="outlined"
-              disabled={resourceInstanceList.length == 0}
-              startIcon={
-                resourceInstanceList.length == 0 ? (
-                  <RefreshIconDisabled />
-                ) : (
-                  <RefreshIcon />
-                )
-              }
-              sx={{ marginRight: 2 }}
-              onClick={handleRefresh}
-            >
-              Refresh
-            </Button>
-
-            {!isCurrentResourceBYOA && (
-              <Button
-                variant="outlined"
-                startIcon={
-                  <ConnectIcon
-                    color={
-                      !isConnectActionEnabled &&
-                      "#EAECF0"
-                    }
-                  />
-                }
-                sx={{ marginRight: 2 }}
-                disabled={
-                  !isConnectActionEnabled
-                }
-                onClick={handleConnect}
-              >
-                Connect
-              </Button>
-            )}
-
-            {!isCurrentResourceBYOA && (
-              <Button
-                variant="outlined"
-                startIcon={
-                  <RebootIcon
-                    color={
-                      (!isRebootActiondEnabled ||
-                        !modifyAccessServiceAllowed) &&
-                      "#EAECF0"
-                    }
-                  />
-                }
-                sx={{ marginRight: 2 }}
-                disabled={
-                  !isRebootActiondEnabled || !modifyAccessServiceAllowed
-                }
-                onClick={handleReboot}
-              >
-                Reboot
-              </Button>
-            )}
-            {!isCurrentResourceBYOA && (
-              <Button
-                variant="outlined"
-                startIcon={
-                  <PlayIcon
-                    color={
-                      (!isStartActionEnabled || !modifyAccessServiceAllowed) &&
-                      "#EAECF0"
-                    }
-                  />
-                }
-                sx={{ marginRight: 2 }}
-                disabled={!isStartActionEnabled || !modifyAccessServiceAllowed}
-                onClick={handleStart}
-              >
-                Start
-              </Button>
-            )}
-            {!isCurrentResourceBYOA && (
-              <Button
-                variant="outlined"
-                startIcon={
-                  <StopIcon
-                    color={
-                      (!isStopActionEnabled || !modifyAccessServiceAllowed) &&
-                      "#EAECF0"
-                    }
-                  />
-                }
-                sx={{ marginRight: 2 }}
-                disabled={!isStopActionEnabled || !modifyAccessServiceAllowed}
-                onClick={handleStop}
-              >
-                Stop
-              </Button>
-            )}
-
-            <Button
-              variant="outlined"
-              startIcon={
-                <EditIcon
-                  color={
-                    (!isModifyActionEnabled || !modifyAccessServiceAllowed) &&
-                    "#EAECF0"
+        {isCustomNetworksView ? (
+          <CustomNetworks
+            cloudProviders={service?.cloudProviders}
+            supportedAWSRegions={service?.awsRegions || []}
+            supportedGCPRegions={service?.gcpRegions || []}
+            serviceId={serviceId}
+            productTierId={productTierId}
+          />
+        ) : (
+          <>
+            <Box mt={3}>
+              <DataGrid
+                components={{
+                  Header: InstancesTableHeader,
+                }}
+                hideFooterSelectedRowCount
+                disableColumnMenu
+                columns={columns}
+                rows={isLoading ? [] : filteredInstances}
+                checkboxSelection
+                selectionModel={selectionModel}
+                disableSelectionOnClick
+                sx={{
+                  "& .MuiDataGrid-columnHeaderCheckbox .MuiDataGrid-columnHeaderTitleContainer":
+                  {
+                    display: "none",
+                  },
+                }}
+                onCellClick={(props) => {
+                  const { field } = props;
+                  if (field === "view") {
+                    setViewResourceInfo(props.row);
+                    openViewInfoDrawer();
                   }
-                />
-              }
-              sx={{ marginRight: 2 }}
-              disabled={!isModifyActionEnabled || !modifyAccessServiceAllowed}
-              onClick={openUpdateDrawer}
-            >
-              Modify
-            </Button>
-
-            <Button
-              variant="outlined"
-              startIcon={
-                <DeleteIcon
-                  color={
-                    (!isDeleteActionEnabled || !deleteAccessServiceAllowed) &&
-                    "#EAECF0"
-                  }
-                />
-              }
-              disabled={!isDeleteActionEnabled || !deleteAccessServiceAllowed}
-              onClick={() => {
-                openClickDelete();
-              }}
-            >
-              Delete
-            </Button>
-          </Box>
-
-          <Divider sx={{ mb: 5 }} />
-
-          {isLoading ? (
-            <Box
-              display="flex"
-              justifyContent="center"
-              mt="200px"
-              marginBottom="300px"
-            >
-              <CircularProgress />
-            </Box>
-          ) : (
-            <>
-              <Box sx={{ height: 640 }}>
-                <DataGrid
-                  hideFooterSelectedRowCount
-                  disableColumnMenu
-                  rowHeight={76}
-                  columns={columns}
-                  rows={resourceInstanceList}
-                  pageSize={10}
-                  rowsPerPageOptions={[10]}
-                  checkboxSelection
-                  selectionModel={selectionModel}
-                  disableSelectionOnClick
-                  sx={{
-                    "& .MuiDataGrid-columnHeaderCheckbox .MuiDataGrid-columnHeaderTitleContainer":
-                    {
-                      display: "none",
+                }}
+                componentsProps={{
+                  header: {
+                    count: filteredInstances?.length,
+                    selectedInstance: selectedResourceInstance,
+                    isFetchingInstances: isLoading,
+                    selectedResourceName: selectedResource?.name,
+                    handleRefresh,
+                    searchText,
+                    setSearchText,
+                    isCurrentResourceBYOA,
+                    handleRestart: handleReboot,
+                    handleStart,
+                    handleStop,
+                    handleRestore: handleRestoreInstanceModalOpen,
+                    handleAddCapacity: () => {
+                      setShowCapacityDialog(true);
+                      setCurrentCapacityAction("add");
                     },
-                  }}
-                  onCellClick={(props) => {
-                    const { field } = props;
-                    if (field === "view") {
-                      setViewResourceInfo(props.row);
-                      openViewInfoDrawer();
-                    }
-                  }}
-                  components={{
-                    NoRowsOverlay: () => (
-                      <Stack
-                        height="100%"
-                        alignItems="center"
-                        justifyContent="center"
-                      >
-                        No Instance of {selectedResource.name} found for{" "}
-                        {service?.serviceName}
-                      </Stack>
-                    ),
-                  }}
-                  onSelectionModelChange={(newSelection) => {
-                    selectSingleItem(
-                      newSelection,
-                      selectionModel,
-                      setSelectionModel
-                    );
-                  }}
-                />
-              </Box>
+                    handleRemoveCapacity: () => {
+                      setShowCapacityDialog(true);
+                      setCurrentCapacityAction("remove");
+                    },
+                    handleConnect,
+                    handleModify: openUpdateDrawer,
+                    handleCreate: openCreationDrawer,
+                    handleDelete: openClickDelete,
+                    maxNumberOfInstancesReached,
+                    roleType: subscriptionData?.roleType,
+                    isDeprecated: selectedResource?.isDeprecated,
+                    isResourceParameters: service?.resourceParameters,
+                    isVisibleRestore: selectedResource?.isBackupEnabled,
+                  },
+                }}
+                noRowsText={`No instance of ${selectedResource.name} found for ${service?.serviceName}`}
+                onSelectionModelChange={(newSelection) => {
+                  selectSingleItem(
+                    newSelection,
+                    selectionModel,
+                    setSelectionModel
+                  );
+                }}
+                loading={isLoading}
+              />
               <SideDrawerRight
                 open={viewInfoDrawerOpen}
                 closeDrawer={closeViewInfoDrawer}
@@ -1875,6 +1788,17 @@ function MarketplaceService() {
                   />
                 }
               />
+
+              <CapacityDialog
+                open={showCapacityDialog}
+                handleClose={() => {
+                  setShowCapacityDialog(false);
+                }}
+                data={capacityData}
+                currentCapacityAction={currentCapacityAction}
+                contextType="access"
+                refetch={fetchResourceInstancesOfSelectedResource}
+              />
               {isCurrentResourceBYOA ? (
                 <DeleteAccountConfigConfirmationDialog
                   open={isConfirmationDialog}
@@ -1896,39 +1820,42 @@ function MarketplaceService() {
                   isDeleteEnable={true}
                 />
               )}
-            </>
-          )}
-        </Card>
-        <SideDrawerRight
-          open={creationDrawerOpen}
-          closeDrawer={closeCreationDrawer}
-          RenderUI={
-            <CreateResourceInstanceForm
-              downloadTerraformKitMutation={downloadTerraformKitMutation}
-              isBYOA={isCurrentResourceBYOA}
-              requestParams={requestParams}
-              formCancelClick={closeCreationDrawer}
-              formData={createformik}
-              serviceName={service?.serviceName}
-              serviceId={serviceId}
-              selectedResourceKey={selectedResource}
-              isLoading={
-                createResourceInstanceMutation.isLoading ||
-                isCreateInstanceSchemaFetching
-              }
-              setRequestParams={setRequestParams}
-              cloudProviderAccounts={cloudProviderAccounts}
-              service={service}
-              subscriptionId={subscriptionData?.id}
-              handleOrgIdModalOpen={handleOrgIdModalOpen}
-              cloudProviders={service?.cloudProviders}
-              regions={{
-                aws: service?.awsRegions || [],
-                gcp: service?.gcpRegions || [],
-              }}
-            />
-          }
-        />
+
+              <SideDrawerRight
+                open={creationDrawerOpen}
+                closeDrawer={closeCreationDrawer}
+                RenderUI={
+                  <CreateResourceInstanceForm
+                    downloadTerraformKitMutation={downloadTerraformKitMutation}
+                    isBYOA={isCurrentResourceBYOA}
+                    requestParams={requestParams}
+                    formCancelClick={closeCreationDrawer}
+                    formData={createformik}
+                    serviceName={service?.serviceName}
+                    serviceId={serviceId}
+                    selectedResourceKey={selectedResource}
+                    isLoading={
+                      createResourceInstanceMutation.isLoading ||
+                      isCreateInstanceSchemaFetching
+                    }
+                    setRequestParams={setRequestParams}
+                    cloudProviderAccounts={cloudProviderAccounts}
+                    service={service}
+                    subscriptionId={subscriptionData?.id}
+                    handleOrgIdModalOpen={handleOrgIdModalOpen}
+                    cloudProviders={service?.cloudProviders}
+                    regions={{
+                      aws: service?.awsRegions || [],
+                      gcp: service?.gcpRegions || [],
+                    }}
+                    isCustomNetworkEnabled={isCustomNetworkEnabled}
+                  />
+                }
+              />
+            </Box >
+          </>
+        )
+        }
         <SideDrawerRight
           size="xlarge"
           open={supportDrawerOpen}
@@ -1945,7 +1872,7 @@ function MarketplaceService() {
           handleClose={handleOrgIdModalClose}
           open={isOrgIdModalOpen}
           isAccountCreation={isAccountCreation}
-          isCloudFormation={isCloudFormation}
+          accountConfigMethod={accountConfigMethod}
           cloudFormationTemplateUrl={cloudFormationTemplateUrl}
           cloudProvider={cloudProvider}
           isAccessPage={true}
@@ -1956,10 +1883,86 @@ function MarketplaceService() {
           selectedResourceKey={selectedResource.key}
           subscriptionId={subscriptionData?.id}
           setCloudFormationTemplateUrl={setCloudFormationTemplateUrl}
+          setCloudFormationTemplateUrlNoLB={setCloudFormationTemplateUrlNoLB}
+          fetchResourceInstancesOfSelectedResource={
+            fetchResourceInstancesOfSelectedResource
+          }
+          cloudFormationTemplateUrlNoLB={cloudFormationTemplateUrlNoLB}
         />
-      </DashboardLayout>
+
+        <AccessSideRestoreInstance
+          open={isRestoreInstanceModalOpen}
+          handleClose={handleRestoreInstanceModalClose}
+          earliestRestoreTime={
+            selectedResourceInstance?.backupStatus?.earliestRestoreTime
+          }
+          service={service}
+          setSelectionModel={setSelectionModel}
+          fetchResourceInstances={fetchResourceInstances}
+          selectedResource={selectedResource}
+          subscriptionId={subscriptionData?.id}
+          selectedInstanceId={selectedResourceInstance?.id}
+          networkType={selectedResourceInstance?.network_type}
+        />
+      </DashboardLayout >
     );
   }
 }
 
 export default MarketplaceService;
+
+export const OfferingUnavailableUI = () => {
+  return (
+    <Card mt={3} style={{ height: "700px", width: "100%" }}>
+      <Box>
+        <Image
+          style={{ height: "500px", width: "100%", marginTop: "50px" }}
+          src={marketplaceIcon}
+          alt="image-icon"
+        />
+        <Box mt="-300px">
+          <div
+            justifyContent="center"
+            align="center"
+            style={{
+              marginTop: "50px",
+              fontWeight: "bold",
+              fontSize: "30px",
+            }}
+          >
+            Service Offering
+          </div>
+          <div
+            justifyContent="center"
+            align="center"
+            style={{
+              marginTop: "5px",
+              fontWeight: "bold",
+              fontSize: "30px",
+            }}
+          >
+            not available
+          </div>
+          <div
+            justifyContent="center"
+            align="center"
+            style={{
+              marginTop: "5px",
+              fontWeight: "bold",
+              fontSize: "30px",
+            }}
+          />
+          <div
+            justifyContent="center"
+            align="center"
+            style={{
+              marginTop: "100px",
+              fontWeight: "bold",
+              fontSize: "15px",
+            }}
+          />
+        </Box>
+      </Box>
+    </Card>
+  );
+};

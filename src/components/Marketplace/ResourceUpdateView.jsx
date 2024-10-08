@@ -1,37 +1,29 @@
 import {
   Box,
-  Chip,
   CircularProgress,
   MenuItem,
   OutlinedInput,
   Radio,
   RadioGroup,
 } from "@mui/material";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "../Button/Button";
 import FieldContainer from "../FormElements/FieldContainer/FieldContainer";
 import FieldDescription from "../FormElements/FieldDescription/FieldDescription";
 import FieldLabel from "../FormElements/FieldLabel/FieldLabel";
 import Form from "../FormElements/Form/Form";
 import { FormControlLabel } from "../FormElements/Radio/Radio";
-import TextField from "../FormElements/TextField/TextField";
-import { H6, P } from "../Typography/Typography";
+import TextField from "../FormElementsv2/TextField/TextField";
 import ErrorLabel from "../ErrorLabel/ErrorLabel";
 import { describeServiceOfferingResource } from "../../api/serviceOffering";
 import Select from "../FormElements/Select/Select";
+import { cloudProviderLabels } from "src/constants/cloudProviders";
 import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
 import { PasswordField } from "../FormElementsv2/PasswordField/PasswordField";
+import Autocomplete from "../FormElementsv2/AutoComplete/AutoComplete";
+import FormTitle from "../FormElements/FormTitle/FormTitle";
+import FormDescription from "../FormElements/FormDescription/FormDescription";
 
-const ITEM_HEIGHT = 48;
-const ITEM_PADDING_TOP = 8;
-const MenuProps = {
-  PaperProps: {
-    style: {
-      maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
-      width: 250,
-    },
-  },
-};
 function ResourceUpdateView(props) {
   const {
     serviceId,
@@ -73,7 +65,7 @@ function ResourceUpdateView(props) {
             );
           }
         } else if (api.verb === "CREATE") {
-          let filteredInputParams = api.inputParameters?.filter(
+          const filteredInputParams = api.inputParameters?.filter(
             (item) => item?.custom && !item?.modifiable
           );
           if (filteredInputParams?.length) {
@@ -83,17 +75,37 @@ function ResourceUpdateView(props) {
       });
     }
     getSchema();
+    /*eslint-disable-next-line react-hooks/exhaustive-deps*/
   }, []);
+
+  const shouldShowParamField = useCallback(
+    (paramKey) => {
+      if (
+        paramKey === "aws_bootstrap_role_arn" ||
+        paramKey === "account_configuration_method" ||
+        paramKey === "gcp_service_account_email"
+      ) {
+        return false;
+      }
+
+      // formData.values.cloud_provider can be 'aws', 'gcp' or 'azure'. Field names with same prefix must be shown
+      if (
+        formData.values.cloud_provider &&
+        paramKey.startsWith(formData.values.cloud_provider)
+      ) {
+        return true;
+      }
+      return false;
+    },
+    [formData.values.cloud_provider]
+  );
 
   const customAvailabilityZoneQuery = useAvailabilityZone(
     formData.values.region,
     formData.values.cloud_provider
   );
 
-  const {
-    data: customAvailabilityZoneData,
-    isLoading: isLoadingCustomAvailabilityZone,
-  } = customAvailabilityZoneQuery;
+  const { data: customAvailabilityZoneData } = customAvailabilityZoneQuery;
 
   const customAvailabilityZone = useMemo(() => {
     const availabilityZones = customAvailabilityZoneData?.availabilityZones;
@@ -104,28 +116,18 @@ function ResourceUpdateView(props) {
       }
       return -1;
     });
-  }, [
-    isLoadingCustomAvailabilityZone,
-    customAvailabilityZoneData?.availabilityZones,
-  ]);
+  }, [customAvailabilityZoneData?.availabilityZones]);
 
   return (
     <>
-      <H6 weight="extrabold" variant="mobile">
-        Update {serviceName}
-      </H6>
-      <P
-        weight="semibold"
-        sx={{ color: (theme) => theme.palette.neutral[600], mt: "14px" }}
-      >
-        {serviceName} Instance Details
-      </P>
+      <FormTitle>Update {serviceName}</FormTitle>
+      <FormDescription>{serviceName} Instance Details</FormDescription>
       <Form onSubmit={formData.handleSubmit}>
         <>
           <FieldContainer>
             <FieldLabel>ID</FieldLabel>
             <FieldDescription sx={{ mt: "5px" }}>
-              unique id of resource instance
+              Unique id of resource instance
             </FieldDescription>
             <TextField
               id="id"
@@ -152,9 +154,8 @@ function ResourceUpdateView(props) {
                 name="cloud_provider"
                 disabled="true"
                 value={
-                  isCurrentResourceBYOA
-                    ? "Amazon Web Services"
-                    : formData.values.cloud_provider
+                  cloudProviderLabels[formData.values.cloud_provider] ||
+                  formData.values.cloud_provider
                 }
                 sx={{ marginTop: "16px" }}
               />
@@ -186,10 +187,9 @@ function ResourceUpdateView(props) {
                       </MenuItem>
                     ))}
                   </Select>
-                  <ErrorLabel></ErrorLabel>
                 </FieldContainer>
               )}
-              {formData.values.requestParams?.custom_availability_zone && (
+              {formData.values?.requestParams?.custom_availability_zone && (
                 <FieldContainer>
                   <FieldLabel required>Custom Availability Zone</FieldLabel>
                   <Select
@@ -197,7 +197,6 @@ function ResourceUpdateView(props) {
                     id="requestParams.custom_availability_zone"
                     name="requestParams.custom_availability_zone"
                     disabled="true"
-                    displayEmpty
                     /*multiple*/
                     value={
                       formData.values?.requestParams?.custom_availability_zone
@@ -216,6 +215,7 @@ function ResourceUpdateView(props) {
                   </Select>
                 </FieldContainer>
               )}
+
               {formData.values.network_type && (
                 <FieldContainer>
                   <FieldLabel>Network Type</FieldLabel>
@@ -258,14 +258,13 @@ function ResourceUpdateView(props) {
               ""
             )}
             {viewParams.map((param) => {
+              if (isCurrentResourceBYOA && !shouldShowParamField(param.key)) {
+                return null;
+              }
               if (param.type === "Password") {
                 return (
                   <FieldContainer key={param.key}>
-                    {param.required == true ? (
-                      <FieldLabel required>{param.displayName}</FieldLabel>
-                    ) : (
-                      <FieldLabel>{param.displayName}</FieldLabel>
-                    )}
+                    <FieldLabel>{param.displayName}</FieldLabel>
                     <FieldDescription sx={{ mt: "5px" }}>
                       {param.description}
                     </FieldDescription>
@@ -274,9 +273,9 @@ function ResourceUpdateView(props) {
                       id={`requestParams.${param.key}`}
                       name={`requestParams.${param.key}`}
                       onChange={formData.handleChange}
-                      values={formData.values.requestParams[param.key]}
+                      value={formData.values.requestParams[param.key]}
                       onBlur={formData.handleBlur}
-                      required={param.required == true ? "required" : ""}
+                      showPasswordGenerator
                     />
                   </FieldContainer>
                 );
@@ -284,11 +283,7 @@ function ResourceUpdateView(props) {
               if (param.custom == true && param.type == "Boolean") {
                 return (
                   <FieldContainer key={param.key}>
-                    {param.required == true ? (
-                      <FieldLabel required>{param.displayName}</FieldLabel>
-                    ) : (
-                      <FieldLabel>{param.displayName}</FieldLabel>
-                    )}
+                    <FieldLabel>{param.displayName}</FieldLabel>
                     <FieldDescription sx={{ mt: "5px" }}>
                       {param.description}
                     </FieldDescription>
@@ -300,8 +295,6 @@ function ResourceUpdateView(props) {
                       value={formData.values.requestParams[param.key]}
                       onChange={formData.handleChange}
                       sx={{ marginTop: "16px" }}
-                      //modifiable={param.modifiable}
-                      required={param.required == true ? "required" : ""}
                     >
                       <FormControlLabel
                         value={true}
@@ -325,55 +318,29 @@ function ResourceUpdateView(props) {
 
                 return (
                   <FieldContainer key={param.key}>
-                    {param.required == true ? (
-                      <FieldLabel required>{param.displayName}</FieldLabel>
-                    ) : (
-                      <FieldLabel>{param.displayName}</FieldLabel>
-                    )}
+                    <FieldLabel>{param.displayName}</FieldLabel>
                     <FieldDescription sx={{ mt: "5px" }}>
                       {param.description}
                     </FieldDescription>
-                    <Select
+                    <Autocomplete
                       multiple
                       fullWidth
-                      sx={{ display: "block", marginTop: "16px" }}
                       id={`requestParams.${param.key}`}
                       name={`requestParams.${param.key}`}
-                      renderValue={(selectedList) => {
-                        if (selectedList.length === 0) {
-                          return <em>None</em>;
-                        }
-                        const plist = selectedList
-                          .map((valInList) => {
-                            const returnVal = formData.values.requestParams[
-                              param.key
-                            ].find((val) => {
-                              return val === valInList;
-                            });
-                            return returnVal;
-                          })
-                          .join(", ");
-                        return (
-                          <Box
-                            sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
-                          >
-                            {plist.split(",").map((value) => (
-                              <Chip key={value} label={value} />
-                            ))}
-                          </Box>
+                      value={
+                        formData.values.requestParams[param.key]?.length
+                          ? formData.values.requestParams[param.key]
+                          : []
+                      }
+                      sx={{ marginTop: "16px" }}
+                      options={options?.length > 0 ? options : []}
+                      onChange={(e, value) => {
+                        formData.setFieldValue(
+                          `requestParams.${param.key}`,
+                          value
                         );
                       }}
-                      value={formData.values.requestParams[param.key] || []}
-                      onChange={formData.handleChange}
-                      //modifiable={param.modifiable}
-                      required={param.required == true ? "required" : ""}
-                    >
-                      {options.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
-                        </MenuItem>
-                      ))}
-                    </Select>
+                    />
                   </FieldContainer>
                 );
               } else if (
@@ -384,61 +351,48 @@ function ResourceUpdateView(props) {
                 const options = param.options ? param.options : [""];
                 return (
                   <FieldContainer key={param.key}>
-                    {param.required == true ? (
-                      <FieldLabel required>{param.displayName}</FieldLabel>
-                    ) : (
-                      <FieldLabel>{param.displayName}</FieldLabel>
-                    )}
+                    <FieldLabel>{param.displayName}</FieldLabel>
                     <FieldDescription sx={{ mt: "5px" }}>
                       {param.description}
                     </FieldDescription>
-                    <Select
+                    <Autocomplete
                       fullWidth
-                      MenuProps={MenuProps}
                       id={`requestParams.${param.key}`}
                       name={`requestParams.${param.key}`}
-                      value={formData.values.requestParams[param.key] || []}
-                      renderValue={(selectedVal) => {
-                        return (
-                          <Box
-                            sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
-                          >
-                            {<Chip key={selectedVal} label={selectedVal} />}
-                          </Box>
-                        );
-                      }}
-                      onChange={formData.handleChange}
-                      modifiable={param.modifiable}
+                      value={
+                        formData.values.requestParams[param.key]
+                          ? formData.values.requestParams[param.key]
+                          : ""
+                      }
                       sx={{ marginTop: "16px" }}
                       required={param.required == true ? "required" : ""}
-                    >
-                      {options.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
-                        </MenuItem>
-                      ))}
-                    </Select>
+                      options={options?.length > 0 ? options : []}
+                      onChange={(e, value) => {
+                        formData.setFieldValue(
+                          `requestParams.${param.key}`,
+                          value
+                        );
+                      }}
+                    />
                   </FieldContainer>
                 );
               } else if (param.custom == true) {
                 return (
                   <FieldContainer key={param.key}>
-                    {param.required == true ? (
-                      <FieldLabel required>{param.displayName}</FieldLabel>
-                    ) : (
-                      <FieldLabel>{param.displayName}</FieldLabel>
-                    )}
+                    <FieldLabel>{param.displayName}</FieldLabel>
                     <FieldDescription sx={{ mt: "5px" }}>
                       {param.description}
                     </FieldDescription>
                     <TextField
+                      multiline={true}
+                      minRows={1}
+                      maxRows={3}
                       id={`requestParams.${param.key}`}
                       name={`requestParams.${param.key}`}
                       value={formData.values.requestParams[param.key]}
                       onChange={formData.handleChange}
                       sx={{ marginTop: "16px" }}
                       modifiable={param.modifiable}
-                      required={param.required == true ? "required" : ""}
                     />
                   </FieldContainer>
                 );
@@ -448,37 +402,37 @@ function ResourceUpdateView(props) {
             {/* show non modifiable params in disabled mode */}
             {nonModifiableviewParams.map((param) => {
               if (param.key !== "custom_availability_zone") {
+                if (isCurrentResourceBYOA && !shouldShowParamField(param.key)) {
+                  return null;
+                }
                 if (param.type === "Password") {
                   return (
                     <FieldContainer key={param.key}>
-                      {param.required == true ? (
-                        <FieldLabel required>{param.displayName}</FieldLabel>
-                      ) : (
-                        <FieldLabel>{param.displayName}</FieldLabel>
-                      )}
+                      <FieldLabel required={param.required === true}>
+                        {param.displayName}
+                      </FieldLabel>
                       <FieldDescription sx={{ mt: "5px" }}>
                         {param.description}
                       </FieldDescription>
                       <PasswordField
                         sx={{ color: "#FFF" }}
+                        disabled
                         id={`requestParams.${param.key}`}
                         name={`requestParams.${param.key}`}
                         onChange={formData.handleChange}
-                        values={formData.values.requestParams[param.key]}
+                        value={formData.values.requestParams[param.key]}
                         onBlur={formData.handleBlur}
-                        required={param.required == true ? "required" : ""}
                       />
                     </FieldContainer>
                   );
                 }
+
                 if (param.custom == true && param.type == "Boolean") {
                   return (
                     <FieldContainer key={param.key}>
-                      {param.required == true ? (
-                        <FieldLabel required>{param.displayName}</FieldLabel>
-                      ) : (
-                        <FieldLabel>{param.displayName}</FieldLabel>
-                      )}
+                      <FieldLabel required={param.required === true}>
+                        {param.displayName}
+                      </FieldLabel>
                       <FieldDescription sx={{ mt: "5px" }}>
                         {param.description}
                       </FieldDescription>
@@ -490,16 +444,8 @@ function ResourceUpdateView(props) {
                         value={formData.values.requestParams[param.key]}
                         onChange={formData.handleChange}
                         sx={{ marginTop: "16px" }}
-                        //modifiable={param.modifiable}
-                        required={param.required == true ? "required" : ""}
                         disabled
                       >
-                        <FormControlLabel
-                          value={true}
-                          control={<Radio />}
-                          label="True"
-                          disabled
-                        />
                         <FormControlLabel
                           value={true}
                           control={<Radio />}
@@ -524,60 +470,32 @@ function ResourceUpdateView(props) {
 
                   return (
                     <FieldContainer key={param.key}>
-                      {param.required == true ? (
-                        <FieldLabel required>{param.displayName}</FieldLabel>
-                      ) : (
-                        <FieldLabel>{param.displayName}</FieldLabel>
-                      )}
+                      <FieldLabel required={param.required === true}>
+                        {param.displayName}
+                      </FieldLabel>
                       <FieldDescription sx={{ mt: "5px" }}>
                         {param.description}
                       </FieldDescription>
-                      <Select
+                      <Autocomplete
                         disabled
                         multiple
                         fullWidth
-                        sx={{ display: "block", marginTop: "16px" }}
                         id={`requestParams.${param.key}`}
                         name={`requestParams.${param.key}`}
-                        renderValue={(selectedList) => {
-                          if (selectedList.length === 0) {
-                            return <em>None</em>;
-                          }
-                          const plist = selectedList
-                            .map((valInList) => {
-                              const returnVal = formData.values.requestParams[
-                                param.key
-                              ].find((val) => {
-                                return val === valInList;
-                              });
-                              return returnVal;
-                            })
-                            .join(", ");
-                          return (
-                            <Box
-                              sx={{
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: 0.5,
-                              }}
-                            >
-                              {plist.split(",").map((value) => (
-                                <Chip key={value} label={value} />
-                              ))}
-                            </Box>
+                        value={
+                          formData.values.requestParams[param.key]?.length
+                            ? formData.values.requestParams[param.key]
+                            : []
+                        }
+                        sx={{ marginTop: "16px" }}
+                        options={options?.length > 0 ? options : []}
+                        onChange={(e, value) => {
+                          formData.setFieldValue(
+                            `requestParams.${param.key}`,
+                            value
                           );
                         }}
-                        value={formData.values.requestParams[param.key] || []}
-                        onChange={formData.handleChange}
-                        //modifiable={param.modifiable}
-                        required={param.required == true ? "required" : ""}
-                      >
-                        {options.map((option) => (
-                          <MenuItem key={option} value={option}>
-                            {option}
-                          </MenuItem>
-                        ))}
-                      </Select>
+                      />
                     </FieldContainer>
                   );
                 } else if (
@@ -588,59 +506,47 @@ function ResourceUpdateView(props) {
                   const options = param.options ? param.options : [""];
                   return (
                     <FieldContainer key={param.key}>
-                      {param.required == true ? (
-                        <FieldLabel required>{param.displayName}</FieldLabel>
-                      ) : (
-                        <FieldLabel>{param.displayName}</FieldLabel>
-                      )}
+                      <FieldLabel required={param.required === true}>
+                        {param.displayName}
+                      </FieldLabel>
                       <FieldDescription sx={{ mt: "5px" }}>
                         {param.description}
                       </FieldDescription>
-                      <Select
+                      <Autocomplete
                         disabled
                         fullWidth
-                        MenuProps={MenuProps}
                         id={`requestParams.${param.key}`}
                         name={`requestParams.${param.key}`}
-                        value={formData.values.requestParams[param.key] || []}
-                        renderValue={(selectedVal) => {
-                          return (
-                            <Box
-                              sx={{
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: 0.5,
-                              }}
-                            >
-                              {<Chip key={selectedVal} label={selectedVal} />}
-                            </Box>
-                          );
-                        }}
-                        onChange={formData.handleChange}
-                        modifiable={param.modifiable}
+                        value={
+                          formData.values.requestParams[param.key]
+                            ? formData.values.requestParams[param.key]
+                            : ""
+                        }
                         sx={{ marginTop: "16px" }}
                         required={param.required == true ? "required" : ""}
-                      >
-                        {options.map((option) => (
-                          <MenuItem key={option} value={option}>
-                            {option}
-                          </MenuItem>
-                        ))}
-                      </Select>
+                        options={options?.length > 0 ? options : []}
+                        onChange={(e, value) => {
+                          formData.setFieldValue(
+                            `requestParams.${param.key}`,
+                            value
+                          );
+                        }}
+                      />
                     </FieldContainer>
                   );
                 } else if (param.custom == true) {
                   return (
                     <FieldContainer key={param.key}>
-                      {param.required == true ? (
-                        <FieldLabel required>{param.displayName}</FieldLabel>
-                      ) : (
-                        <FieldLabel>{param.displayName}</FieldLabel>
-                      )}
+                      <FieldLabel required={param.required === true}>
+                        {param.displayName}
+                      </FieldLabel>
                       <FieldDescription sx={{ mt: "5px" }}>
                         {param.description}
                       </FieldDescription>
                       <TextField
+                        multiline={true}
+                        minRows={1}
+                        maxRows={3}
                         disabled
                         id={`requestParams.${param.key}`}
                         name={`requestParams.${param.key}`}
@@ -648,7 +554,6 @@ function ResourceUpdateView(props) {
                         onChange={formData.handleChange}
                         sx={{ marginTop: "16px" }}
                         modifiable={param.modifiable}
-                        required={param.required == true ? "required" : ""}
                       />
                     </FieldContainer>
                   );

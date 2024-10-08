@@ -7,9 +7,6 @@ import ProductTiers from "src/features/ProductTiers/ProductTiers";
 import useUserSubscriptions from "src/hooks/query/useUserSubscriptions";
 import useProductTierRedirect from "./hooks/useProductTierRedirect";
 import NoServiceFoundUI from "../components/NoServiceFoundUI";
-import Head from "next/head";
-// import NoLogoImage from "public/assets/images/logos/no-logo.png";
-import placeholderService from "public/assets/images/dashboard/service/servicePlaceholder.png";
 import useSubscriptionRequests from "./hooks/useSubscriptionRequests";
 import { useMemo } from "react";
 import useResourcesInstanceIds from "src/hooks/useResourcesInstanceIds";
@@ -31,7 +28,11 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
   } = subscriptionsQuery;
 
   const freeTierService = useMemo(() => {
-    return services?.find((service) => service.serviceId === "s-KgFDwg5vBS");
+    return services?.find(
+      (service) =>
+        service.productTierID === "pt-phFY4aK6Cq" ||
+        service.productTierID === "pt-m2FKdsSXSi"
+    );
   }, [services]);
 
   const {
@@ -51,10 +52,17 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
 
   const filterOutFreeDedicatedTier = useMemo(
     () =>
-      isResourceInstancesIdsFetched && resourceInstancesIds?.free?.length === 0,
-    [isResourceInstancesIdsFetched, resourceInstancesIds]
+      (isResourceInstancesIdsFetched &&
+        resourceInstancesIds?.free?.length === 0) ||
+      (!isResourceInstancesIdsFetched &&
+        !isResourceInstancesIdsFetching &&
+        !resourceInstancesIds?.free?.length),
+    [
+      isResourceInstancesIdsFetched,
+      isResourceInstancesIdsFetching,
+      resourceInstancesIds,
+    ]
   );
-
 
   const serviceOfferingQuery = useServiceOfferingById(serviceId);
   const { data, isFetching } = serviceOfferingQuery;
@@ -66,9 +74,12 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
       ),
     };
     if (filterOutFreeDedicatedTier) {
-      offerings.offerings = offerings.offerings?.filter(
-        (offering) => offering.productTierID !== "pt-phFY4aK6Cq" && offering.productTierID !== "pt-m2FKdsSXSi"
-      ) ?? [];
+      offerings.offerings =
+        offerings.offerings?.filter(
+          (offering) =>
+            offering.productTierID !== "pt-phFY4aK6Cq" &&
+            offering.productTierID !== "pt-m2FKdsSXSi"
+        ) ?? [];
     }
     return offerings;
   }, [data, filterOutFreeDedicatedTier]);
@@ -85,7 +96,7 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
     useProductTierRedirect({
       filterOutFreeDedicatedTier,
     });
-    
+
   if (
     isResourceInstancesIdsFetched &&
     ((filterOutFreeDedicatedTier && data?.offerings?.length === 1) ||
@@ -94,14 +105,12 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
   ) {
     return (
       <>
-        <Head>
-          <title>Service Plans</title>
-        </Head>
         <DashboardLayout
           noSidebar
           marketplacePage
           serviceName={orgName}
-          serviceLogoURL={orgLogoURL || placeholderService}
+          serviceLogoURL={orgLogoURL}
+          noServicesAvailable={true}
         >
           <NoServiceFoundUI
             text={
@@ -114,20 +123,15 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
       </>
     );
   }
-
+  
   return (
     <>
-      <Head>
-        <title>Service Plans</title>
-      </Head>
       <DashboardLayout
         noSidebar
         marketplacePage
         serviceName={serviceOfferingData?.serviceName}
         serviceLogoURL={
-          serviceOfferingData?.offerings?.[0]?.serviceLogoURL ||
-          orgLogoURL ||
-          placeholderService
+          serviceOfferingData?.offerings?.[0]?.serviceLogoURL || orgLogoURL
         }
       >
         {!serviceId ||

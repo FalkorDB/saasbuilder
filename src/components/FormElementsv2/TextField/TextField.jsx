@@ -1,6 +1,7 @@
 import React from "react";
 import MuiTextField from "@mui/material/TextField";
-import { styled } from "@mui/material";
+import { InputAdornment, styled } from "@mui/material";
+import CopyButton from "src/components/Button/CopyButton";
 
 const StyledTextField = styled(MuiTextField, {
   shouldForwardProp: (prop) => {
@@ -30,9 +31,9 @@ const StyledTextField = styled(MuiTextField, {
   },
   ".MuiOutlinedInput-root.Mui-focused": {
     [`& .MuiOutlinedInput-notchedOutline`]: {
-      border: `1px solid  ${theme.palette.primary["300"]}`,
-      boxShadow:
-        "0px 0px 0px 4px #F4EBFF, 0px 1px 2px 0px rgba(16, 24, 40, 0.05)",
+      border: `2px solid  ${theme.palette.primary["main"]}`,
+      // boxShadow:
+      //   "0px 0px 0px 4px #F4EBFF, 0px 1px 2px 0px rgba(16, 24, 40, 0.05)",
     },
   },
   ".MuiOutlinedInput-root.Mui-error": {
@@ -55,11 +56,41 @@ const StyledTextField = styled(MuiTextField, {
       background: theme.palette.gray["50"],
     },
   },
+  "& .MuiInputAdornment-root": {
+    height: "auto",
+    maxHeight: "initial",
+    alignSelf: "stretch",
+    padding: "0px 12px",
+    margin: 0,
+    borderLeft: `1px solid ${theme.palette.gray["300"]}`,
+    background: "white",
+    "& .MuiTypography-root": {
+      color: "#475467",
+    },
+  },
 }));
 
-function TextField(props) {
-  const { marginTop = "6px", ...restProps } = props;
-  return <StyledTextField fullWidth marginTop={marginTop} {...restProps} />;
-}
+const TextField = (props) => {
+  const { marginTop = "6px", copyButton, ...restProps } = props;
+  const value = restProps.value || "";
+  const InputProps = restProps.InputProps || {};
+
+  if (copyButton) {
+    InputProps.endAdornment = (
+      <InputAdornment position="start" sx={{ padding: "0px 10px !important" }}>
+        <CopyButton text={value} />
+      </InputAdornment>
+    );
+  }
+
+  return (
+    <StyledTextField
+      fullWidth
+      marginTop={marginTop}
+      {...restProps}
+      InputProps={InputProps}
+    />
+  );
+};
 
 export default TextField;

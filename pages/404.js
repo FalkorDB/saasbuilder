@@ -16,7 +16,6 @@ function FourHundredFourPage() {
       <Layout>
         <Heading>
           <title>Page not found </title>
-          <link rel="icon" href="/favicon.ico" />
         </Heading>
         <Container
           noBottomBorder
@@ -82,7 +81,7 @@ function FourHundredFourPage() {
 
 export default FourHundredFourPage;
 
-const Description = styled("p")(({ theme }) => ({
+const Description = styled("p")({
   color: "#475467",
   fontSize: "20px",
   lineHeight: "30px",
@@ -90,6 +89,6 @@ const Description = styled("p")(({ theme }) => ({
   maxWidth: "592px",
   marginInline: "auto",
   textAlign: "center",
-}));
+});
 
-const ImageContainer = styled(Box)(({ theme }) => ({}));
+const ImageContainer = styled(Box)({});

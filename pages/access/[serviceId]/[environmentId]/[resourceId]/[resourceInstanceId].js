@@ -22,6 +22,7 @@ import { AccessSupport } from "src/components/Access/AccessSupport";
 import {
   getAPIDocsRoute,
   getMarketplaceRoute,
+  getResourceInstancesDetailsRoute,
   getResourceInstancesDetailswithKeyRoute,
   getResourceInstancesRoute,
 } from "src/utils/route/access/accessRoute";
@@ -33,6 +34,14 @@ import {
   connectToInstance,
 } from "../../../../../src/api/resourceInstance";
 import { useMutation } from "@tanstack/react-query";
+import Link from "next/link";
+import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
+
+export const getServerSideProps = async () => {
+  return {
+    props: {},
+  };
+};
 
 function ResourceInstance() {
   const router = useRouter();
@@ -55,6 +64,7 @@ function ResourceInstance() {
 
   let resourceName = "";
   let resourceKey = "";
+  let resourceType = "";
 
   if (serviceOffering && resourceId) {
     const resource = serviceOffering.resourceParameters.find(
@@ -63,6 +73,7 @@ function ResourceInstance() {
     if (resource) {
       resourceName = resource.name;
       resourceKey = resource.urlKey;
+      resourceType = resource.resourceType;
     }
   }
 
@@ -122,11 +133,18 @@ function ResourceInstance() {
     subscriptionData?.id
   );
 
+  const isCliManagedResource = useMemo(
+    () => CLI_MANAGED_RESOURCES.includes(resourceType),
+
+    [resourceType]
+  );
+
   const tabs = getTabs(
     resourceInstanceData?.isMetricsEnabled,
     resourceInstanceData?.isLogsEnabled,
     resourceInstanceData?.active,
-    isResourceBYOA
+    isResourceBYOA,
+    isCliManagedResource
   );
 
   let pageTitle = "Resource";
@@ -144,6 +162,40 @@ function ResourceInstance() {
     }
   }
 
+  const cloudProviderAccountInstanceURL = useMemo(() => {
+    let resourceId = null;
+    let instanceURL = null;
+    if (serviceOffering) {
+      const cloudProviderResource = serviceOffering.resourceParameters?.find(
+        (resource) => resource?.resourceId.startsWith("r-injectedaccountconfig")
+      );
+      if (cloudProviderResource) resourceId = cloudProviderResource.resourceId;
+    }
+
+    if (
+      resourceId &&
+      resourceInstanceData?.resultParameters?.cloud_provider_account_config_id
+    ) {
+      instanceURL = getResourceInstancesDetailsRoute(
+        serviceId,
+        environmentId,
+        productTierId,
+        resourceId,
+        resourceInstanceData?.resultParameters
+          ?.cloud_provider_account_config_id,
+        subscriptionData?.id
+      );
+    }
+    return instanceURL;
+  }, [
+    serviceOffering,
+    resourceInstanceData,
+    serviceId,
+    environmentId,
+    productTierId,
+    subscriptionData?.id,
+  ]);
+
   useEffect(() => {
     if (router.isReady) {
       if (view in tabs) {
@@ -158,11 +210,34 @@ function ResourceInstance() {
   }
 
   const connectToInstanceMutation = useMutation(connectToInstance, {
-    onError: (error) => {
-      snackbar.showError("Failed to open resource instance in browser");
+    onError: () => {
+      console.error("Failed to open resource instance in browser");
     },
   });
 
+  const queryData = {
+    serviceProviderId: serviceOffering?.serviceProviderId,
+    serviceKey: serviceOffering?.serviceURLKey,
+    serviceAPIVersion: serviceOffering?.serviceAPIVersion,
+    serviceEnvironmentKey: serviceOffering?.serviceEnvironmentURLKey,
+    serviceModelKey: serviceOffering?.serviceModelURLKey,
+    productTierKey: serviceOffering?.productTierURLKey,
+    subscriptionId: subscriptionData?.id,
+    resourceInstanceId: resourceInstanceId,
+  };
+
+  const isCustomNetworkEnabled = useMemo(() => {
+    let enabled = false;
+
+    if (
+      serviceOffering?.serviceModelFeatures?.find((featureObj) => {
+        return featureObj.feature === "CUSTOM_NETWORKS";
+      })
+    )
+      enabled = true;
+
+    return enabled;
+  }, [serviceOffering]);
 
   if (isLoading || isLoadingSubscription || !resourceInstanceData) {
     return (
@@ -182,6 +257,7 @@ function ResourceInstance() {
             serviceName={serviceOffering?.serviceName}
             productTierId={productTierId}
             currentSubscription={subscriptionData}
+            isCustomNetworkEnabled={isCustomNetworkEnabled}
           />
         }
         serviceName={serviceOffering?.serviceName}
@@ -214,6 +290,7 @@ function ResourceInstance() {
             serviceName={serviceOffering?.serviceName}
             productTierId={productTierId}
             currentSubscription={subscriptionData}
+            isCustomNetworkEnabled={isCustomNetworkEnabled}
           />
         }
         serviceName={serviceOffering?.serviceName}
@@ -228,7 +305,7 @@ function ResourceInstance() {
     );
   }
 
-  let servicePlanUrlLink = getMarketplaceRoute(
+  const servicePlanUrlLink = getMarketplaceRoute(
     serviceId,
     environmentId,
     productTierId,
@@ -279,6 +356,7 @@ function ResourceInstance() {
           productTierId={productTierId}
           currentSource={currentSource}
           currentSubscription={subscriptionData}
+          isCustomNetworkEnabled={isCustomNetworkEnabled}
         />
       }
       serviceName={serviceOffering?.serviceName}
@@ -289,15 +367,11 @@ function ResourceInstance() {
         <title>{pageTitle}</title>
       </Head>
       <Stack direction="row" alignItems="center" justifyContent="flex-end">
-        <Button
-          startIcon={<RiArrowGoBackFill />}
-          sx={{ color: "#6941C6" }}
-          onClick={() => {
-            router.push(resourceInstancesUrl);
-          }}
-        >
-          Back to list of Resource Instances
-        </Button>
+        <Link href={resourceInstancesUrl}>
+          <Button startIcon={<RiArrowGoBackFill />} sx={{ color: "#6941C6" }}>
+            Back to list of Resource Instances
+          </Button>
+        </Link>
       </Stack>
 
       <ResourceInstanceOverview
@@ -366,7 +440,9 @@ function ResourceInstance() {
             resourceSchemaQuery?.data?.DESCRIBE?.outputParameters
           }
           serviceOffering={serviceOffering}
-          subscriptionId={subscriptionId}
+          subscriptionId={subscriptionData?.id}
+          cloudProviderAccountInstanceURL={cloudProviderAccountInstanceURL}
+          customNetworkDetails={resourceInstanceData.customNetworkDetails}
         />
       )}
       {currentTab === tabs.connectivity && (
@@ -387,6 +463,8 @@ function ResourceInstance() {
           privateNetworkId={resourceInstanceData.connectivity.privateNetworkId}
           globalEndpoints={resourceInstanceData.connectivity.globalEndpoints}
           nodes={resourceInstanceData.nodes}
+          queryData={queryData}
+          refetchInstance={resourceInstanceQuery.refetch}
         />
       )}
       {currentTab === tabs.nodes && (
@@ -442,16 +520,24 @@ function ResourceInstance() {
 
 export default ResourceInstance;
 
-function getTabs(isMetricsEnabled, isLogsEnabled, isActive, isResourceBYOA) {
+function getTabs(
+  isMetricsEnabled,
+  isLogsEnabled,
+  isActive,
+  isResourceBYOA,
+  isCliManagedResource
+) {
   const tabs = {
     resourceInstanceDetails: "Resource Instance Details",
     connectivity: "Connectivity",
     nodes: "Containers",
   };
-  if (isMetricsEnabled && !isResourceBYOA) tabs["metrics"] = "Metrics";
-  if (isLogsEnabled && !isResourceBYOA) tabs["logs"] = "Logs";
+  if (isMetricsEnabled && !isResourceBYOA && !isCliManagedResource)
+    tabs["metrics"] = "Metrics";
+  if (isLogsEnabled && !isResourceBYOA && !isCliManagedResource)
+    tabs["logs"] = "Logs";
 
-  if (!isActive) {
+  if (!isActive || isCliManagedResource) {
     delete tabs.connectivity;
     delete tabs.nodes;
   }

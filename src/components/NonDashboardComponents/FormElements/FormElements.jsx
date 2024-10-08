@@ -1,16 +1,5 @@
-import {
-  InputBase,
-  styled,
-  inputBaseClasses,
-  Box,
-  IconButton,
-  InputAdornment,
-} from "@mui/material";
-import { buttonClasses } from "@mui/material/Button";
+import { InputBase, styled, inputBaseClasses, Box } from "@mui/material";
 import NextLink from "next/link";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import VisibilityOffOutlinedIcon from "@mui/icons-material/VisibilityOff";
-import { useState } from "react";
 
 export const Heading = styled("h1")(({ theme }) => ({
   fontSize: 36,
@@ -28,7 +17,7 @@ export const Heading = styled("h1")(({ theme }) => ({
   },
 }));
 
-export const Card = styled(Box)(({ theme }) => ({
+export const Card = styled(Box)(() => ({
   padding: 32,
   background: "white",
   border: "1px solid #D9E0E8",
@@ -83,7 +72,7 @@ const StyledInput = styled(InputBase)(({ theme }) => ({
   },
 }));
 
-const WrapperRoot = styled(Box)(({ theme }) => ({}));
+const WrapperRoot = styled(Box)(() => ({}));
 
 export const Input = (props) => {
   const { errorMsg, label, sx, mt, mb, pt, pb, className, ...restProps } =
@@ -111,35 +100,5 @@ export const Input = (props) => {
         ""
       )}
     </WrapperRoot>
-  );
-};
-
-export const PasswordInput = (props) => {
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-
-  const toggleVisibility = () => {
-    setIsPasswordVisible((prev) => !prev);
-  };
-
-  return (
-    <Input
-      {...props}
-      type={isPasswordVisible ? "text" : "password"}
-      endAdornment={
-        <InputAdornment position="end">
-          <IconButton
-            size="small"
-            sx={{ marginRight: "12px" }}
-            onClick={toggleVisibility}
-          >
-            {isPasswordVisible ? (
-              <VisibilityOffOutlinedIcon sx={{ fontSize: "20px" }} />
-            ) : (
-              <VisibilityOutlinedIcon sx={{ fontSize: "20px" }} />
-            )}
-          </IconButton>
-        </InputAdornment>
-      }
-    />
   );
 };

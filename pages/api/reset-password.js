@@ -1,12 +1,33 @@
 import { customerUserResetPassword } from "src/server/api/customer-user";
+import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
+import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
+import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
 
 export default async function handleResetPassword(nextRequest, nextResponse) {
   if (nextRequest.method === "POST") {
     try {
-      const response = await customerUserResetPassword(nextRequest.body);
+      //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
+      //get the first IP (client IP)
+      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
+      const clientIP = xForwardedForHeader.split(",").shift().trim();
+      const saasBuilderIP = process.env.POD_IP || "";
+
+      const requestBody = nextRequest.body || {};
+      const isReCaptchaSetup = checkReCaptchaSetup();
+
+      if (isReCaptchaSetup) {
+        const { reCaptchaToken } = requestBody;
+        const isVerified = await verifyRecaptchaToken(reCaptchaToken);
+        if (!isVerified) throw new CaptchaVerificationError();
+      }
+
+      await customerUserResetPassword(requestBody, {
+        "Client-IP": clientIP,
+        "SaaSBuilder-IP": saasBuilderIP,
+      });
       return nextResponse.status(200).send();
     } catch (error) {
-      let defaultErrorMessage = "Something went wrong. Please retry";
+      const defaultErrorMessage = "Something went wrong. Please retry";
 
       if (
         error.name === "ProviderAuthError" ||
@@ -16,7 +37,7 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
           message: defaultErrorMessage,
         });
       } else {
-        let responseErrorMessage = error.response?.data?.message;
+        const responseErrorMessage = error.response?.data?.message;
 
         if (responseErrorMessage === "user not found: record not found") {
             return nextResponse.status(200).send()

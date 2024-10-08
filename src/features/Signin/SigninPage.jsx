@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useMutation } from "@tanstack/react-query";
-import { Stack, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
 import { useFormik } from "formik";
 import axios from "src/axios";
 import Cookies from "js-cookie";
 import * as Yup from "yup";
 import MainImageLayout from "components/NonDashboardComponents/Layout/MainImageLayout";
-import PageHeading from "components/NonDashboardComponents/PageHeading";
 import FieldContainer from "components/NonDashboardComponents/FormElementsV2/FieldContainer";
 import FieldLabel from "components/NonDashboardComponents/FormElementsV2/FieldLabel";
 import SubmitButton from "components/NonDashboardComponents/FormElementsV2/SubmitButton";
@@ -15,6 +14,16 @@ import TextField from "components/NonDashboardComponents/FormElementsV2/TextFiel
 import PasswordField from "components/NonDashboardComponents/FormElementsV2/PasswordField";
 import { customerUserSignin } from "src/api/customer-user";
 import useSnackbar from "src/hooks/useSnackbar";
+import GoogleLogin from "./components/GoogleLogin";
+import { IDENTITY_PROVIDER_STATUS_TYPES } from "./constants";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+import GithubLogin from "./components/GitHubLogin";
+import { useEffect, useRef, useState } from "react";
+import useEnvironmentType from "src/hooks/useEnvironmentType";
+import { ENVIRONMENT_TYPES } from "src/constants/environmentTypes";
+import ReCAPTCHA from "react-google-recaptcha";
+import DOMPurify from "dompurify";
+import DisplayHeading from "components/NonDashboardComponents/DisplayHeading";
 
 const createSigninValidationSchema = Yup.object({
   email: Yup.string()
@@ -24,9 +33,54 @@ const createSigninValidationSchema = Yup.object({
 });
 
 const SigninPage = (props) => {
-  const { orgName, orgLogoURL } = props;
+  const {
+    orgName,
+    orgLogoURL,
+    googleIdentityProvider,
+    githubIdentityProvider,
+    saasBuilderBaseURL,
+    googleReCaptchaSiteKey,
+    isReCaptchaSetup,
+  } = props;
   const router = useRouter();
+  const environmentType = useEnvironmentType();
+  const { redirect_reason, destination } = router.query;
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
+  const reCaptchaRef = useRef(null);
   const snackbar = useSnackbar();
+
+  useEffect(() => {
+    if (redirect_reason === "idp_auth_error") {
+      snackbar.showError("Something went wrong. Please retry");
+
+      if (destination)
+        router.replace(
+          `/signin?destination=${encodeURIComponent(destination)}`
+        );
+      else router.replace("/signin");
+    }
+    /*eslint-disable-next-line react-hooks/exhaustive-deps*/
+  }, [redirect_reason]);
+
+  function handleSignInSuccess(jwtToken) {
+    if (jwtToken) {
+      Cookies.set("token", jwtToken, { sameSite: "Lax", secure: true });
+      axios.defaults.headers["Authorization"] = "Bearer " + jwtToken;
+
+      // Redirect to the Destination URL
+      if (
+        destination &&
+        (destination.startsWith("/service-plans") ||
+          destination.startsWith("%2Fservice-plans"))
+      ) {
+        router.replace(decodeURIComponent(DOMPurify(destination)));
+      } else {
+        router.replace("/service-plans");
+      }
+    }
+  }
+
   const signInMutation = useMutation(
     (payload) => {
       delete axios.defaults.headers["Authorization"];
@@ -34,13 +88,10 @@ const SigninPage = (props) => {
     },
     {
       onSuccess: (data) => {
+        /*eslint-disable-next-line no-use-before-define*/
         formik.resetForm();
         const jwtToken = data.data.jwtToken;
-        if (jwtToken) {
-          Cookies.set("token", jwtToken, { sameSite: "Strict", secure: true });
-          axios.defaults.headers["Authorization"] = "Bearer " + jwtToken;
-          router.push("/service-plans");
-        }
+        handleSignInSuccess(jwtToken);
       },
       onError: (error) => {
         if (error.response.data && error.response.data.message) {
@@ -55,20 +106,60 @@ const SigninPage = (props) => {
     }
   );
 
+  async function handleFormSubmit(values) {
+    const data = { ...values };
+
+    if (reCaptchaRef.current && !hasCaptchaErrored) {
+      const token = await reCaptchaRef.current.executeAsync();
+      reCaptchaRef.current.reset();
+      data["reCaptchaToken"] = token;
+    }
+
+    signInMutation.mutate(data);
+  }
+
   const formik = useFormik({
     initialValues: {
       email: "",
       password: "",
     },
     enableReinitialize: true,
-    onSubmit: (values) => {
-      let data = { ...values };
-      signInMutation.mutate(data);
-    },
+    onSubmit: handleFormSubmit,
     validationSchema: createSigninValidationSchema,
   });
 
   const { values, touched, errors, handleChange, handleBlur } = formik;
+
+  let googleIDPClientID = null;
+  let showGoogleLoginButton = false;
+  let isGoogleLoginDisabled = false;
+
+  if (googleIdentityProvider) {
+    showGoogleLoginButton = true;
+    googleIDPClientID = googleIdentityProvider.clientId;
+
+    const { status } = googleIdentityProvider;
+
+    if (status === IDENTITY_PROVIDER_STATUS_TYPES.FAILED) {
+      isGoogleLoginDisabled = true;
+    }
+  }
+
+  let githubIDPClientID = null;
+  let showGithubLoginButton = false;
+  let isGithubLoginDisabled = false;
+
+  if (githubIdentityProvider) {
+    showGithubLoginButton = true;
+    githubIDPClientID = githubIdentityProvider.clientId;
+    const { status } = githubIdentityProvider;
+
+    if (status === IDENTITY_PROVIDER_STATUS_TYPES.FAILED) {
+      isGithubLoginDisabled = true;
+    }
+  }
+
+  const shouldHideSignupLink = environmentType !== ENVIRONMENT_TYPES.PROD;
 
   return (
     <MainImageLayout
@@ -76,9 +167,9 @@ const SigninPage = (props) => {
       orgName={orgName}
       orgLogoURL={orgLogoURL}
     >
-      <PageHeading>Login to your account</PageHeading>
+      <DisplayHeading mt="24px">Login to your account</DisplayHeading>
 
-      <Stack component="form" gap="32px">
+      <Stack component="form" gap="32px" mt="44px">
         {/* Signin Form */}
         <Stack gap="30px">
           <FieldContainer>
@@ -108,18 +199,19 @@ const SigninPage = (props) => {
               helperText={touched.password && errors.password}
             />
           </FieldContainer>
-
-          <Link
-            href="/reset-password"
-            style={{
-              fontWeight: "500",
-              fontSize: "14px",
-              lineHeight: "22px",
-              color: "#687588",
-            }}
-          >
-            Forgot Password
-          </Link>
+          {!shouldHideSignupLink && (
+            <Link
+              href="/reset-password"
+              style={{
+                fontWeight: "500",
+                fontSize: "14px",
+                lineHeight: "22px",
+                color: "#687588",
+              }}
+            >
+              Forgot Password
+            </Link>
+          )}
         </Stack>
 
         {/* Login and Google Button */}
@@ -127,27 +219,83 @@ const SigninPage = (props) => {
           <SubmitButton
             type="submit"
             onClick={formik.handleSubmit}
-            disabled={!formik.isValid}
+            disabled={!formik.isValid || (isReCaptchaSetup && !isScriptLoaded)}
             loading={signInMutation.isLoading}
           >
             Login
           </SubmitButton>
+          {isReCaptchaSetup && (
+            <ReCAPTCHA
+              size="invisible"
+              sitekey={googleReCaptchaSiteKey}
+              ref={reCaptchaRef}
+              asyncScriptOnLoad={() => {
+                setIsScriptLoaded(true);
+              }}
+              onErrored={() => {
+                setHasCaptchaErrored(true);
+              }}
+            />
+          )}
         </Stack>
       </Stack>
-
-      {/* Signup Link */}
-      <Typography
-        fontWeight="500"
-        fontSize="14px"
-        lineHeight="22px"
-        color="#A0AEC0"
-        textAlign="center"
-      >
-        You’re new in here?{" "}
-        <Link href="/signup" style={{ color: "#27A376" }}>
-          Create Account
-        </Link>
-      </Typography>
+      {Boolean(googleIdentityProvider || githubIdentityProvider) && (
+        <>
+          <Box borderTop="1px solid #F1F2F4" textAlign="center" mt="40px">
+            <Box
+              display="inline-block"
+              paddingLeft="16px"
+              paddingRight="16px"
+              color="#687588"
+              bgcolor="white"
+              fontSize="14px"
+              fontWeight="500"
+              lineHeight="22px"
+              sx={{ transform: "translateY(-50%)" }}
+            >
+              Or login with
+            </Box>
+          </Box>
+          <Stack direction="row" justifyContent="center" mt="20px" gap="16px">
+            {showGoogleLoginButton && (
+              <GoogleOAuthProvider
+                clientId={googleIDPClientID}
+                onScriptLoadError={() => {}}
+                onScriptLoadSuccess={() => {}}
+              >
+                <GoogleLogin
+                  disabled={isGoogleLoginDisabled}
+                  saasBuilderBaseURL={saasBuilderBaseURL}
+                  destination={destination}
+                />
+              </GoogleOAuthProvider>
+            )}
+            {showGithubLoginButton && (
+              <GithubLogin
+                githubClientID={githubIDPClientID}
+                disabled={isGithubLoginDisabled}
+                saasBuilderBaseURL={saasBuilderBaseURL}
+                destination={destination}
+              />
+            )}
+          </Stack>
+        </>
+      )}
+      {!shouldHideSignupLink && (
+        <Typography
+          mt="22px"
+          fontWeight="500"
+          fontSize="14px"
+          lineHeight="22px"
+          color="#A0AEC0"
+          textAlign="center"
+        >
+          You’re new in here?{" "}
+          <Link href="/signup" style={{ color: "#27A376" }}>
+            Create Account
+          </Link>
+        </Typography>
+      )}
     </MainImageLayout>
   );
 };

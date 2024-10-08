@@ -6,3 +6,8 @@ README.md
 .next
 .git
 .env*.local
+.github
+.vscode
+fly.toml
+fly.*.toml
+*.log

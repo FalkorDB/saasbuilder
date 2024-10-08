@@ -1,18 +1,7 @@
 import { useSelector } from "react-redux";
-import { selectDrawerExpandedState } from "../../slices/dashboardSideDrawerSlice";
-import Tooltip from "../Tooltip/Tooltip";
-import { Box, Stack } from "@mui/material";
+import { Box } from "@mui/material";
 import { apiDocsUrl } from "../../utils/constants";
 import useDownloadCLI from "../../hooks/useDownloadCLI";
-import LoadingSpinnerSmall from "../CircularProgress/CircularProgress";
-import NavItem, {
-  ListItem,
-  ListItemNonLink,
-  ListItemText,
-  MenuHoverTooltip,
-  MenuHoverTooltipTitle,
-} from "./NavItem";
-import { List } from "./NavList";
 import { tabs } from "../Tab/MarketplaceServiceDefinitionsTab";
 import { selectUserrootData } from "../../slices/userDataSlice";
 import {
@@ -22,7 +11,6 @@ import {
   viewEnum,
 } from "../../utils/isAllowedByRBAC";
 import SupportIcon from "../Icons/SideNavbar/Support/SupportIcon.jsx";
-
 import APIDocsIcon from "../Icons/SideNavbar/APIDocs/APIDocsIcon.jsx";
 import PricingIcon from "../Icons/SideNavbar/Pricing/PricingIcon.jsx";
 import DownloadCLIIcon from "../Icons/SideNavbar/DownloadCLI/DownloadCLIIcon.jsx";
@@ -34,15 +22,15 @@ import SideDrawerRight from "../SideDrawerRight/SideDrawerRight";
 import { AccessSupport } from "../Access/AccessSupport";
 import useServiceOffering from "src/hooks/useServiceOffering";
 import { useRouter } from "next/router";
+import useEnvironmentType from "src/hooks/useEnvironmentType";
 
 const MarketplaceStaticNavList = (props) => {
-  const isNavDrawerExpanded = useSelector(selectDrawerExpandedState);
   const [supportDrawerOpen, setSupportDrawerOpen] = useState(false);
   const [currentTabValue, setCurrentTabValue] = useState(false);
+  const environmentType = useEnvironmentType();
   const router = useRouter();
 
   const {
-    servicePlanUrlLink,
     // serviceId,
     serviceApiId,
     apiDocs,
@@ -79,27 +67,17 @@ const MarketplaceStaticNavList = (props) => {
     setCurrentTabValue(tab);
   };
 
-  const onDownloadClick = () => {
-    if (!isDownloading) {
-      downloadCLI(serviceId, serviceApiId, subscriptionId);
-    }
-  };
-
   const NavLinks = [
-    // {
-    //   text: "API Documentation",
-    //   isDisabled: false,
-    //   isActive: isActive,
-    //   href: apiDocs ?? apiDocsUrl,
-    //   icon: APIDocsIcon,
-    //   newTab: apiDocs ? false : true,
-    // },
     {
       text: "Download CLI",
       isDisabled: isDownloading,
       isLoading: isDownloading,
       icon: DownloadCLIIcon,
-      onClick: onDownloadClick,
+      onClick: () => {
+        if (!isDownloading) {
+          downloadCLI(serviceId, serviceApiId, subscriptionId);
+        }
+      },
     },
     {
       text: "Support",
@@ -123,6 +101,17 @@ const MarketplaceStaticNavList = (props) => {
       onClick: () => openDrawer(tabs.documentation),
     },
   ];
+
+  if (environmentType !== "PROD") {
+    NavLinks.unshift({
+      text: "API Documentation",
+      isDisabled: false,
+      isActive: isActive,
+      href: apiDocs ?? apiDocsUrl,
+      icon: APIDocsIcon,
+      newTab: apiDocs ? false : true,
+    });
+  }
 
   return (
     <Box>

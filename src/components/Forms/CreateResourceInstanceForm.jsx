@@ -25,11 +25,11 @@ import { ACCOUNT_CREATION_METHODS } from "src/utils/constants/accountConfig";
 import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
 import { PasswordField } from "../FormElementsv2/PasswordField/PasswordField";
 import { fromProvider } from "cloud-regions-country-flags";
+import { CLOUD_PROVIDERS } from "src/constants/cloudProviders";
 import {
-  CLOUD_PROVIDERS,
   cloudProviderLabels,
   cloudProviderIcons,
-} from "src/constants/cloudProviders";
+} from "src/utils/constants/cloudProviders";
 import {
   AWSAccountIDDescription,
   GCPProjectIDDescription,

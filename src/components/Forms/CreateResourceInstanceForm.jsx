@@ -750,11 +750,44 @@ function CreateResourceInstanceForm(props) {
                         name={`requestParams.${param.key}`}
                         value={
                           formData.values.requestParams[param.key]
-                            ? formData.values.requestParams[param.key]
+                            ? param.key === "nodeInstanceType" &&
+                              formData.values.cloud_provider === "gcp" &&
+                              !formData.values.requestParams[
+                                param.key
+                              ].startsWith("e2")
+                              ? "e2-custom-4-8192"
+                              : param.key === "nodeInstanceType" &&
+                                  formData.values.cloud_provider === "aws" &&
+                                  (!formData.values.requestParams[
+                                    param.key
+                                  ].startsWith("c6i") ||
+                                    !formData.values.requestParams[
+                                      param.key
+                                    ].startsWith("t2"))
+                                ? "c6i.xlarge"
+                                : formData.values.requestParams[param.key]
                             : ""
                         }
                         sx={{ marginTop: "16px" }}
-                        options={options?.length > 0 ? options : []}
+                        options={
+                          options?.length > 0
+                            ? options.filter((option) => {
+                                // If param.key is nodeInstanceType and cloud provider is gcp, remove all options that don't start with e2
+                                // If param.key is nodeInstanceType and cloud provider is aws, remove all options that don't start with c6i or t2
+                                if (param.key === "nodeInstanceType") {
+                                  if (
+                                    formData.values.cloud_provider === "gcp"
+                                  ) {
+                                    return option.startsWith("e2");
+                                  } else if (
+                                    formData.values.cloud_provider === "aws"
+                                  ) {
+                                    return option.startsWith("c6i") || option.startsWith("t2");
+                                  }
+                                }
+                              })
+                            : []
+                        }
                         onChange={(e, value) => {
                           formData.setFieldValue(
                             `requestParams.${param.key}`,

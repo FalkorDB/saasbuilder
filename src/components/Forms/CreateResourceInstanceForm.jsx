@@ -758,10 +758,13 @@ function CreateResourceInstanceForm(props) {
                               ? "e2-custom-4-8192"
                               : param.key === "nodeInstanceType" &&
                                   formData.values.cloud_provider === "aws" &&
-                                  !formData.values.requestParams[
+                                  (!formData.values.requestParams[
                                     param.key
-                                  ].startsWith("c6g")
-                                ? "c6g.xlarge"
+                                  ].startsWith("c6i") ||
+                                    !formData.values.requestParams[
+                                      param.key
+                                    ].startsWith("t2"))
+                                ? "c6i.xlarge"
                                 : formData.values.requestParams[param.key]
                             : ""
                         }
@@ -770,7 +773,7 @@ function CreateResourceInstanceForm(props) {
                           options?.length > 0
                             ? options.filter((option) => {
                                 // If param.key is nodeInstanceType and cloud provider is gcp, remove all options that don't start with e2
-                                // If param.key is nodeInstanceType and cloud provider is aws, remove all options that don't start with c6g
+                                // If param.key is nodeInstanceType and cloud provider is aws, remove all options that don't start with c6i or t2
                                 if (param.key === "nodeInstanceType") {
                                   if (
                                     formData.values.cloud_provider === "gcp"
@@ -779,7 +782,7 @@ function CreateResourceInstanceForm(props) {
                                   } else if (
                                     formData.values.cloud_provider === "aws"
                                   ) {
-                                    return option.startsWith("c6i");
+                                    return option.startsWith("c6i") || option.startsWith("t2");
                                   }
                                 }
                               })

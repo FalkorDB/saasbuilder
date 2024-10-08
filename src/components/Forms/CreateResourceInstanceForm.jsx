@@ -31,9 +31,6 @@ import {
   cloudProviderIcons,
 } from "src/utils/constants/cloudProviders";
 import {
-  CLOUD_PROVIDERS,
-} from "src/constants/cloudProviders";
-import {
   AWSAccountIDDescription,
   GCPProjectIDDescription,
   GCPProjectNumberDescription,

@@ -766,6 +766,13 @@ function Metrics(props) {
         {productTierType !== "OMNISTRATE_MULTI_TENANCY" && (
           <MetricCard title="Load average" value={loadAverage.current} />
         )}
+        {selectedNode?.storageSize && (
+          <MetricCard
+            title="Storage"
+            value={selectedNode?.storageSize}
+            unit="GiB"
+          />
+        )}
         <MetricCard title="Total RAM" value={totalMemoryGiB} unit="GiB" />
         <MetricCard title="Used RAM" value={memoryUsageGiB} unit="GiB" />
         <MetricCard title="RAM Usage (%)" value={memoryUsagePercent} unit="%" />
@@ -880,7 +887,6 @@ export const MetricsCardsContainer = styled(Box)(() => ({
   gridTemplateColumns: "repeat(5, 1fr)",
   columnGap: "24px",
 }));
-
 
 const ContainerCard = ({ children }) => {
   return (

@@ -25,6 +25,7 @@ import { ACCOUNT_CREATION_METHODS } from "src/utils/constants/accountConfig";
 import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
 import { PasswordField } from "../FormElementsv2/PasswordField/PasswordField";
 import { fromProvider } from "cloud-regions-country-flags";
+import { CLOUD_PROVIDERS } from "src/constants/cloudProviders";
 import {
   cloudProviderLabels,
   cloudProviderIcons,

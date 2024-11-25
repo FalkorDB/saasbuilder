@@ -1,6 +1,5 @@
-import { Box, Stack } from "@mui/material";
+import { Box } from "@mui/material";
 import DataGrid from "../../DataGrid/DataGrid";
-import { Text } from "../../Typography/Typography";
 import { useEffect, useMemo, useState } from "react";
 import nodeIcon from "public/assets/images/dashboard/resource-instance-nodes/node.svg";
 import zoneIcon from "public/assets/images/dashboard/resource-instance-nodes/zone.svg";
@@ -17,7 +16,6 @@ import {
 } from "../../../utils/isAllowedByRBAC";
 import { useSelector } from "react-redux";
 import { selectUserrootData } from "../../../slices/userDataSlice";
-import Card from "src/components/Card/Card";
 import { NodeStatus } from "./NodeStatus";
 import DataGridText from "src/components/DataGrid/DataGridText";
 import NodesTableHeader from "./NodesTableHeader";
@@ -29,6 +27,30 @@ import {
   chipCategoryColors,
   defaultChipStyles,
 } from "src/constants/statusChipStyles";
+import { productTierTypes } from "src/constants/servicePlan";
+import GenerateTokenDialog from "src/components/GenerateToken/GenerateTokenDialog";
+
+const getRowBorderStyles = () => {
+  const styles = {};
+
+  for (const status in resourceInstanceStatusMap) {
+    const category = resourceInstanceStatusMap[status]?.category;
+    let color = chipCategoryColors[category]?.color;
+    if (!color) {
+      color = defaultChipStyles.color;
+    }
+    styles[`& .${status}::before`] = {
+      content: '""',
+      height: "36px",
+      width: "4px",
+      background: color,
+      transform: "translateY(5px)",
+      position: "absolute",
+    };
+  }
+
+  return styles;
+};
 
 export default function NodesTable(props) {
   const {
@@ -46,14 +68,20 @@ export default function NodesTable(props) {
     subscriptionId,
   } = props;
   let sectionLabel = "Resource";
+  const isCustomTenancy =
+    serviceOffering?.productTierType === productTierTypes.CUSTOM_TENANCY;
 
   if (context === "inventory") {
     sectionLabel = "Service Component";
   }
   const [selectionModel, setSelectionModel] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [isGenerateTokenDialogOpen, setIsGenerateTokenDialogOpen] =
+    useState(false);
+  const [dashboardEndpoint, setDashboardEndpoint] = useState("");
 
   const selectUser = useSelector(selectUserrootData);
+  const userEmail = selectUser.email;
   const role = getEnumFromUserRoleString(
     isAccessSide ? subscriptionData?.roleType : selectUser.roleType
   );
@@ -69,49 +97,124 @@ export default function NodesTable(props) {
     return nodes.filter((node) => !node.isServerless);
   }, [nodes]);
 
-  const columns = useMemo(
-    () => [
+  const customTenancyColumns = useMemo(() => {
+    const res = [
       {
         field: "nodeId",
-        headerName: "Container ID",
+        headerName: "Node ID",
         flex: 1,
         minWidth: 190,
         renderCell: (params) => {
           const nodeId = params.row.nodeId;
           return (
             <GridCellExpand
-              startIcon={<Image src={nodeIcon} alt="node" />}
+              startIcon={
+                <Image
+                  src={nodeIcon}
+                  alt="node"
+                  style={{ width: "24px", height: "24px" }}
+                />
+              }
+              justifyContent="left"
               value={nodeId}
               textStyles={{
-                color: "#101828",
+                color: "#475467",
                 marginLeft: "4px",
                 fontSize: "14px",
                 lineHeight: "20px",
-                fontWeight: 500,
+                fontWeight: 400,
               }}
             />
           );
         },
-        headerAlign: "center",
-        align: "center",
+      },
+    ];
+    res.push({
+      field: "kubernetesDashboardEndpoint",
+      headerName: "Dashboard Endpoint",
+      flex: 1,
+      headerAlign: "left",
+      align: "center",
+      minWidth: 150,
+      renderCell: (params) => {
+        const { row } = params;
+        const dashboardEndpointRow =
+          row.kubernetesDashboardEndpoint?.dashboardEndpoint;
+        setDashboardEndpoint(
+          row.kubernetesDashboardEndpoint?.dashboardEndpoint
+        );
+        if (!dashboardEndpointRow) {
+          return "-";
+        }
+
+        return (
+          <GridCellExpand
+            value={dashboardEndpointRow}
+            href={"https://" + dashboardEndpointRow}
+            target="_blank"
+            externalLinkArrow
+          />
+        );
+      },
+    });
+    res.push({
+      field: "status",
+      headerName: "Lifecycle Status",
+      flex: 1,
+      renderCell: (params) => {
+        const status = params.row.status;
+        const statusStylesAndMap = getResourceInstanceStatusStylesAndLabel(
+          status?.toUpperCase()
+        );
+        return <StatusChip status={status} {...statusStylesAndMap} />;
+      },
+      minWidth: 200,
+    });
+    return res;
+  }, [userEmail]);
+
+  const columns = useMemo(
+    () => [
+      {
+        field: "nodeId",
+        headerName: "Node ID",
+        flex: 1,
+        minWidth: 190,
+        renderCell: (params) => {
+          const nodeId = params.row.nodeId;
+          return (
+            <GridCellExpand
+              startIcon={
+                <Image
+                  src={nodeIcon}
+                  alt="node"
+                  style={{ width: "24px", height: "24px" }}
+                />
+              }
+              justifyContent="left"
+              value={nodeId}
+              textStyles={{
+                color: "#475467",
+                marginLeft: "4px",
+                fontSize: "14px",
+                lineHeight: "20px",
+                fontWeight: 400,
+              }}
+            />
+          );
+        },
       },
       {
         field: "resourceName",
         headerName: `${sectionLabel} Name`,
         flex: 0.9,
         minWidth: 100,
-
-        headerAlign: "center",
-        align: "center",
       },
       {
         field: "endpoint",
         headerName: "Endpoint",
         flex: 1,
         minWidth: 100,
-
-        headerAlign: "center",
-        align: "center",
         renderCell: (params) => {
           const endpoint = params.row.endpoint;
           if (!endpoint || endpoint === "-internal") {
@@ -127,10 +230,6 @@ export default function NodesTable(props) {
         headerName: "Ports",
         flex: 0.7,
         minWidth: 100,
-
-        headerAlign: "center",
-        align: "center",
-        cellClassName: "node-ports",
         valueGetter: (params) => params.row.ports || "-",
       },
       {
@@ -138,21 +237,19 @@ export default function NodesTable(props) {
         headerName: "Availability Zone",
         flex: 1,
         minWidth: 100,
-
-        headerAlign: "center",
-        align: "center",
         renderCell: (params) => {
           const availabilityZone = params.row.availabilityZone;
           return (
             <GridCellExpand
               startIcon={<Image src={zoneIcon} alt="zone" />}
               value={availabilityZone}
+              justifyContent="left"
               textStyles={{
-                color: "#101828",
+                color: "#475467",
                 marginLeft: "4px",
                 fontSize: "14px",
                 lineHeight: "20px",
-                fontWeight: 500,
+                fontWeight: 400,
               }}
             />
           );
@@ -162,8 +259,6 @@ export default function NodesTable(props) {
         field: "status",
         headerName: "Lifecycle Status",
         flex: 0.9,
-        headerAlign: "center",
-        align: "center",
         renderCell: (params) => {
           const status = params.row.status;
           const statusStylesAndMap =
@@ -176,17 +271,16 @@ export default function NodesTable(props) {
         field: "healthStatus",
         headerName: "Health Status",
         flex: 0.9,
-        headerAlign: "center",
-        align: "center",
         renderCell: (params) => {
+          const status = params.row.healthStatus
+            ? params.row.healthStatus
+            : "UNKNOWN";
+
           const lifecycleStatus = params.row.status;
 
           if (lifecycleStatus === "STOPPED")
             return <StatusChip category="unknown" label="N/A" />;
 
-          const status = params.row.healthStatus
-            ? params.row.healthStatus
-            : "UNKNOWN";
           return (
             <>
               {params.row?.detailedHealth ? (
@@ -214,7 +308,12 @@ export default function NodesTable(props) {
   );
 
   const failoverMutation = useMutation(
-    (payload) => failoverResourceInstanceNode(payload),
+    (payload) => {
+      //if the context is inventory manage instance call failover endpoint of related to
+      //invetory otherwise call access related endpoint
+
+      return failoverResourceInstanceNode(payload);
+    },
     {
       onSuccess: async () => {
         await refetchData();
@@ -224,12 +323,7 @@ export default function NodesTable(props) {
   );
 
   function handleFailover(nodeId, resourceKey) {
-    if (isInventoryManageInstance && nodeId) {
-      failoverMutation.mutate({
-        resourceKey: resourceKey,
-        failedReplicaID: nodeId,
-      });
-    } else if (serviceOffering && nodeId) {
+    if (serviceOffering && nodeId) {
       failoverMutation.mutate({
         serviceProviderId: serviceOffering?.serviceProviderId,
         serviceKey: serviceOffering?.serviceURLKey,
@@ -263,32 +357,17 @@ export default function NodesTable(props) {
     isFailoverEnabled = true;
   }
 
-  if (!filteredNodes?.length) {
-    return (
-      <Card sx={{ minHeight: "500px", mt: "24px" }}>
-        <Stack direction="row" justifyContent="center" marginTop="200px">
-          <Text size="xlarge">No Containers data</Text>
-        </Stack>
-      </Card>
-    );
-  }
-
   return (
-    <Box height="700px" mt={3}>
+    <Box mt={"32px"}>
       <DataGrid
-        checkboxSelection
+        checkboxSelection={!isCustomTenancy}
         disableColumnMenu
         disableSelectionOnClick
         hideFooterSelectedRowCount
-        columns={columns}
-        rows={filteredNodes}
+        columns={isCustomTenancy ? customTenancyColumns : columns}
+        rows={isRefetching ? [] : filteredNodes}
         components={{
           Header: NodesTableHeader,
-          NoRowsOverlay: (
-            <Stack height="100%" alignItems="center" justifyContent="center">
-              No Containers Found
-            </Stack>
-          ),
         }}
         componentsProps={{
           header: {
@@ -302,18 +381,25 @@ export default function NodesTable(props) {
               !modifyAccessServiceAllowed ||
               (isInventoryManageInstance && isManagedProxy), //can't failover fleet instances of type serverless proxy and managedProxyType==="PortsbasedProxy"
             selectedNode,
-            isAccessSide,
-            isInventoryManageInstance,
+            showFailoverButton:
+              !isCustomTenancy && (isAccessSide || isInventoryManageInstance),
+            showGenerateTokenButton: Boolean(
+              isCustomTenancy &&
+                nodes.some((node) => node.kubernetesDashboardEndpoint)
+            ),
+            onGenerateTokenClick: () => setIsGenerateTokenDialogOpen(true),
             handleFailover,
             failoverMutation,
           },
         }}
         getRowClassName={(params) => `${params.row.status}`}
         sx={{
-          [`& .node-ports`]: {
+          "& .node-ports": {
             color: "#101828",
             fontWeight: 500,
           },
+          borderRadius: "8px",
+
           ...getRowBorderStyles(),
         }}
         selectionModel={selectionModel}
@@ -328,30 +414,16 @@ export default function NodesTable(props) {
             setSelectionModel(newRowSelectionModel);
           }
         }}
+        loading={isRefetching}
+        noRowsText="No nodes"
+      />
+      <GenerateTokenDialog
+        dashboardEndpoint={dashboardEndpoint}
+        open={isGenerateTokenDialogOpen}
+        onClose={() => setIsGenerateTokenDialogOpen(false)}
+        selectedInstanceId={resourceInstanceId}
+        subscriptionId={subscriptionId}
       />
     </Box>
   );
-}
-
-function getRowBorderStyles() {
-  const styles = {};
-
-  for (const status in resourceInstanceStatusMap) {
-    const category = resourceInstanceStatusMap[status]?.category;
-    let color = chipCategoryColors[category]?.color;
-    if (!color) {
-      color = defaultChipStyles.color;
-    }
-    styles[`& .${status}::before`] = {
-      content: '""',
-      height: "40px",
-      width: "3px",
-      borderRadius: "6px",
-      background: color,
-      transform: "translateY(5px)",
-      position: "absolute",
-    };
-  }
-
-  return styles;
 }

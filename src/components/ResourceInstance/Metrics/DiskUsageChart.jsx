@@ -1,11 +1,10 @@
 import React from "react";
 import { Text } from "../../Typography/Typography";
-import { Box } from "@mui/material";
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
   Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -13,18 +12,21 @@ import {
 } from "recharts";
 import ReChartContainer from "../../ReChartContainer/ReChartContainer";
 import lineChartColorPalette from "../../../utils/constants/lineChartColorPalette";
+import { Box } from "@mui/material";
 
 function DiskUsageChart(props) {
   const { data, labels } = props;
 
-  //   console.log("Disk usage", data);
-  //   console.log("Disk usage paths", labels);
   return (
-    <Box mt={8}>
-      <Text sx={{ marginLeft: 3 }}>Disk Usage</Text>
+    <Box>
+      <Box sx={{ padding: "10px 20px", borderBottom: "1px solid #EAECF0" }}>
+        <Text size="medium" color="#344054" weight="semibold">
+          Disk Usage
+        </Text>
+      </Box>
       <ReChartContainer mt={3} debounce={100}>
         <ResponsiveContainer>
-          <LineChart
+          <AreaChart
             height={300}
             data={data}
             margin={{
@@ -35,11 +37,7 @@ function DiskUsageChart(props) {
             }}
           >
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="time"
-              tickFormatter={() => ""}
-              tickLine={false}
-            />
+            <XAxis dataKey="time" tickFormatter={() => ""} tickLine={false} />
             <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
             <Tooltip
               isAnimationActive={false}
@@ -50,12 +48,13 @@ function DiskUsageChart(props) {
             <Legend />
             {labels.map((labelName, index) => {
               return (
-                <Line
+                <Area
                   key={labelName}
                   name={labelName}
                   type="monotone"
                   dataKey={labelName}
                   stroke={lineChartColorPalette[index]}
+                  fill={lineChartColorPalette[index]}
                   dot={false}
                   isAnimationActive={false}
                   label={labelName}
@@ -64,7 +63,7 @@ function DiskUsageChart(props) {
                 />
               );
             })}
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </ReChartContainer>
     </Box>

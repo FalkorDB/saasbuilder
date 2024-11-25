@@ -92,7 +92,7 @@ function ChangePassword() {
               required
               name="currentPassword"
               id="currentPassword"
-              placeholder="Current Password*"
+              placeholder="Current Password"
               value={formik.values.currentPassword}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
@@ -101,7 +101,7 @@ function ChangePassword() {
               }
               sx={{ marginTop: "12px", width: "600px" }}
             />
-            <FieldError>
+            <FieldError marginTop="4px">
               {formik.touched.currentPassword && formik.errors.currentPassword}
             </FieldError>
           </Box>
@@ -114,14 +114,14 @@ function ChangePassword() {
               required
               name="password"
               id="password"
-              placeholder="New Password*"
+              placeholder="New Password"
               value={formik.values.password}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
               error={formik.touched.password && formik.errors.password}
               sx={{ marginTop: "12px", width: "600px" }}
             />
-            <FieldError>
+            <FieldError marginTop="4px">
               {formik.touched.password && formik.errors.password}
             </FieldError>
           </Box>
@@ -134,7 +134,7 @@ function ChangePassword() {
               required
               name="confirmPassword"
               id="confirmPassword"
-              placeholder="Confirm New Password*"
+              placeholder="Confirm New Password"
               value={formik.values.confirmPassword}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
@@ -143,7 +143,7 @@ function ChangePassword() {
               }
               sx={{ marginTop: "12px", width: "600px" }}
             />
-            <FieldError>
+            <FieldError marginTop="4px">
               {formik.touched.confirmPassword && formik.errors.confirmPassword}
             </FieldError>
           </Box>
@@ -159,7 +159,7 @@ function ChangePassword() {
                 marginRight: "20px",
               }}
               type="submit"
-              disabled={createChangePasswordMutation.isLoading}
+              disabled={createChangePasswordMutation.isLoading || !formik.dirty}
             >
               Update Password
               {createChangePasswordMutation.isLoading && (

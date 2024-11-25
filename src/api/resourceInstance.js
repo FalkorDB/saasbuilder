@@ -153,6 +153,12 @@ export const getResourceInstanceDetails = (
   );
 };
 
+export const getDeploymentCellToken = (payload) => {
+  return axios.post(
+    `/resource-instance/${payload.instanceId}/deployment-cell-dashboard/token?subscriptionId=${payload.subscriptionId}`
+  );
+};
+
 export const deleteResourceInstance = (payload) => {
   const queryParams = {};
   if (payload.subscriptionId) {
@@ -300,6 +306,44 @@ export const removeCustomDNSFromResourceInstance = (
     {
       params: queryParams,
     }
+  );
+};
+
+export const postInstanceRestoreAccess = (
+  serviceProviderId,
+  serviceKey,
+  serviceAPIVersion,
+  serviceEnvironmentKey,
+  serviceModelKey,
+  productTierKey,
+  resourceKey,
+  snapshotId,
+  subscriptionId,
+  queryParams = {}
+) => {
+  return axios.post(
+    `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/${productTierKey}/${resourceKey}/snapshot/${snapshotId}/restore?subscriptionId=${subscriptionId}`,
+    {
+      params: queryParams,
+    }
+  );
+};
+
+export const getInstanceRestoreAccess = (
+  serviceProviderId,
+  serviceKey,
+  serviceAPIVersion,
+  serviceEnvironmentKey,
+  serviceModelKey,
+  productTierKey,
+  resourceKey,
+  instanceId,
+  subscriptionId,
+  config = {}
+) => {
+  return axios.get(
+    `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/${productTierKey}/${resourceKey}/${instanceId}/snapshot?subscriptionId${subscriptionId}`,
+    { ...config }
   );
 };
 

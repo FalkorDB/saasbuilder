@@ -76,7 +76,7 @@ const SigninPage = (props) => {
       ) {
         router.replace(decodeURIComponent(DOMPurify(destination)));
       } else {
-        router.replace("/service-plans");
+        router.replace("/redirect");
       }
     }
   }

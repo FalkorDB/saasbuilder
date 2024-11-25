@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import { Box, Stack } from "@mui/material";
 
 import DataGridHeaderTitle from "components/Headers/DataGridHeaderTitle";
@@ -20,6 +20,7 @@ import SearchInput from "src/components/DataGrid/SearchInput";
 import { SetState } from "src/types/common/reactGenerics";
 import { AccessResourceInstance } from "src/types/resourceInstance";
 import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
+import GenerateTokenDialog from "src/components/GenerateToken/GenerateTokenDialog";
 
 type InstancesTableHeaderProps = {
   count?: number;
@@ -45,7 +46,7 @@ type InstancesTableHeaderProps = {
   isDeprecated?: boolean;
   isResourceParameters?: boolean;
   isVisibleRestore?: boolean;
-  isVisibleCapacity?: boolean;
+  selectedResourceId: string;
 };
 
 const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
@@ -72,10 +73,12 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
   isDeprecated,
   isResourceParameters,
   isVisibleRestore,
-  isVisibleCapacity = true,
+  selectedResourceId,
 }) => {
   const role = getEnumFromUserRoleString(roleType);
   const view = viewEnum.Access_Resources;
+  const [isGenerateTokenDialogOpen, setIsGenerateTokenDialogOpen] =
+    useState(false);
 
   const isCreateAllowedByRBAC = isOperationAllowedByRBAC(
     operationEnum.Create,
@@ -94,6 +97,9 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
       addCapacity: false,
       removeCapacity: false,
       connect: false,
+      isVisibleCapacity: false,
+      generateToken: false,
+      isVisibleGenerateToken: false,
     };
 
     if (!selectedInstance) {
@@ -101,7 +107,8 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
     }
 
     const cliManagedResource = CLI_MANAGED_RESOURCES.includes(
-      selectedInstance.resourceType
+      selectedInstance?.detailedNetworkTopology?.[selectedResourceId]
+        ?.resourceType
     );
 
     const isUpdateAllowedByRBAC = isOperationAllowedByRBAC(
@@ -130,9 +137,15 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
       actionsObj.connect = true;
     }
 
-    if (status === "RUNNING" && isUpdateAllowedByRBAC && !cliManagedResource) {
+    if (
+      status === "RUNNING" &&
+      isUpdateAllowedByRBAC &&
+      !cliManagedResource &&
+      selectedInstance?.autoscalingEnabled
+    ) {
       actionsObj.addCapacity = true;
       actionsObj.removeCapacity = true;
+      actionsObj.isVisibleCapacity = true;
     }
 
     if (
@@ -142,11 +155,24 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
       !isCurrentResourceBYOA
     ) {
       actionsObj.restart = true;
+    }
+
+    if (
+      (status === "RUNNING" || status === "FAILED") &&
+      isUpdateAllowedByRBAC &&
+      !isCurrentResourceBYOA
+    ) {
       actionsObj.modify = true;
     }
 
     if (status !== "DELETING" && isDeleteAllowedByRBAC) {
       actionsObj.delete = true;
+    }
+    if (
+      status !== "DELETING" &&
+      selectedInstance?.kubernetesDashboardEndpoint?.dashboardEndpoint
+    ) {
+      actionsObj.isVisibleGenerateToken = true;
     }
 
     if (
@@ -158,7 +184,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
     }
 
     return actionsObj;
-  }, [selectedInstance, role, isCurrentResourceBYOA, view]);
+  }, [selectedInstance, role, isCurrentResourceBYOA, view, selectedResourceId]);
 
   return (
     <Box>
@@ -166,7 +192,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
         direction="row"
         justifyContent="space-between"
         alignItems="center"
-        p="20px 24px 14px"
+        p="20px"
         borderBottom="1px solid #EAECF0"
       >
         <DataGridHeaderTitle
@@ -177,7 +203,6 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
             singular: "Instance",
             plural: "Instances",
           }}
-          sx={{ marginBottom: "14px" }}
         />
 
         <Stack direction="row" alignItems="center" gap="12px">
@@ -193,7 +218,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
           />
 
           <Button
-            sx={{ height: "43px" }}
+            sx={{ height: "40px", padding: "10px 14px !important" }}
             variant="contained"
             startIcon={<AddIcon />}
             disabled={
@@ -255,13 +280,55 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
             isLoading={isFetchingInstances || !selectedInstance}
             isModifyDisabled={!actions.modify}
             isVisibleRestore={isVisibleRestore}
-            isVisibleCapacity={isVisibleCapacity}
+            isVisibleCapacity={actions.isVisibleCapacity}
             isVisibleBYOA={isCurrentResourceBYOA}
+            isVisibleGenerateToken={actions.isVisibleGenerateToken}
+            handleGenerateToken={() => setIsGenerateTokenDialogOpen(true)}
           />
         </Stack>
       </Stack>
+      <Stack
+        direction="row"
+        justifyContent="right"
+        alignItems="center"
+        p="12px 16px"
+        borderBottom="1px solid #EAECF0"
+        gap="12px"
+      >
+        <SpeedoMeterLegend />
+        <SpeedoMeterLegend color="#f5d716" label="Medium" />
+        <SpeedoMeterLegend color="#f04438" label="High" />
+      </Stack>
+      <GenerateTokenDialog
+        dashboardEndpoint={
+          selectedInstance?.kubernetesDashboardEndpoint?.dashboardEndpoint
+        }
+        open={isGenerateTokenDialogOpen}
+        onClose={() => setIsGenerateTokenDialogOpen(false)}
+        selectedInstanceId={selectedInstance?.id}
+        subscriptionId={selectedInstance?.subscriptionId}
+      />
     </Box>
   );
 };
 
 export default InstancesTableHeader;
+
+const SpeedoMeterLegend = ({
+  label = "Low",
+  color = "rgba(23, 178, 106, 1)",
+}) => (
+  <Box gap="6px" display="flex" alignItems="center">
+    <Box
+      sx={{
+        width: "8px",
+        height: "8px",
+        borderRadius: "100%",
+        background: color,
+      }}
+    />
+    <Text size="small" weight="regular" color="rgba(71, 84, 103, 1)">
+      {label}
+    </Text>
+  </Box>
+);

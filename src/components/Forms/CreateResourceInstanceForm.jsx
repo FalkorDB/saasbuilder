@@ -160,7 +160,9 @@ function CreateResourceInstanceForm(props) {
               )
             );
 
-            setCreateSchema(sortedInputParams);
+            setCreateSchema(
+              sortedInputParams?.sort((a, b) => a?.key.localeCompare(b?.key))
+            );
             const createSchemaForDefValue = {};
             api.inputParameters.forEach((kv) => {
               if (kv.defaultValue)
@@ -291,7 +293,7 @@ function CreateResourceInstanceForm(props) {
           <FieldContainer>
             <FieldLabel required>Cloud Provider</FieldLabel>
             <FieldDescription sx={{ mt: "5px" }}>
-              Cloud Provider
+              Select the cloud provider
             </FieldDescription>
             <TextField
               select
@@ -600,7 +602,7 @@ function CreateResourceInstanceForm(props) {
                           key={cloudProviderAccount.id}
                           value={cloudProviderAccount.id}
                         >
-                          {cloudProviderAccount.id}
+                          {cloudProviderAccount.label}
                         </MenuItem>
                       ))}
                     </Select>
@@ -754,16 +756,13 @@ function CreateResourceInstanceForm(props) {
                               formData.values.cloud_provider === "gcp" &&
                               !formData.values.requestParams[
                                 param.key
-                              ].startsWith("e2")
+                              ].includes("-")
                               ? "e2-custom-4-8192"
                               : param.key === "nodeInstanceType" &&
                                   formData.values.cloud_provider === "aws" &&
-                                  (!formData.values.requestParams[
+                                  !formData.values.requestParams[
                                     param.key
-                                  ].startsWith("c6i") ||
-                                    !formData.values.requestParams[
-                                      param.key
-                                    ].startsWith("t2"))
+                                  ].includes(".")
                                 ? "c6i.xlarge"
                                 : formData.values.requestParams[param.key]
                             : ""
@@ -772,17 +771,17 @@ function CreateResourceInstanceForm(props) {
                         options={
                           options?.length > 0
                             ? options.filter((option) => {
-                                // If param.key is nodeInstanceType and cloud provider is gcp, remove all options that don't start with e2
-                                // If param.key is nodeInstanceType and cloud provider is aws, remove all options that don't start with c6i or t2
+                                // If param.key is nodeInstanceType and cloud provider is gcp, remove all options that don't contain a hyphen
+                                // If param.key is nodeInstanceType and cloud provider is aws, remove all options that don't contain a period
                                 if (param.key === "nodeInstanceType") {
                                   if (
                                     formData.values.cloud_provider === "gcp"
                                   ) {
-                                    return option.startsWith("e2");
+                                    return option.includes("-");
                                   } else if (
                                     formData.values.cloud_provider === "aws"
                                   ) {
-                                    return option.startsWith("c6i") || option.startsWith("t2");
+                                    return option.includes(".");
                                   }
                                 }
                               })
@@ -854,17 +853,30 @@ function CreateResourceInstanceForm(props) {
                           <GCPProjectNumberDescription context="access" />
                         )}
                       </FieldDescription>
-                      <TextField
-                        multiline={true}
-                        minRows={1}
-                        maxRows={3}
-                        id={`requestParams.${param.key}`}
-                        name={`requestParams.${param.key}`}
-                        value={formData.values.requestParams[param.key] ?? ""}
-                        onChange={formData.handleChange}
-                        sx={{ marginTop: "16px" }}
-                        required={param.required == true ? true : false}
-                      />
+                      {param.type === "Float64" ? (
+                        <TextField
+                          id={`requestParams.${param.key}`}
+                          type="number"
+                          name={`requestParams.${param.key}`}
+                          value={formData.values.requestParams[param.key]}
+                          onChange={formData.handleChange}
+                          sx={{ marginTop: "16px" }}
+                          modifiable={param.modifiable}
+                          required={param.required == true ? "required" : ""}
+                        />
+                      ) : (
+                        <TextField
+                          multiline={true}
+                          minRows={1}
+                          maxRows={3}
+                          id={`requestParams.${param.key}`}
+                          name={`requestParams.${param.key}`}
+                          value={formData.values.requestParams[param.key] ?? ""}
+                          onChange={formData.handleChange}
+                          sx={{ marginTop: "16px" }}
+                          required={param.required == true ? true : false}
+                        />
+                      )}
                     </FieldContainer>
                   );
                 }
@@ -876,10 +888,13 @@ function CreateResourceInstanceForm(props) {
         <Box display="flex" justifyContent="flex-end" gap="10px" mt="40px">
           <Button
             variant="contained"
-            size="xsmall"
             bgColor="white"
             fontColor="black"
-            sx={{ border: " 1px solid #D1D5DB" }}
+            sx={{
+              border: " 1px solid #D1D5DB",
+              height: "40px !important",
+              padding: "10px 14px !important",
+            }}
             onClick={formCancelClick}
             disabled={isLoading}
           >
@@ -887,9 +902,9 @@ function CreateResourceInstanceForm(props) {
           </Button>
           <Button
             variant="contained"
-            size="xsmall"
             type="submit"
             disabled={isLoading}
+            sx={{ height: "40px !important", padding: "10px 14px !important" }}
           >
             Create {selectedResourceKey.name} Instance{" "}
             {isLoading && (

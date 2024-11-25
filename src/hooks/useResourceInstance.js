@@ -69,6 +69,7 @@ export default function useResourceInstance(
         let metricsSocketURL = "";
         let logsSocketURL = "";
         let customNetworkDetails = null;
+
         if (data.customNetworkDetail) {
           customNetworkDetails = data.customNetworkDetail;
         }
@@ -139,6 +140,7 @@ export default function useResourceInstance(
               const healthStatus = node.healthStatus;
               const detailedHealth = node.detailedHealth;
               nodes.push({
+                ...node,
                 id: nodeId,
                 nodeId: nodeId,
                 endpoint: endpoint,
@@ -223,6 +225,7 @@ export default function useResourceInstance(
                     const resourceKey = topologyDetails.resourceKey;
                     const detailedHealth = node.detailedHealth;
                     nodes.push({
+                      ...node,
                       id: nodeId,
                       nodeId: nodeId,
                       endpoint: endpoint,
@@ -292,6 +295,16 @@ export default function useResourceInstance(
           );
         }
 
+        const additionalEndpoints = [];
+        Object.values(data.detailedNetworkTopology || {}).forEach(
+          (resource) => {
+            additionalEndpoints.push({
+              resourceName: resource.resourceName,
+              additionalEndpoints: resource.additionalEndpoints,
+            });
+          }
+        );
+
         const healthStatusPercent = calculateInstanceHealthPercentage(
           data?.detailedNetworkTopology,
           data?.status
@@ -306,8 +319,25 @@ export default function useResourceInstance(
           createdAt: createdAt,
           modifiedAt: modifiedAt,
           networkType: data.network_type,
+          autoscalingEnabled: data?.autoscalingEnabled
+            ? data?.autoscalingEnabled
+            : false,
+          backupStatus: data?.backupStatus ? data?.backupStatus : {},
+          highAvailability: data?.highAvailability
+            ? data?.highAvailability
+            : false,
+          serverlessEnabled: data?.serverlessEnabled
+            ? data?.serverlessEnabled
+            : false,
+          autoscaling: {
+            currentReplicas: data?.currentReplicas,
+            maxReplicas: data?.maxReplicas,
+            minReplicas: data?.minReplicas,
+          },
+          instanceLoadStatus: data?.instanceLoadStatus,
           connectivity: {
             networkType: _.capitalize(data.network_type),
+            additionalEndpoints: additionalEndpoints,
             clusterEndpoint: topologyDetails?.clusterEndpoint,
             nodeEndpoints: nodeEndpoints,
             ports: clusterPorts,

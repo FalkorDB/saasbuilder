@@ -72,8 +72,11 @@ function Events() {
     }
   }, [source]);
 
-  const { isLoading: isEventsLoading, isRefetching: isEventsRefetching } =
-    eventsQuery;
+  const {
+    isLoading: isEventsLoading,
+    isRefetching: isEventsRefetching,
+    refetch : refetchEvents,
+  } = eventsQuery;
 
   const isCustomNetworkEnabled = useMemo(() => {
     let enabled = false;
@@ -87,6 +90,8 @@ function Events() {
 
     return enabled;
   }, [serviceOffering]);
+
+  const isRootSubscription = subscriptionData?.roleType === "root";
 
   const isLoading = isServiceOfferingLoading || isEventsLoading;
 
@@ -227,9 +232,14 @@ function Events() {
       <Divider sx={{ mt: 2.5, mb: 4 }} />
 
       <EventsTable
-        title="List of Events"
+        serviceId={serviceId}
+        environmentId={environmentId}
+        productTierId={productTierId}
+        subscriptionId={subscriptionData?.id}
         events={events}
+        refetchEvents={refetchEvents}
         isRefetching={isEventsRefetching}
+        isRootSubscription={isRootSubscription}
       />
       <SideDrawerRight
         size="xlarge"

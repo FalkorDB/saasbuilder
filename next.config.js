@@ -6,7 +6,7 @@ const nextConfig = {
     return [
       {
         source: "/",
-        destination: "/service-plans",
+        destination: "/redirect",
         permanent: true,
       },
     ];
@@ -36,7 +36,7 @@ const nextConfig = {
           {
             key: "Content-Security-Policy",
             value:
-              "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://accounts.google.com/gsi/client https://www.google.com https://www.gstatic.com 'unsafe-eval' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src *; img-src * data:; media-src *; frame-src *; object-src 'none'",
+              "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://accounts.google.com/gsi/client https://www.google.com https://www.gstatic.com 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; connect-src *; img-src * data:; media-src *; frame-src *; object-src 'none'",
           },
           {
             key: "Strict-Transport-Security",

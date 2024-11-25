@@ -2,7 +2,7 @@ import {
   CloudProvider,
   InstanceStatus,
   NetworkType,
-  RESOURCETYPES,
+  ResourceType,
 } from "./common/enums";
 
 export const RESOURCE_TYPES = {
@@ -27,13 +27,17 @@ type ResourceNetworkTopology = {
   publiclyAccessible?: boolean;
   resourceKey?: string;
   resourceName?: string;
+  resourceType: ResourceType;
 };
 
 //Access Resource Instance
 export type AccessResourceInstance = {
+  kubernetesDashboardEndpoint: any;
+  subscriptionId?: string;
   backupStatus?: {
     earliestRestoreTime: string;
   };
+  autoscalingEnabled?: boolean;
   active: boolean;
   awsAccountID?: string;
   cloud_provider?: CloudProvider;
@@ -51,5 +55,4 @@ export type AccessResourceInstance = {
   result_params: Record<string, any>;
   status: InstanceStatus;
   highAvailability: boolean;
-  resourceType: RESOURCETYPES;
 };

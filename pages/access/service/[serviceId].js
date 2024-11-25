@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import resourceInstnaceIcon from "../../../public/assets/images/dashboard/logo.svg";
 import marketplaceIcon from "../../../public/assets/images/dashboard/marketplace.svg";
 import marketplaceReturnIcon from "../../../public/assets/images/dashboard/marketplaceIcon.svg";
 import {
@@ -84,6 +83,12 @@ import CustomNetworks from "src/features/CustomNetworks/CustomNetworks";
 import CapacityDialog from "src/components/CapacityDialog/CapacityDialog";
 import InstancesTableHeader from "src/features/ResourceInstance/components/InstancesTableHeader";
 import { CLOUD_PROVIDERS } from "src/constants/cloudProviders";
+import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
+import SpeedoMeterLow from "../../../public/assets/images/dashboard/resource-instance-speedo-meter/idle.png";
+import SpeedoMeterMedium from "../../../public/assets/images/dashboard/resource-instance-speedo-meter/normal.png";
+import SpeedoMeterHigh from "../../../public/assets/images/dashboard/resource-instance-speedo-meter/high.png";
+import DashboardHeaderIcon from "src/components/Icons/Dashboard/DashboardHeaderIcon";
+import { productTierTypes } from "src/constants/servicePlan";
 
 export const getServerSideProps = async () => {
   return {
@@ -224,6 +229,16 @@ function MarketplaceService() {
     }
   }, [source]);
 
+  //set Cloud Formation URLS from the service offering API response
+  useEffect(() => {
+    if (service?.assets?.cloudFormationURL) {
+      setCloudFormationTemplateUrl(service.assets.cloudFormationURL);
+    }
+    if (service?.assets?.cloudFormationURLNoLB) {
+      setCloudFormationTemplateUrlNoLB(service.assets.cloudFormationURLNoLB);
+    }
+  }, [service]);
+
   const subscriptionQuery = useSubscriptionForProductTierAccess(
     serviceId,
     productTierId,
@@ -247,6 +262,10 @@ function MarketplaceService() {
 
     return enabled;
   }, [service]);
+
+  const shouldShowKubernetesDashboardColumn = resourceInstanceList?.some(
+    (instance) => instance.kubernetesDashboardEndpoint
+  );
 
   const columns = useMemo(() => {
     const columnDefinition = [
@@ -284,6 +303,15 @@ function MarketplaceService() {
             </DataGridText>
           );
         },
+      },
+      {
+        field: "resourceName",
+        headerName: "Resource Name",
+        flex: 1,
+        minWidth: 235,
+        align: "center",
+        headerAlign: "center",
+        renderCell: () => selectedResource?.name,
       },
       {
         field: "status",
@@ -337,13 +365,6 @@ function MarketplaceService() {
                           ? "aws"
                           : "gcp"
                       );
-                      setCloudFormationTemplateUrl(
-                        result_params?.cloudformation_url
-                      );
-
-                      setCloudFormationTemplateUrlNoLB(
-                        result_params?.cloudformation_url_no_lb
-                      );
 
                       setAccountConfigMethod(
                         result_params?.account_configuration_method
@@ -354,6 +375,52 @@ function MarketplaceService() {
                     <ViewInstructionsIcon />
                   </Box>
                 </Tooltip>
+              )}
+            </Stack>
+          );
+        },
+      },
+      {
+        field: "instanceLoadStatus",
+        headerName: "Load",
+        flex: 0.9,
+        minWidth: 100,
+        align: "center",
+        headerAlign: "center",
+        renderCell: (params) => {
+          const instanceLoadStatus = params.row.instanceLoadStatus;
+
+          return (
+            <Stack
+              direction={"row"}
+              justifyContent={"center"}
+              alignItems={"center"}
+              gap="4px"
+            >
+              {instanceLoadStatus === "UNKNOWN" && "-"}
+              {instanceLoadStatus === "POD_IDLE" && (
+                <Image
+                  src={SpeedoMeterLow}
+                  width={54}
+                  height={54}
+                  style={{ marginBottom: "-25px" }}
+                />
+              )}
+              {instanceLoadStatus === "POD_NORMAL" && (
+                <Image
+                  src={SpeedoMeterMedium}
+                  width={54}
+                  height={54}
+                  style={{ marginBottom: "-25px" }}
+                />
+              )}
+              {instanceLoadStatus === "POD_OVERLOAD" && (
+                <Image
+                  src={SpeedoMeterHigh}
+                  width={54}
+                  height={54}
+                  style={{ marginBottom: "-25px" }}
+                />
               )}
             </Stack>
           );
@@ -408,7 +475,10 @@ function MarketplaceService() {
           );
         },
       },
-      {
+    ];
+
+    if (service?.productTierType !== productTierTypes.CUSTOM_TENANCY) {
+      columnDefinition.push({
         field: "healthStatus",
         headerName: "Health Status",
         flex: 1,
@@ -417,6 +487,22 @@ function MarketplaceService() {
         headerAlign: "center",
         renderCell: (params) => {
           const status = params?.row?.status;
+          let mainResource = [];
+          if (params.row?.detailedNetworkTopology) {
+            const detailedNetworkTopologyEntries = Object.entries(
+              params.row?.detailedNetworkTopology ?? {}
+            );
+
+            mainResource = detailedNetworkTopologyEntries?.find(
+              ([, details]) => {
+                return details.main === true;
+              }
+            );
+          }
+          const [, topologyDetails] = mainResource ?? [];
+
+          if (CLI_MANAGED_RESOURCES.includes(topologyDetails?.resourceType))
+            return <StatusChip category="unknown" label="Unknown" />;
 
           if (status === "STOPPED")
             return <StatusChip category="unknown" label="N/A" />;
@@ -426,15 +512,10 @@ function MarketplaceService() {
             status
           );
 
-          return (
-            <GradientProgressBar
-              percentage={healthPercentage}
-              marginTop="10px"
-            />
-          );
+          return <GradientProgressBar percentage={healthPercentage} />;
         },
-      },
-    ];
+      });
+    }
 
     // If resource has a name, add a column to display the resource name
     if (resourceInstanceList[0]?.result_params?.name) {
@@ -507,16 +588,46 @@ function MarketplaceService() {
       });
     }
 
+    if (shouldShowKubernetesDashboardColumn) {
+      columnDefinition.push({
+        field: "kubernetesDashboardEndpoint",
+        headerName: "Dashboard Endpoint",
+        flex: 1,
+        headerAlign: "center",
+        align: "center",
+        minWidth: 150,
+        renderCell: (params) => {
+          const { row } = params;
+          const dashboardEndpoint =
+            row.kubernetesDashboardEndpoint?.dashboardEndpoint;
+
+          if (!dashboardEndpoint) {
+            return "-";
+          }
+
+          return (
+            <GridCellExpand
+              value={dashboardEndpoint}
+              href={"https://" + dashboardEndpoint}
+              target="_blank"
+              externalLinkArrow
+            />
+          );
+        },
+      });
+    }
+
     return columnDefinition;
   }, [
     serviceId,
+    service,
     selectedResource,
     resourceInstanceList,
-    currentSource,
     environmentId,
     isCurrentResourceBYOA,
     subscriptionData?.id,
     productTierId,
+    shouldShowKubernetesDashboardColumn,
   ]);
 
   const snackbar = useSnackbar();
@@ -668,11 +779,11 @@ function MarketplaceService() {
       subscriptionId: subscriptionData?.id,
       ...(isCurrentResourceBYOA
         ? {
-            configMethod:
-              defaultCloudProvider == CLOUD_PROVIDERS.aws
-                ? ACCOUNT_CREATION_METHODS.CLOUDFORMATION
-                : ACCOUNT_CREATION_METHODS.TERRAFORM,
-          }
+          configMethod:
+            defaultCloudProvider == CLOUD_PROVIDERS.aws
+              ? ACCOUNT_CREATION_METHODS.CLOUDFORMATION
+              : ACCOUNT_CREATION_METHODS.TERRAFORM,
+        }
         : {}),
     },
     enableReinitialize: true,
@@ -711,6 +822,7 @@ function MarketplaceService() {
               }
             });
 
+          let isTypeError = false;
           Object.keys(data.requestParams).forEach((key) => {
             const result = schemaArray.find((schemaParam) => {
               return schemaParam.key === key;
@@ -730,6 +842,7 @@ function MarketplaceService() {
                       data.requestParams[key] = Number(data.requestParams[key]);
                     } else {
                       snackbar.showError(`Invalid data in ${key}`);
+                      isTypeError = true;
                     }
                   }
                 }
@@ -830,11 +943,13 @@ function MarketplaceService() {
             }
           }
 
-          if (isError) {
-            snackbar.showError(`${requiredFieldName} is required`);
-          } else {
-            /* eslint-disable-next-line no-use-before-define */
-            createResourceInstanceMutation.mutate(data);
+          if (!isTypeError) {
+            if (isError) {
+              snackbar.showError(`${requiredFieldName} is required`);
+            } else {
+              /* eslint-disable-next-line no-use-before-define */
+              createResourceInstanceMutation.mutate(data);
+            }
           }
         } catch (err) {
           console.error("error", err);
@@ -883,17 +998,6 @@ function MarketplaceService() {
           );
 
           const resourceInstance = resourceInstanceResponse.data;
-
-          const url = resourceInstance?.result_params?.cloudformation_url;
-          if (url) {
-            setCloudFormationTemplateUrl(url);
-          }
-
-          const urlNoLB =
-            resourceInstance?.result_params?.cloudformation_url_no_lb;
-          if (urlNoLB) {
-            setCloudFormationTemplateUrlNoLB(urlNoLB);
-          }
           snackbar.showSuccess("Cloud Provider Account Created");
           setAccountConfigStatus(resourceInstance?.status);
           setAccountConfigId(resourceInstance?.id);
@@ -918,8 +1022,6 @@ function MarketplaceService() {
       setIsAccountCreation(false);
       setAccountConfigMethod(undefined);
       setCloudProvider("");
-      setCloudFormationTemplateUrl("");
-      setCloudFormationTemplateUrlNoLB("");
       setAccountConfigStatus("");
       setAccountConfigId("");
     }
@@ -1105,23 +1207,29 @@ function MarketplaceService() {
         const cloudProviderResourceInstance =
           cloudProviderResourceInstanceResponse.data;
 
-        //aws
-        if (cloudProviderResourceInstance?.result_params?.aws_account_id) {
-          const cloudProviderAccount = {
-            id: instanceId,
-            type: "aws",
-          };
-          cloudProviderResInstances.push(cloudProviderAccount);
+        if (
+          ["READY", "RUNNING"].includes(cloudProviderResourceInstance?.status)
+        ) {
+          //aws
+          if (cloudProviderResourceInstance?.result_params?.aws_account_id) {
+            const cloudProviderAccount = {
+              id: instanceId,
+              type: "aws",
+              label: `${instanceId} (Account ID - ${cloudProviderResourceInstance?.result_params?.aws_account_id})`,
+            };
+            cloudProviderResInstances.push(cloudProviderAccount);
+          }
+          //gcp
+          if (cloudProviderResourceInstance?.result_params?.gcp_project_id) {
+            const cloudProviderAccount = {
+              id: instanceId,
+              type: "gcp",
+              label: `${instanceId} (Project ID - ${cloudProviderResourceInstance?.result_params?.gcp_project_id})`,
+            };
+            cloudProviderResInstances.push(cloudProviderAccount);
+          }
+          //later azure
         }
-        //gcp
-        if (cloudProviderResourceInstance?.result_params?.gcp_project_id) {
-          const cloudProviderAccount = {
-            id: instanceId,
-            type: "gcp",
-          };
-          cloudProviderResInstances.push(cloudProviderAccount);
-        }
-        //later azure
       })
     );
     setCloudProviderAccounts(cloudProviderResInstances);
@@ -1321,6 +1429,7 @@ function MarketplaceService() {
           );
         }
 
+        let isTypeError = false;
         Object.keys(data.requestParams).forEach((key) => {
           const result = schemaArray.find((schemaParam) => {
             return schemaParam.key === key;
@@ -1336,6 +1445,7 @@ function MarketplaceService() {
                 data.requestParams[key] = Number(data.requestParams[key]);
               } else {
                 snackbar.showError(`Invalid data in ${key}`);
+                isTypeError = true;
               }
               break;
             case "Boolean":
@@ -1357,8 +1467,9 @@ function MarketplaceService() {
             delete data.requestParams[key];
           }
         }
-
-        updateResourceInstanceMutation.mutate(data);
+        if (!isTypeError) {
+          updateResourceInstanceMutation.mutate(data);
+        }
       } catch (err) {
         console.error("error", err);
       }
@@ -1618,7 +1729,9 @@ function MarketplaceService() {
   }
 
   if (service) {
-    const modelType = service?.serviceModelType;
+    const modelType = service.serviceModelType;
+    const isCustomTenancy =
+      service.productTierType === productTierTypes.CUSTOM_TENANCY;
     const deploymentHeader = getTheHostingModel(modelType);
 
     return (
@@ -1637,6 +1750,7 @@ function MarketplaceService() {
         servicePlanUrlLink={servicePlanUrlLink}
         apiDocsurl={serviceAPIDocsLink}
         serviceLogoURL={service?.serviceLogoURL}
+        environmentId={environmentId}
         SidebarUI={
           <MarketplaceServiceSidebar
             serviceId={serviceId}
@@ -1654,21 +1768,28 @@ function MarketplaceService() {
           />
         }
       >
-        <Stack
-          direction="row"
-          justifyContent={"space-between"}
-          alignItems={"center"}
-        >
-          <LogoHeader
-            title={
-              isCustomNetworksView
-                ? "Custom Networks"
-                : `${selectedResource?.name} Instances`
-            }
-            desc="Some Description"
-            newicon={resourceInstnaceIcon}
-          />
-          <AccessServiceHealthStatus />
+        <Stack direction="row" justifyContent={"space-between"}>
+          <Box
+            display="flex"
+            //@ts-ignore
+            flexDirection="colunm"
+            justifyContent="flex-start"
+            paddingBottom={"32px"}
+          >
+            <Box paddingTop={"5px"}>
+              <DashboardHeaderIcon />
+            </Box>
+            <LogoHeader
+              margin={0}
+              title={
+                isCustomNetworksView
+                  ? "Custom Networks"
+                  : `${selectedResource?.name} Instances`
+              }
+              desc=""
+            />
+          </Box>
+          {!isCustomTenancy && <AccessServiceHealthStatus />}
         </Stack>
 
         <AccessHeaderCard
@@ -1690,7 +1811,7 @@ function MarketplaceService() {
           />
         ) : (
           <>
-            <Box mt={3}>
+            <Box mt={"32px"}>
               <DataGrid
                 components={{
                   Header: InstancesTableHeader,
@@ -1707,6 +1828,8 @@ function MarketplaceService() {
                   {
                     display: "none",
                   },
+                  boxShadow: "0px 1px 2px 0px rgba(16, 24, 40, 0.05)",
+                  border: "1px solid rgba(228, 231, 236, 1)",
                 }}
                 onCellClick={(props) => {
                   const { field } = props;
@@ -1746,6 +1869,7 @@ function MarketplaceService() {
                     isDeprecated: selectedResource?.isDeprecated,
                     isResourceParameters: service?.resourceParameters,
                     isVisibleRestore: selectedResource?.isBackupEnabled,
+                    selectedResourceId: selectedResource?.id,
                   },
                 }}
                 noRowsText={`No instance of ${selectedResource.name} found for ${service?.serviceName}`}
@@ -1793,6 +1917,11 @@ function MarketplaceService() {
                 open={showCapacityDialog}
                 handleClose={() => {
                   setShowCapacityDialog(false);
+                }}
+                autoscaling={{
+                  currentReplicas: selectedResourceInstance?.currentReplicas,
+                  maxReplicas: selectedResourceInstance?.maxReplicas,
+                  minReplicas: selectedResourceInstance?.minReplicas,
                 }}
                 data={capacityData}
                 currentCapacityAction={currentCapacityAction}

@@ -2,7 +2,6 @@ import { useRouter } from "next/router";
 import DashboardLayout from "src/components/DashboardLayout/DashboardLayout";
 import MarketplaceServiceSidebar from "src/components/MarketplaceServiceSidebar/MarketplaceServiceSidebar";
 import useServiceOffering from "src/hooks/useServiceOffering";
-import ResourceInstanceOverview from "src/components/ResourceInstance/ResourceInstanceOverview/ResourceInstanceOverview";
 import LoadingSpinner from "src/components/LoadingSpinner/LoadingSpinner";
 import { Tabs, Tab } from "src/components/Tab/Tab";
 import { useEffect, useMemo, useState } from "react";
@@ -35,7 +34,10 @@ import {
 } from "../../../../../src/api/resourceInstance";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
-import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
+import { CLI_MANAGED_RESOURCES, RESOURCE_TYPES } from "src/constants/resource";
+import AuditLogs from "src/components/ResourceInstance/AuditLogs/AuditLogs";
+import ResourceInstanceOverview from "src/components/ResourceInstance/ResourceInstanceOverview/ResourceInstanceOverview";
+import Backup from "src/components/ResourceInstance/Backup/Backup";
 
 export const getServerSideProps = async () => {
   return {
@@ -67,7 +69,7 @@ function ResourceInstance() {
   let resourceType = "";
 
   if (serviceOffering && resourceId) {
-    const resource = serviceOffering.resourceParameters.find(
+    const resource = serviceOffering.resourceParameters?.find(
       (resource) => resource.resourceId === resourceId
     );
     if (resource) {
@@ -144,7 +146,9 @@ function ResourceInstance() {
     resourceInstanceData?.isLogsEnabled,
     resourceInstanceData?.active,
     isResourceBYOA,
-    isCliManagedResource
+    isCliManagedResource,
+    resourceType,
+    { isBackup: resourceInstanceData?.backupStatus?.backupPeriodInHours }
   );
 
   let pageTitle = "Resource";
@@ -224,6 +228,7 @@ function ResourceInstance() {
     productTierKey: serviceOffering?.productTierURLKey,
     subscriptionId: subscriptionData?.id,
     resourceInstanceId: resourceInstanceId,
+    resourceKey: resourceKey,
   };
 
   const isCustomNetworkEnabled = useMemo(() => {
@@ -368,7 +373,15 @@ function ResourceInstance() {
       </Head>
       <Stack direction="row" alignItems="center" justifyContent="flex-end">
         <Link href={resourceInstancesUrl}>
-          <Button startIcon={<RiArrowGoBackFill />} sx={{ color: "#6941C6" }}>
+          <Button
+            startIcon={<RiArrowGoBackFill />}
+            sx={{
+              color: "#6941C6",
+              "&:hover": {
+                background: "#F9F5FF",
+              },
+            }}
+          >
             Back to list of Resource Instances
           </Button>
         </Link>
@@ -384,49 +397,47 @@ function ResourceInstance() {
         networkType={resourceInstanceData?.networkType}
         healthStatusPercent={resourceInstanceData?.healthStatusPercent}
         isResourceBYOA={isResourceBYOA}
+        isCliManagedResource={isCliManagedResource}
       />
-      <Box width="100%" display="flex">
-        <Tabs value={currentTab} sx={{ marginTop: "28px", width: "100%" }}>
-          {Object.entries(tabs).map(([key, value]) => {
-            return (
-              <Tab
-                key={key}
-                label={getTabLabel(value, isResourceBYOA)}
-                value={value}
-                onClick={() => {
-                  router.push(
-                    getResourceInstancesDetailswithKeyRoute(
-                      serviceId,
-                      environmentId,
-                      productTierId,
-                      resourceId,
-                      resourceInstanceId,
-                      key,
-                      currentSource,
-                      subscriptionData?.id
-                    )
-                  );
-                }}
-                sx={{ padding: "12px !important" }}
-              />
-            );
-          })}
-          {isConnectActionEnabled &&  (
-            <Box width="100%" display="flex" justifyContent="right">
-              <Button
-                variant="contained"
-                size="medium"
-                sx={{ ml: 1.5 }}
-                startIcon={<ConnectIcon color="#FFFFFF" />}
-                onClick={handleConnectToInstance}
-                disabled={!isConnectActionEnabled}
-              >
-                Open in Browser
-              </Button>
-            </Box>
-          ) }
-        </Tabs>
-      </Box>
+      <Tabs value={currentTab} sx={{ marginTop: "32px" }}>
+        {Object.entries(tabs).map(([key, value]) => {
+          return (
+            <Tab
+              key={key}
+              label={getTabLabel(value, isResourceBYOA)}
+              value={value}
+              onClick={() => {
+                router.push(
+                  getResourceInstancesDetailswithKeyRoute(
+                    serviceId,
+                    environmentId,
+                    productTierId,
+                    resourceId,
+                    resourceInstanceId,
+                    key,
+                    subscriptionData?.id
+                  )
+                );
+              }}
+              sx={{ padding: "4px !important", marginRight: "16px" }}
+            />
+          );
+        })}
+        {isConnectActionEnabled && (
+          <Box width="100%" display="flex" justifyContent="right">
+            <Button
+              variant="contained"
+              size="medium"
+              sx={{ ml: 1.5 }}
+              startIcon={<ConnectIcon color="#FFFFFF" />}
+              onClick={handleConnectToInstance}
+              disabled={!isConnectActionEnabled}
+            >
+              Open in Browser
+            </Button>
+          </Box>
+        )}
+      </Tabs>
       {currentTab === tabs.resourceInstanceDetails && (
         <ResourceInstanceDetails
           resourceInstanceId={resourceInstanceId}
@@ -440,9 +451,15 @@ function ResourceInstance() {
             resourceSchemaQuery?.data?.DESCRIBE?.outputParameters
           }
           serviceOffering={serviceOffering}
-          subscriptionId={subscriptionData?.id}
-          cloudProviderAccountInstanceURL={cloudProviderAccountInstanceURL}
+          subscriptionId={subscriptionId}
           customNetworkDetails={resourceInstanceData.customNetworkDetails}
+          cloudProviderAccountInstanceURL={cloudProviderAccountInstanceURL}
+          resourceInstanceData={resourceInstanceData}
+          autoscalingEnabled={resourceInstanceData?.autoscalingEnabled}
+          highAvailability={resourceInstanceData?.highAvailability}
+          backupStatus={resourceInstanceData?.backupStatus}
+          autoscaling={resourceInstanceData?.autoscaling}
+          serverlessEnabled={resourceInstanceData?.serverlessEnabled}
         />
       )}
       {currentTab === tabs.connectivity && (
@@ -465,6 +482,9 @@ function ResourceInstance() {
           nodes={resourceInstanceData.nodes}
           queryData={queryData}
           refetchInstance={resourceInstanceQuery.refetch}
+          additionalEndpoints={
+            resourceInstanceData.connectivity.additionalEndpoints
+          }
         />
       )}
       {currentTab === tabs.nodes && (
@@ -503,6 +523,29 @@ function ResourceInstance() {
           mainResourceHasCompute={resourceInstanceData?.mainResourceHasCompute}
         />
       )}
+
+      {currentTab === tabs.auditLogs && (
+        <AuditLogs
+          instanceId={resourceInstanceId}
+          subscriptionId={subscriptionId}
+          serviceId={serviceId}
+          environmentId={environmentId}
+          productTierId={productTierId}
+        />
+      )}
+      {currentTab === tabs.backups && (
+        <Backup
+          backupStatus={resourceInstanceData?.backupStatus}
+          instanceId={resourceInstanceId}
+          accessQueryParams={queryData}
+          resourceName={resourceName}
+          networkType={
+            resourceInstanceData?.connectivity?.networkType
+              ? resourceInstanceData?.connectivity?.networkType.toUpperCase()
+              : "PUBLIC"
+          }
+        />
+      )}
       <SideDrawerRight
         size="xlarge"
         open={supportDrawerOpen}
@@ -525,37 +568,35 @@ function getTabs(
   isLogsEnabled,
   isActive,
   isResourceBYOA,
-  isCliManagedResource
+  isCliManagedResource,
+  resourceType,
+  isBackup
 ) {
   const tabs = {
     resourceInstanceDetails: "Resource Instance Details",
     connectivity: "Connectivity",
-    nodes: "Containers",
+    nodes: "Nodes",
   };
   if (isMetricsEnabled && !isResourceBYOA && !isCliManagedResource)
     tabs["metrics"] = "Metrics";
-  if (isLogsEnabled && !isResourceBYOA && !isCliManagedResource)
-    tabs["logs"] = "Logs";
+  if (isLogsEnabled && !isResourceBYOA) tabs["logs"] = "Logs";
 
-  if (!isActive || isCliManagedResource) {
+  if (!isActive || resourceType === RESOURCE_TYPES.Terraform) {
     delete tabs.connectivity;
     delete tabs.nodes;
+  }
+
+  tabs["auditLogs"] = "Events";
+  if (isBackup) {
+    tabs["backups"] = "Backups";
   }
 
   return tabs;
 }
 
-const TAB_LABEL_MAP = {
-  "Resource Instance Details": "Resource Instance Details",
-  Connectivity: "Connectivity",
-  Containers: "Containers",
-  Metrics: "Metrics",
-  Logs: "Logs",
-};
-
 function getTabLabel(value, isResourceBYOA) {
   if (value === "Resource Instance Details" && isResourceBYOA) {
     return "Account Instance Details";
   }
-  return TAB_LABEL_MAP[value];
+  return value;
 }

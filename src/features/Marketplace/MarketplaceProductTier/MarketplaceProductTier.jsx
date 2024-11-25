@@ -104,65 +104,59 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
       shouldDisplayNoServicesUI)
   ) {
     return (
-      <>
-        <DashboardLayout
-          noSidebar
-          marketplacePage
-          serviceName={orgName}
-          serviceLogoURL={orgLogoURL}
-          noServicesAvailable={true}
-        >
-          <NoServiceFoundUI
-            text={
-              shouldDisplayNoServicesUI
-                ? "No Service Found"
-                : "Service Not Found"
-            }
-          />
-        </DashboardLayout>
-      </>
-    );
-  }
-  
-  return (
-    <>
       <DashboardLayout
         noSidebar
         marketplacePage
-        serviceName={serviceOfferingData?.serviceName}
-        serviceLogoURL={
-          serviceOfferingData?.offerings?.[0]?.serviceLogoURL || orgLogoURL
-        }
+        serviceName={orgName}
+        serviceLogoURL={orgLogoURL}
+        noServicesAvailable={true}
       >
-        {!serviceId ||
-        !environmentId ||
-        isFetching ||
-        isResourceInstancesIdsFetching ||
-        isSubscriptionLoading ||
-        isSubscriptionRequestLoading ? (
-          <Box display="flex" justifyContent="center" mt="200px">
-            <LoadingSpinner />
-          </Box>
-        ) : (
-          <>
-            <Title>{serviceOfferingData?.serviceName}</Title>
-            <Divider />
-            <Box mt="40px">
-              <ProductTiers
-                source="marketplace"
-                serviceId={serviceId}
-                environmentId={environmentId}
-                serviceOfferingData={serviceOfferingData}
-                subscriptionsData={subscriptions}
-                refetchSubscriptions={refetchSubscriptions}
-                subscriptionRequests={subscriptionRequests}
-                refetchSubscriptionRequests={refetchSubscriptionRequests}
-              />
-            </Box>
-          </>
-        )}
+        <NoServiceFoundUI
+          text={
+            shouldDisplayNoServicesUI ? "No Service Found" : "Service Not Found"
+          }
+        />
       </DashboardLayout>
-    </>
+    );
+  }
+
+  return (
+    <DashboardLayout
+      noSidebar
+      marketplacePage
+      serviceName={serviceOfferingData?.serviceName}
+      serviceLogoURL={
+        serviceOfferingData?.offerings?.[0]?.serviceLogoURL || orgLogoURL
+      }
+    >
+      {!serviceId ||
+      !environmentId ||
+      isFetching ||
+      isResourceInstancesIdsFetching ||
+      isSubscriptionLoading ||
+      isSubscriptionRequestLoading ? (
+        <Box display="flex" justifyContent="center" mt="200px">
+          <LoadingSpinner />
+        </Box>
+      ) : (
+        <>
+          <Title>{serviceOfferingData?.serviceName}</Title>
+          <Divider />
+          <Box mt="40px">
+            <ProductTiers
+              source="marketplace"
+              serviceId={serviceId}
+              environmentId={environmentId}
+              serviceOfferingData={serviceOfferingData}
+              subscriptionsData={subscriptions}
+              refetchSubscriptions={refetchSubscriptions}
+              subscriptionRequests={subscriptionRequests}
+              refetchSubscriptionRequests={refetchSubscriptionRequests}
+            />
+          </Box>
+        </>
+      )}
+    </DashboardLayout>
   );
 }
 

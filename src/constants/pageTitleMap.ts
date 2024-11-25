@@ -13,5 +13,7 @@ export const PAGE_TITLE_MAP = {
   "/reset-password": "Reset Password",
   "/billing": "Billing",
   "/subscriptions": "Subscriptions",
-  "/service-plans": "Service Plans",
+  "/service-plans": "Billing Plans",
+  "/access/[serviceId]/[environmentId]/audit-logs": "Audit Logs",
+  "/access/[serviceId]/[environmentId]/notifications": "Notifications",
 };

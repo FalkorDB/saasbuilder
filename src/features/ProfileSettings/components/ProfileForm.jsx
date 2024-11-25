@@ -1,6 +1,7 @@
 import {
   Box,
   CircularProgress,
+  Divider,
   Table,
   TableBody,
   TableCell,
@@ -84,6 +85,9 @@ function ProfileForm(props) {
           Update your personal details here.
         </Text>
       </Box>
+
+      <Divider sx={{ mt: 2.5 }} />
+
       <Form onSubmit={formik.handleSubmit}>
         <Table>
           <TableBody>
@@ -100,7 +104,7 @@ function ProfileForm(props) {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   mt="12px"
-                  sx={{ maxWidth: "800px !important" }}
+                  sx={{ maxWidth: "600px !important" }}
                 />
                 <ErrorLabel>{touched.name && errors.name}</ErrorLabel>
               </TableCell>
@@ -115,7 +119,7 @@ function ProfileForm(props) {
                   disabled
                   value={values.orgId}
                   mt="12px"
-                  sx={{ maxWidth: "800px !important" }}
+                  sx={{ maxWidth: "600px !important" }}
                 />
               </TableCell>
             </TableRow>
@@ -132,7 +136,7 @@ function ProfileForm(props) {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   mt="12px"
-                  sx={{ maxWidth: "800px !important" }}
+                  sx={{ maxWidth: "600px !important" }}
                   disabled={selectUser.roleType !== "root"}
                 />
                 <ErrorLabel>{touched.orgName && errors.orgName}</ErrorLabel>
@@ -151,7 +155,7 @@ function ProfileForm(props) {
                   onChange={handleChange}
                   onBlur={handleBlur}
                   mt="12px"
-                  sx={{ maxWidth: "800px !important" }}
+                  sx={{ maxWidth: "600px !important" }}
                   disabled={selectUser.roleType !== "root"}
                 />
                 <ErrorLabel>{touched.orgURL && errors.orgURL}</ErrorLabel>

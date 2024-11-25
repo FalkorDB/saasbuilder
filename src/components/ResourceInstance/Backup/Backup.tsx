@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import DataGrid, { selectSingleItem } from "src/components/DataGrid/DataGrid";
 import StatusChip from "src/components/StatusChip/StatusChip";
 import { postInstanceRestoreAccess } from "src/api/resourceInstance";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import useBackup, { SnapshotBase } from "./hooks/useBackup";
 import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
 import { getResourceInstanceBackupStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceBackupStatus";
@@ -177,7 +177,7 @@ const Backup: FC<{
         flex: 1,
         minWidth: 170,
         valueGetter: (params: { row: SnapshotBase }) =>
-          formatDateUTC(params.row.createdTime),
+          formatDateLocal(params.row.createdTime),
       },
       {
         field: "completeTime",
@@ -185,7 +185,7 @@ const Backup: FC<{
         flex: 1,
         minWidth: 170,
         valueGetter: (params: { row: SnapshotBase }) =>
-          formatDateUTC(params.row.completeTime),
+          formatDateLocal(params.row.completeTime),
       },
       {
         field: "progress",

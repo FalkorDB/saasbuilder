@@ -1,7 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { Box, IconButton, Stack } from "@mui/material";
 import DataGridHeaderTitle from "components/Headers/DataGridHeaderTitle";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { AccessEvent, EventType } from "src/types/event";
 import EventMessageChip from "src/components/EventsTable/EventMessageChip";
 import SearchInput from "src/components/DataGrid/SearchInput";
@@ -190,11 +190,11 @@ const AuditLogs: FC<AuditLogsTabProps> = ({
           );
         },
       }),
-      columnHelper.accessor((row) => formatDateUTC(row.time), {
+      columnHelper.accessor((row) => formatDateLocal(row.time), {
         id: "time",
         header: "Time",
         cell: (data) =>
-          data.row.original.time ? formatDateUTC(data.row.original.time) : "-",
+          data.row.original.time ? formatDateLocal(data.row.original.time) : "-",
       }),
       columnHelper.accessor("message", {
         id: "message",

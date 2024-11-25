@@ -2,7 +2,7 @@ import { FC, useMemo } from "react";
 import PropertyDetails, {
   Row,
 } from "../../ResourceInstanceDetails/PropertyDetails";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 
 export type BackupStatus = {
   backupPeriodInHours: string;
@@ -33,12 +33,12 @@ const BackupSummary: FC<BackupStatus> = (props) => {
       },
       {
         label: "Earliest Restore Time",
-        value: earliestRestoreTime ? formatDateUTC(earliestRestoreTime) : "-",
+        value: earliestRestoreTime ? formatDateLocal(earliestRestoreTime) : "-",
         valueType: earliestRestoreTime ? "text" : "custom",
       },
       {
         label: "Last Backup Time",
-        value: lastBackupTime ? formatDateUTC(lastBackupTime) : "-",
+        value: lastBackupTime ? formatDateLocal(lastBackupTime) : "-",
         valueType: lastBackupTime ? "text" : "custom",
       },
       {

@@ -12,7 +12,11 @@ const useProductTierRedirect = (opts) => {
   const [isClientRendered, setIsClientRendered] = useState(false);
   const [serviceNotFound, setServiceNotFound] = useState(false);
 
-  const { data: serviceOfferingsData, isFetched: areServiceOfferingsFetched } =
+  const {
+    data: serviceOfferingsData,
+    isFetching: isFetchingServiceOfferings,
+    isFetched: areServiceOfferingsFetched
+  } =
     useOrgServiceOfferings({ refetchOnMount: false, filterOutFreeDedicatedTier: opts?.filterOutFreeDedicatedTier });
 
   useEffect(() => {
@@ -30,8 +34,7 @@ const useProductTierRedirect = (opts) => {
       router.isReady &&
       (!serviceId || !environmentId)
     ) {
-      if (serviceOfferingsData.length > 0) {
-
+      if (serviceOfferingsData?.length > 0) {
         let selectedServiceOffering;
 
         if (!serviceId
@@ -88,6 +91,8 @@ const useProductTierRedirect = (opts) => {
   ]);
 
   return {
+    serviceOfferingsData,
+    isFetchingServiceOfferings,
     shouldDisplayNoServicesUI: noServicesPresent,
     shouldDisplayServiceNotFoundUI: serviceNotFound,
     isClientRendered: isClientRendered,

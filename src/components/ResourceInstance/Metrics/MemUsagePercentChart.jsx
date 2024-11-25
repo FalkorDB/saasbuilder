@@ -1,26 +1,30 @@
 import React from "react";
 import { Text } from "../../Typography/Typography";
-import { Box } from "@mui/material";
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import ReChartContainer from "../../ReChartContainer/ReChartContainer";
+import { Box } from "@mui/material";
 
 function MemUsagePercentChart(props) {
   const { data } = props;
 
   return (
-    <Box mt={8}>
-      <Text sx={{ marginLeft: 3 }}>Memory Usage </Text>
+    <Box>
+      <Box sx={{ padding: "10px 20px", borderBottom: "1px solid #EAECF0" }}>
+        <Text size="medium" color="#344054" weight="semibold">
+          Memory Usage
+        </Text>
+      </Box>
       <ReChartContainer mt={3}>
         <ResponsiveContainer debounce={100}>
-          <LineChart
+          <AreaChart
             height={300}
             data={data}
             margin={{
@@ -40,18 +44,19 @@ function MemUsagePercentChart(props) {
               isAnimationActive={false}
             />
 
-            <Line
+            <Area
               name="Memory Usage"
               type="monotone"
               dataKey="y"
               stroke="#82ca9d"
+              fill="#82ca9d"
               dot={false}
               isAnimationActive={false}
               label="Memory Usage"
               strokeWidth={2}
               connectNulls
             />
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </ReChartContainer>
     </Box>

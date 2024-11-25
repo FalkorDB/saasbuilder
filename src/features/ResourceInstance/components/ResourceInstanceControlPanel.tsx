@@ -10,7 +10,7 @@ import RemoveCapacityIcon from "src/components/Icons/RemoveCapacity/RemoveCapaci
 import DeleteIcon from "src/components/Icons/Delete/Delete";
 import MenuItem from "src/components/MenuItem/MenuItem";
 import ConnectIcon from "src/components/Icons/Connect/Connect";
-
+import GenerateTokenIcon from "src/components/Icons/GenerateToken/GenerateTokenIcon";
 
 type ResourceInstanceControlPanelProps = {
   isCurrentResourceBYOA?: boolean;
@@ -36,6 +36,8 @@ type ResourceInstanceControlPanelProps = {
   isVisibleRestore?: boolean;
   isVisibleCapacity?: boolean;
   isVisibleBYOA?: boolean;
+  isVisibleGenerateToken?: boolean;
+  handleGenerateToken?: () => void;
 };
 
 const ResourceInstanceControlPanel: FC<ResourceInstanceControlPanelProps> = ({
@@ -49,6 +51,7 @@ const ResourceInstanceControlPanel: FC<ResourceInstanceControlPanelProps> = ({
   handleConnect = () => {},
   handleModify,
   handleDelete,
+  handleGenerateToken = () => {},
   isRestartDisabled,
   isStartDisabled,
   isStopDisabled,
@@ -62,9 +65,17 @@ const ResourceInstanceControlPanel: FC<ResourceInstanceControlPanelProps> = ({
   isVisibleRestore,
   isVisibleCapacity,
   isVisibleBYOA,
+  isVisibleGenerateToken,
 }) => {
   const buttons = useMemo(() => {
     const buttonsAction = [
+      {
+        isVisible: isVisibleGenerateToken,
+        label: "Generate token",
+        dataTestId: "generate-token",
+        onClick: handleGenerateToken,
+        icon: GenerateTokenIcon,
+      },
       {
         isVisible: !isCurrentResourceBYOA,
         label: "Reboot",
@@ -108,7 +119,7 @@ const ResourceInstanceControlPanel: FC<ResourceInstanceControlPanelProps> = ({
     if (isVisibleRestore) {
       buttonsAction.push({
         isVisible: !!handleRestore,
-        label: "PiTR",
+        label: "Restore",
         onClick: handleRestore,
         icon: RestoreInstanceIcon,
         isDisabled: isRestoreDisabled,
@@ -148,6 +159,7 @@ const ResourceInstanceControlPanel: FC<ResourceInstanceControlPanelProps> = ({
     handleStop,
     handleRestore,
     handleConnect,
+    handleGenerateToken,
     isCurrentResourceBYOA,
     isDeleteDisabled,
     isModifyDisabled,
@@ -163,6 +175,7 @@ const ResourceInstanceControlPanel: FC<ResourceInstanceControlPanelProps> = ({
     isRemoveCapacity,
     isVisibleBYOA,
     isVisibleCapacity,
+    isVisibleGenerateToken,
   ]);
 
   return (
@@ -178,10 +191,11 @@ const ResourceInstanceControlPanel: FC<ResourceInstanceControlPanelProps> = ({
       displayEmpty
       disabled={isLoading}
       sx={{
-        minWidth: "155px !important",
-        maxWidth: "155px !important",
-        marginTop: "0px",
-        height: "43px !important",
+        width: "auto",
+        margin: "0px",
+        height: "40px !important",
+        padding: "10px 14px !important",
+        minHeight: "40px",
       }}
     >
       {buttons.map(({ label, icon: Icon, onClick, isDisabled, isVisible }) => {
@@ -199,7 +213,7 @@ const ResourceInstanceControlPanel: FC<ResourceInstanceControlPanelProps> = ({
               disabled={isDisabled || isLoading}
               onClick={onClick}
             >
-              <Icon disabled={isDisabled || isLoading} />
+              <Icon disabled={isDisabled || isLoading} color={"#667085"} />
               {label}
             </MenuItem>
           )

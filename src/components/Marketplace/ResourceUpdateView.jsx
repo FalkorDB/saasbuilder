@@ -61,13 +61,15 @@ function ResourceUpdateView(props) {
         if (api.verb === "UPDATE") {
           if (api.inputParameters?.length > 0) {
             setCreateSchema(
-              api.inputParameters?.filter((item) => item?.modifiable)
+              api.inputParameters
+                ?.filter((item) => item?.modifiable)
+                ?.sort((a, b) => a?.key.localeCompare(b?.key))
             );
           }
         } else if (api.verb === "CREATE") {
-          const filteredInputParams = api.inputParameters?.filter(
-            (item) => item?.custom && !item?.modifiable
-          );
+          const filteredInputParams = api.inputParameters
+            ?.filter((item) => item?.custom && !item?.modifiable)
+            ?.sort((a, b) => a?.key.localeCompare(b?.key));
           if (filteredInputParams?.length) {
             setNonModifiableParamsSchema(filteredInputParams);
           }
@@ -280,6 +282,28 @@ function ResourceUpdateView(props) {
                   </FieldContainer>
                 );
               }
+              if (param.type === "Float64") {
+                return (
+                  <FieldContainer key={param.key}>
+                    <FieldLabel required={param.required === true}>
+                      {param.displayName}
+                    </FieldLabel>
+                    <FieldDescription sx={{ mt: "5px" }}>
+                      {param.description}
+                    </FieldDescription>
+                    <TextField
+                      id={`requestParams.${param.key}`}
+                      type="number"
+                      name={`requestParams.${param.key}`}
+                      value={formData.values.requestParams[param.key]}
+                      onChange={formData.handleChange}
+                      sx={{ marginTop: "16px" }}
+                      modifiable={param.modifiable}
+                      required={param.required == true ? "required" : ""}
+                    />
+                  </FieldContainer>
+                );
+              }
               if (param.custom == true && param.type == "Boolean") {
                 return (
                   <FieldContainer key={param.key}>
@@ -426,7 +450,29 @@ function ResourceUpdateView(props) {
                     </FieldContainer>
                   );
                 }
-
+                if (param.type === "Float64") {
+                  return (
+                    <FieldContainer key={param.key}>
+                      <FieldLabel required={param.required === true}>
+                        {param.displayName}
+                      </FieldLabel>
+                      <FieldDescription sx={{ mt: "5px" }}>
+                        {param.description}
+                      </FieldDescription>
+                      <TextField
+                        id={`requestParams.${param.key}`}
+                        type="number"
+                        disabled
+                        name={`requestParams.${param.key}`}
+                        value={formData.values.requestParams[param.key]}
+                        onChange={formData.handleChange}
+                        sx={{ marginTop: "16px" }}
+                        modifiable={param.modifiable}
+                        required={param.required == true ? "required" : ""}
+                      />
+                    </FieldContainer>
+                  );
+                }
                 if (param.custom == true && param.type == "Boolean") {
                   return (
                     <FieldContainer key={param.key}>
@@ -566,18 +612,24 @@ function ResourceUpdateView(props) {
           <Box display="flex" justifyContent="flex-end" gap="10px" mt="40px">
             <Button
               variant="contained"
-              size="xsmall"
               bgColor="white"
               fontColor="black"
               onClick={formCancelClick}
-              sx={{ border: " 1px solid #D1D5DB" }}
+              sx={{
+                border: " 1px solid #D1D5DB",
+                height: "40px !important",
+                padding: "10px 14px !important",
+              }}
             >
               Cancel
             </Button>
             <Button
               variant="contained"
-              size="xsmall"
               type="submit"
+              sx={{
+                height: "40px !important",
+                padding: "10px 14px !important",
+              }}
               disabled={isLoading || shouldDisableEdit}
             >
               Update {serviceName} Instance{" "}

@@ -15,6 +15,8 @@ import "../styles/globals.css";
 import { theme as nonDashboardTheme } from "../styles/non-dashboard-theme";
 import "../styles/quill-editor.css";
 import "../styles/nprogress.css";
+import "../src/components/DateRangePicker/date-range-picker-styles.css";
+import "../styles/monaco-editor.css";
 import { theme as dashboardTheme } from "../styles/theme";
 import _ from "lodash";
 import ProviderFavicon from "src/components/ProviderFavicon/ProviderFavicon";
@@ -121,11 +123,16 @@ export default function App(props) {
       return response;
     },
     async function (error) {
+      const ignoreGlobalErrorSnack = error.config.ignoreGlobalErrorSnack; //state passed with each request to suppress the global snackbar errors if true the errors are ignore
       if (error.response && error.response.status === 401) {
         if (`${baseURL}/signin` !== error.request.responseURL) {
           handleLogout();
         }
-      } else if (error.response && error.response.data) {
+      } else if (
+        error.response &&
+        error.response.data &&
+        !ignoreGlobalErrorSnack
+      ) {
         const status = String(error.response.status);
         if (status.startsWith("4") || status.startsWith("5")) {
           const message = error.response.data.message;

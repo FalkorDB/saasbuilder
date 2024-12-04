@@ -121,6 +121,18 @@ function ProductTiers(props) {
   });
 
   useEffect(() => {
+    serviceOfferingData?.offerings?.sort((a, b) => {
+      // Sort: Free, Startup, Pro, Enterprise
+      if (a.productTierName.includes("Free")) return -1;
+      else if (b.productTierName.includes("Free")) return 1;
+      else if (a.productTierName.includes("Startup")) return -1;
+      else if (b.productTierName.includes("Startup")) return 1;
+      else if (a.productTierName.includes("Pro")) return -1;
+      else if (b.productTierName.includes("Pro")) return 1;
+      else if (a.productTierName.includes("Enterprise")) return -1;
+      else if (b.productTierName.includes("Enterprise")) return 1;
+    });
+
     if (serviceOfferingData?.offerings?.length) {
       setSelectedProductTierId(
         serviceOfferingData?.offerings[0]?.productTierID
@@ -148,7 +160,7 @@ function ProductTiers(props) {
                 fontSize: "30px",
               }}
             >
-              No Billing Plans
+              No Subscription Plans
             </div>
             <div
               justifyContent="center"
@@ -191,7 +203,7 @@ function ProductTiers(props) {
   return (
     <Box>
       <Stack justifyContent="center">
-        <ProductTiersHeading>Billing Plans</ProductTiersHeading>
+        <ProductTiersHeading>Subscription Plans</ProductTiersHeading>
       </Stack>
 
       <Box marginTop={"30px"}>

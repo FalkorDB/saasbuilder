@@ -272,7 +272,7 @@ export const addCustomDNSToResourceInstance = (
   const queryParams = {};
 
   if (subscriptionID) {
-    queryParams.subscriptionID = subscriptionID;
+    queryParams.subscriptionId = subscriptionID;
   }
 
   return axios.post(
@@ -298,7 +298,7 @@ export const removeCustomDNSFromResourceInstance = (
   const queryParams = {};
 
   if (subscriptionID) {
-    queryParams.subscriptionID = subscriptionID;
+    queryParams.subscriptionId = subscriptionID;
   }
 
   return axios.delete(
@@ -319,10 +319,12 @@ export const postInstanceRestoreAccess = (
   resourceKey,
   snapshotId,
   subscriptionId,
+  data = {},
   queryParams = {}
 ) => {
   return axios.post(
     `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/${productTierKey}/${resourceKey}/snapshot/${snapshotId}/restore?subscriptionId=${subscriptionId}`,
+    data,
     {
       params: queryParams,
     }
@@ -342,7 +344,7 @@ export const getInstanceRestoreAccess = (
   config = {}
 ) => {
   return axios.get(
-    `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/${productTierKey}/${resourceKey}/${instanceId}/snapshot?subscriptionId${subscriptionId}`,
+    `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/${productTierKey}/${resourceKey}/${instanceId}/snapshot?subscriptionId=${subscriptionId}`,
     { ...config }
   );
 };
@@ -358,11 +360,17 @@ export const addCapacityResourceInstanceAccess = ({ data, count }) => {
     productTierKey,
     resourceKey,
     instanceId,
+    subscriptionId,
   } = data;
 
   return axios.post(
     `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/${productTierKey}/${resourceKey}/${instanceId}/add-capacity`,
-    { capacityToBeAdded: count }
+    { capacityToBeAdded: count },
+    {
+      params: {
+        subscriptionId,
+      },
+    }
   );
 };
 
@@ -377,11 +385,17 @@ export const removeCapacityResourceInstanceAccess = ({ data, count }) => {
     productTierKey,
     resourceKey,
     instanceId,
+    subscriptionId,
   } = data;
   return axios.post(
     `/resource-instance/${serviceProviderId}/${serviceKey}/${serviceAPIVersion}/${serviceEnvironmentKey}/${serviceModelKey}/${productTierKey}/${resourceKey}/${instanceId}/remove-capacity`,
     {
       capacityToBeRemoved: count,
+    },
+    {
+      params: {
+        subscriptionId,
+      },
     }
   );
 };

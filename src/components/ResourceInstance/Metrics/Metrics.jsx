@@ -21,7 +21,7 @@ import SingleLineChart from "./SingleLineChart";
 import formatDateLocal from "../../../utils/formatDateLocal";
 import DataGridHeaderTitle from "src/components/Headers/DataGridHeaderTitle";
 import Select from "src/components/FormElementsv2/Select/Select";
-import MenuItem from "src/components/MenuItem/MenuItem";
+import MenuItem from "src/components/FormElementsv2/MenuItem/MenuItem";
 
 const initialCpuUsage = {
   current: "",

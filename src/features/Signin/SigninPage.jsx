@@ -24,6 +24,7 @@ import { ENVIRONMENT_TYPES } from "src/constants/environmentTypes";
 import ReCAPTCHA from "react-google-recaptcha";
 import DOMPurify from "dompurify";
 import DisplayHeading from "components/NonDashboardComponents/DisplayHeading";
+import { Text } from "src/components/Typography/Typography";
 
 const createSigninValidationSchema = Yup.object({
   email: Yup.string()
@@ -49,7 +50,6 @@ const SigninPage = (props) => {
   const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
   const reCaptchaRef = useRef(null);
   const snackbar = useSnackbar();
-
   useEffect(() => {
     if (redirect_reason === "idp_auth_error") {
       snackbar.showError("Something went wrong. Please retry");
@@ -239,6 +239,17 @@ const SigninPage = (props) => {
           )}
         </Stack>
       </Stack>
+      {shouldHideSignupLink && (
+        <Stack
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          mt="22px"
+        >
+          <Text>Log in with your Omnistrate account credentials</Text>
+        </Stack>
+      )}
+
       {Boolean(googleIdentityProvider || githubIdentityProvider) && (
         <>
           <Box borderTop="1px solid #F1F2F4" textAlign="center" mt="40px">

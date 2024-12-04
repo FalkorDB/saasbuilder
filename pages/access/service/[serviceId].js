@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Stack } from "@mui/material";
+import { Box, CircularProgress, Collapse, Stack } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { useFormik } from "formik";
 import Image from "next/image";
@@ -52,7 +52,9 @@ import {
 } from "../../../src/slices/resourceInstanceListSlice";
 import loadingStatuses from "../../../src/utils/constants/loadingStatuses";
 import formatDateLocal from "../../../src/utils/formatDateLocal";
-import MarketplaceServiceSidebar from "../../../src/components/MarketplaceServiceSidebar/MarketplaceServiceSidebar";
+import MarketplaceServiceSidebar, {
+  sidebarActiveOptions,
+} from "../../../src/components/MarketplaceServiceSidebar/MarketplaceServiceSidebar";
 import AccessHeaderCard from "src/components/AccessHeader/AccessHeaderCard";
 import { AccessSupport } from "src/components/Access/AccessSupport";
 import {
@@ -89,6 +91,14 @@ import SpeedoMeterMedium from "../../../public/assets/images/dashboard/resource-
 import SpeedoMeterHigh from "../../../public/assets/images/dashboard/resource-instance-speedo-meter/high.png";
 import DashboardHeaderIcon from "src/components/Icons/Dashboard/DashboardHeaderIcon";
 import { productTierTypes } from "src/constants/servicePlan";
+import Button from "src/components/Button/Button";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import { styleConfig } from "src/providerConfig";
+import {
+  selectInstanceListSummaryVisibility,
+  toggleInstanceListSummaryVisibility,
+} from "src/slices/genericSlice";
 
 export const getServerSideProps = async () => {
   return {
@@ -221,9 +231,11 @@ function MarketplaceService() {
   const [currentTabValue, setCurrentTabValue] = useState(false);
   const [viewInfoDrawerOpen, setViewInfoDrawerOpen] = useState(false);
   const [updateDrawerOpen, setUpdateDrawerOpen] = useState(false);
+  const insightsVisible = useSelector(selectInstanceListSummaryVisibility);
+
   const timeoutID = useRef(null);
   const currentResourceInfo = useRef({ resourceKey: null, resourceId: null });
-  useEffect(() => {
+useEffect(() => {
     if (source) {
       setCurrentSource(source);
     }
@@ -1110,6 +1122,21 @@ function MarketplaceService() {
       </Box>
     );
   };
+  //reset states when product tier id/ subscription id changes
+  useEffect(() => {
+    dispatch(setResourceInstanceList([]));
+    setSelectedResource({
+      key: "",
+      id: "",
+      name: "",
+      isDeprecated: false,
+      isBackupEnabled: false,
+      resourceType: "",
+    });
+    setViewResourceInfo({});
+    setSelectedResourceInstances([]);
+    setRequestParams([]);
+  }, [productTierId, subscriptionId, dispatch]);
 
   useEffect(() => {
     if (
@@ -1131,6 +1158,8 @@ function MarketplaceService() {
             isDeprecated: cloudProviderRes[0].isDeprecated,
           };
           setCloudProviderResource(cloudProviderResourceInfo);
+        } else {
+          setCloudProviderResource(null);
         }
 
         let selectedResourceInfo = {};
@@ -1167,10 +1196,28 @@ function MarketplaceService() {
         fetchResourceInstances(selectedResourceInfo);
         setCreationDrawerOpen(false);
         setViewInfoDrawerOpen(false);
+      } else {
+        dispatch(setResourceInstanceList([]));
+        setSelectedResource({
+          key: "",
+          id: "",
+          name: "",
+          isDeprecated: false,
+          isBackupEnabled: false,
+          resourceType: "",
+        });
+        setViewResourceInfo({});
+        setSelectedResourceInstances([]);
+        setRequestParams([]);
       }
     }
     /*eslint-disable-next-line react-hooks/exhaustive-deps*/
-  }, [servicesLoadingStatus, resourceId, isSubscriptionDataFetched]);
+  }, [
+    servicesLoadingStatus,
+    resourceId,
+    isSubscriptionDataFetched,
+    subscriptionId,
+  ]);
 
   async function fetchCloudProviderResourceInstances(
     cloudProviderResourceInfo
@@ -1237,6 +1284,9 @@ function MarketplaceService() {
 
   async function fetchResourceInstances(resourceInfo, isRefetching = false) {
     clearExistingTimeout();
+    if (selectedResource.key !== resourceInfo?.key) {
+      dispatch(setResourceInstanceList([]));
+    }
 
     try {
       const status = isRefetching
@@ -1513,8 +1563,14 @@ function MarketplaceService() {
       serviceModelKey: service?.serviceModelURLKey,
       productTierKey: service?.productTierURLKey,
       resourceKey: selectedResource?.key,
+      subscriptionId: subscriptionData?.id,
     };
-  }, [selectedResourceInstance, service, selectedResource]);
+  }, [
+    selectedResourceInstance,
+    service,
+    selectedResource,
+    subscriptionData?.id,
+  ]);
 
   if (isServiceLoading || isLoadingSubscription) {
     return (
@@ -1527,6 +1583,7 @@ function MarketplaceService() {
         SidebarUI={""}
         customLogo
         currentSubscription={subscriptionData}
+        pageType={sidebarActiveOptions.instancesList}
       >
         <Box
           display="flex"
@@ -1570,6 +1627,7 @@ function MarketplaceService() {
         servicePlanUrlLink={servicePlanUrlLink}
         accessPage
         currentSubscription={subscriptionData}
+        pageType={sidebarActiveOptions.instancesList}
       >
         <OfferingUnavailableUI />
       </DashboardLayout>
@@ -1611,6 +1669,7 @@ function MarketplaceService() {
             currentSubscription={subscriptionData}
           />
         }
+        pageType={sidebarActiveOptions.instancesList}
       >
         <Card mt={3} style={{ height: "700px", width: "100%" }}>
           <Box>
@@ -1720,6 +1779,7 @@ function MarketplaceService() {
         customLogo
         accessPage
         currentSubscription={subscriptionData}
+        pageType={sidebarActiveOptions.instancesList}
       >
         <>
           <SubscriptionNotFoundUI />
@@ -1767,6 +1827,7 @@ function MarketplaceService() {
             isCustomNetworkActive={isCustomNetworksView}
           />
         }
+        pageType={sidebarActiveOptions.instancesList}
       >
         <Stack direction="row" justifyContent={"space-between"}>
           <Box
@@ -1774,7 +1835,6 @@ function MarketplaceService() {
             //@ts-ignore
             flexDirection="colunm"
             justifyContent="flex-start"
-            paddingBottom={"32px"}
           >
             <Box paddingTop={"5px"}>
               <DashboardHeaderIcon />
@@ -1791,16 +1851,38 @@ function MarketplaceService() {
           </Box>
           {!isCustomTenancy && <AccessServiceHealthStatus />}
         </Stack>
+        <Stack direction="row" justifyContent="flex-end" mt="16px">
+          <Button
+            startIcon={
+              insightsVisible ? (
+                <KeyboardArrowUpIcon />
+              ) : (
+                <KeyboardArrowDownIcon />
+              )
+            }
+            sx={{
+              color: `${styleConfig.secondaryColor} !important`,
+              "&:hover": {
+                background: styleConfig.secondaryHoverLight,
+              },
+            }}
+            onClick={() => dispatch(toggleInstanceListSummaryVisibility())}
+          >
+            {insightsVisible ? "Hide Insights" : "View Insights"}{" "}
+          </Button>
+        </Stack>
+        <Collapse in={insightsVisible}>
+          <AccessHeaderCard
+            serviceName={service?.serviceName}
+            deploymentHeader={deploymentHeader}
+            productTierType={service?.productTierType}
+            environmentName={service?.serviceEnvironmentName}
+            productTierName={service?.productTierName}
+            currentSubscription={subscriptionData}
+            cloudProviders={service?.cloudProviders}
+          />
+        </Collapse>
 
-        <AccessHeaderCard
-          serviceName={service?.serviceName}
-          deploymentHeader={deploymentHeader}
-          productTierType={service?.productTierType}
-          environmentName={service?.serviceEnvironmentName}
-          productTierName={service?.productTierName}
-          currentSubscription={subscriptionData}
-          cloudProviders={service?.cloudProviders}
-        />
         {isCustomNetworksView ? (
           <CustomNetworks
             cloudProviders={service?.cloudProviders}
@@ -1811,7 +1893,7 @@ function MarketplaceService() {
           />
         ) : (
           <>
-            <Box mt={"32px"}>
+            <Box mt={insightsVisible ? "32px" : "10px"}>
               <DataGrid
                 components={{
                   Header: InstancesTableHeader,

@@ -121,13 +121,24 @@ function ProductTiers(props) {
   });
 
   useEffect(() => {
+    serviceOfferingData?.offerings?.sort((a, b) => {
+      // Sort: Free, Startup, Pro, Enterprise
+      if (a.productTierName.includes("Free")) return -1;
+      else if (b.productTierName.includes("Free")) return 1;
+      else if (a.productTierName.includes("Startup")) return -1;
+      else if (b.productTierName.includes("Startup")) return 1;
+      else if (a.productTierName.includes("Pro")) return -1;
+      else if (b.productTierName.includes("Pro")) return 1;
+      else if (a.productTierName.includes("Enterprise")) return -1;
+      else if (b.productTierName.includes("Enterprise")) return 1;
+    });
+
     if (serviceOfferingData?.offerings?.length) {
       setSelectedProductTierId(
         serviceOfferingData?.offerings[0]?.productTierID
       );
     }
   }, [serviceOfferingData]);
-
 
   if (!serviceOfferingData?.offerings?.length && environmentId) {
     if (source === "access") return <NoProductTierUI />;

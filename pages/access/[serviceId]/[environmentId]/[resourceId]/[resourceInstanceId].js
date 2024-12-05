@@ -8,7 +8,7 @@ import LoadingSpinner from "src/components/LoadingSpinner/LoadingSpinner";
 import { Tabs, Tab } from "src/components/Tab/Tab";
 import { useEffect, useMemo, useState } from "react";
 import NodesTable from "src/components/ResourceInstance/NodesTable/NodesTable";
-import { Collapse, Stack } from "@mui/material";
+import { Collapse, Stack, Box } from "@mui/material";
 import Button from "src/components/Button/Button";
 import { RiArrowGoBackFill } from "react-icons/ri";
 import Connectivity from "src/components/ResourceInstance/Connectivity/Connectivity";

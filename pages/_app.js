@@ -80,8 +80,9 @@ export default function App(props) {
   const { handleLogout } = useLogout();
 
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_CLARITY_ID) {      
+    if (process.env.NEXT_PUBLIC_CLARITY_ID) {
       clarity.init(process.env.NEXT_PUBLIC_CLARITY_ID);
+      clarity.consent();
       const token = Cookies.get("token");
       if (token) {
         const payload = jwtDecode(token);

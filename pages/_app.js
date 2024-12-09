@@ -3,7 +3,7 @@ import { Alert, Snackbar, ThemeProvider } from "@mui/material";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import NProgress from "nprogress";
 import Router, { useRouter } from "next/router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Provider } from "react-redux";
 import axios, { baseURL } from "../src/axios";
 import SnackbarProvider from "../src/components/SnackbarProvider/SnackbarProvider";
@@ -24,15 +24,18 @@ import EnvironmentTypeProvider from "src/context/EnvironmentTypeProvider";
 import { ENVIRONMENT_TYPES } from "src/constants/environmentTypes";
 import { PAGE_TITLE_MAP } from "src/constants/pageTitleMap";
 import Head from "next/head";
+import { clarity } from 'react-microsoft-clarity';
+import Cookies from 'js-cookie';
+import { jwtDecode } from "jwt-decode";
 
 NProgress.configure({
   trickleSpeed: 50,
 });
 
 const startProgressBar = () => {
- // const newUrlPath = url?.split("?")[0];
+  // const newUrlPath = url?.split("?")[0];
   //if (newUrlPath !== Router.pathname) {
-    NProgress.start();
+  NProgress.start();
   //}
 };
 
@@ -75,6 +78,17 @@ export default function App(props) {
   });
   const pageTitle = PAGE_TITLE_MAP[router.pathname] || "Omnistrate";
   const { handleLogout } = useLogout();
+
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_CLARITY_ID) {      
+      clarity.init(process.env.NEXT_PUBLIC_CLARITY_ID);
+      const token = Cookies.get("token");
+      if (token) {
+        const payload = jwtDecode(token);
+        payload.userID && clarity.identify(payload.userID);
+      }
+    }
+  }, [])
 
   function handleClose() {
     setIsOpen(false);

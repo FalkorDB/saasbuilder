@@ -25,6 +25,8 @@ import ReCAPTCHA from "react-google-recaptcha";
 import DOMPurify from "dompurify";
 import DisplayHeading from "components/NonDashboardComponents/DisplayHeading";
 import { Text } from "src/components/Typography/Typography";
+import { jwtDecode } from "jwt-decode";
+import { clarity } from "react-microsoft-clarity";
 
 const createSigninValidationSchema = Yup.object({
   email: Yup.string()
@@ -67,6 +69,11 @@ const SigninPage = (props) => {
     if (jwtToken) {
       Cookies.set("token", jwtToken, { sameSite: "Lax", secure: true });
       axios.defaults.headers["Authorization"] = "Bearer " + jwtToken;
+
+      if (clarity.hasStarted()) {
+        const payload = jwtDecode(jwtToken);
+        payload.userID && clarity.identify(payload.userID);
+      }
 
       // Redirect to the Destination URL
       if (

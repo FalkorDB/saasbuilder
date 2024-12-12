@@ -162,6 +162,7 @@ const ResourceInstanceControlPanel: FC<ResourceInstanceControlPanelProps> = ({
     handleRestore,
     handleConnect,
     handleGenerateToken,
+    isCliManagedResource,
     isCurrentResourceBYOA,
     isDeleteDisabled,
     isModifyDisabled,
@@ -178,7 +179,6 @@ const ResourceInstanceControlPanel: FC<ResourceInstanceControlPanelProps> = ({
     isVisibleBYOA,
     isVisibleCapacity,
     isVisibleGenerateToken,
-    isCliManagedResource,
   ]);
 
   return (

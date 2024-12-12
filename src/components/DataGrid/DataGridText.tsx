@@ -1,11 +1,12 @@
 import { FC, useCallback, useState } from "react";
 import Link from "next/link";
 import clipboard from "clipboardy";
-import { IconButton, Stack, Tooltip, Typography } from "@mui/material";
+import { IconButton, Stack, Typography } from "@mui/material";
 import type * as CSS from "csstype";
 
 import DataGridCopyIcon from "../Icons/CopyIcon/DataGridCopyIcon";
 import { styleConfig } from "src/providerConfig";
+import Tooltip from "../Tooltip/Tooltip";
 
 type LinkProps = {
   href: string;
@@ -25,6 +26,7 @@ type DataGridTextProps = {
   onClick?: () => void;
   color?: "default" | "primary";
   style?: CSS.Properties;
+  justifyContent?: "center" | "start" | "end";
 };
 
 const DataGridText: FC<DataGridTextProps> = ({
@@ -34,6 +36,7 @@ const DataGridText: FC<DataGridTextProps> = ({
   onClick,
   color = "default",
   style = {},
+  justifyContent = "start",
 }) => {
   const [tooltipText, setTooltipText] = useState("Click to copy");
   const { href, target = "_self", isUnderlined = false } = linkProps || {};
@@ -93,7 +96,7 @@ const DataGridText: FC<DataGridTextProps> = ({
     <Stack
       direction="row"
       alignItems="center"
-      justifyContent="center"
+      justifyContent={justifyContent}
       gap="4px"
       width="100%"
     >

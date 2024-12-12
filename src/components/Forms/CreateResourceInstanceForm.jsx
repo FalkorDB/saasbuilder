@@ -188,9 +188,7 @@ function CreateResourceInstanceForm(props) {
   const cloudProviderFieldExists = createSchema.find(
     (field) => field.key === "cloud_provider"
   );
-  const networkTypeFieldExists = createSchema.find(
-    (field) => field.key === "network_type"
-  );
+
   const regionFieldExists = createSchema.find(
     (field) => field.key === "region"
   );
@@ -251,6 +249,9 @@ function CreateResourceInstanceForm(props) {
   }, [customAvailabilityZoneData?.availabilityZones]);
 
   const selectedCustomNetworkId = formData.values?.custom_network_id ?? "";
+
+  const networkTypeFieldExists =
+    cloudProviderFieldExists && !isCustomNetworkEnabled;
 
   if (isSchemaLoading)
     return (
@@ -329,31 +330,7 @@ function CreateResourceInstanceForm(props) {
             </ErrorLabel>
           </FieldContainer>
         )}
-        {networkTypeFieldExists && (
-          <FieldContainer>
-            <FieldLabel required>Network Type</FieldLabel>
-            <FieldDescription sx={{ mt: "5px" }}>
-              Type of Network
-            </FieldDescription>
-            <TextField
-              select
-              id="network_type"
-              name="network_type"
-              value={formData.values.network_type ?? ""}
-              onChange={formData.handleChange}
-              sx={{ marginTop: "16px" }}
-            >
-              {["PUBLIC", "INTERNAL"].map((option) => (
-                <MenuItem key={option} value={option}>
-                  {option}
-                </MenuItem>
-              ))}
-            </TextField>
-            <ErrorLabel>
-              {formData.touched.network_type && formData.errors.network_type}
-            </ErrorLabel>
-          </FieldContainer>
-        )}
+
         {regionFieldExists && (
           <FieldContainer>
             <FieldLabel required>Region</FieldLabel>
@@ -394,6 +371,34 @@ function CreateResourceInstanceForm(props) {
                   </MenuItem>
                 ))}
             </TextField>
+          </FieldContainer>
+        )}
+
+        {networkTypeFieldExists && (
+          <FieldContainer>
+            <FieldLabel required>Network Type</FieldLabel>
+            <FieldDescription sx={{ mt: "5px" }}>
+              Type of Network
+            </FieldDescription>
+            <TextField
+              select
+              id="network_type"
+              name="network_type"
+              value={formData.values.network_type ?? ""}
+              onChange={formData.handleChange}
+              sx={{ marginTop: "16px" }}
+            >
+              {[{ Public: "PUBLIC" }, { Internal: "INTERNAL" }].map((item) =>
+                Object.entries(item).map(([key, value]) => (
+                  <MenuItem key={value} value={value}>
+                    {key}
+                  </MenuItem>
+                ))
+              )}
+            </TextField>
+            <ErrorLabel>
+              {formData.touched.network_type && formData.errors.network_type}
+            </ErrorLabel>
           </FieldContainer>
         )}
 
@@ -542,7 +547,7 @@ function CreateResourceInstanceForm(props) {
               if (isBYOA && !shouldShowParamField(param.key)) {
                 return null;
               }
-              if (param.type === "Password") {
+              if (param.type === "Password" || param.key?.includes("password")) {
                 return (
                   <FieldContainer key={param.key}>
                     {param.required == true ? (

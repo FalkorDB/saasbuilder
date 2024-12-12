@@ -231,11 +231,12 @@ function MarketplaceService() {
   const [currentTabValue, setCurrentTabValue] = useState(false);
   const [viewInfoDrawerOpen, setViewInfoDrawerOpen] = useState(false);
   const [updateDrawerOpen, setUpdateDrawerOpen] = useState(false);
+  const [viewInstructionsItem, setViewInstructionsItem] = useState(null);
   const insightsVisible = useSelector(selectInstanceListSummaryVisibility);
 
   const timeoutID = useRef(null);
   const currentResourceInfo = useRef({ resourceKey: null, resourceId: null });
-useEffect(() => {
+  useEffect(() => {
     if (source) {
       setCurrentSource(source);
     }
@@ -279,6 +280,18 @@ useEffect(() => {
     (instance) => instance.kubernetesDashboardEndpoint
   );
 
+  const handleViewAccountConfigInstructions = (row) => {
+    setViewInstructionsItem(row);
+    const result_params = row.result_params;
+    setCloudProvider(
+      result_params?.cloud_provider || !!result_params?.aws_account_id
+        ? "aws"
+        : "gcp"
+    );
+    setAccountConfigMethod(result_params?.account_configuration_method);
+    handleOrgIdModalOpen();
+  };
+
   const columns = useMemo(() => {
     const columnDefinition = [
       {
@@ -286,8 +299,6 @@ useEffect(() => {
         headerName: "ID",
         flex: 0.9,
         minWidth: 200,
-        align: "center",
-        headerAlign: "center",
         renderCell: (params) => {
           const instanceId = params.row.id;
           const instanceIdDisplay = isCurrentResourceBYOA
@@ -321,16 +332,12 @@ useEffect(() => {
         headerName: "Resource Name",
         flex: 1,
         minWidth: 235,
-        align: "center",
-        headerAlign: "center",
         renderCell: () => selectedResource?.name,
       },
       {
         field: "status",
         headerName: "Lifecycle Status",
         flex: 0.9,
-        align: "center",
-        headerAlign: "center",
         minWidth: 160,
         renderCell: (params) => {
           const status = params.row.status;
@@ -342,16 +349,13 @@ useEffect(() => {
               "PENDING_DEPENDENCY",
               "UNKNOWN",
               "DEPLOYING",
+              "READY",
+              "FAILED",
             ].includes(status);
           const statusSytlesAndLabel =
             getResourceInstanceStatusStylesAndLabel(status);
           return (
-            <Stack
-              direction={"row"}
-              justifyContent={"center"}
-              alignItems={"center"}
-              gap="4px"
-            >
+            <Stack direction={"row"} alignItems={"center"} gap="4px">
               <StatusChip status={status} {...statusSytlesAndLabel} />
               {showInstructions && (
                 <Tooltip
@@ -370,18 +374,7 @@ useEffect(() => {
                       alignItems: "center",
                     }}
                     onClick={() => {
-                      const result_params = params.row.result_params;
-                      setCloudProvider(
-                        result_params?.cloud_provider ||
-                          !!result_params?.aws_account_id
-                          ? "aws"
-                          : "gcp"
-                      );
-
-                      setAccountConfigMethod(
-                        result_params?.account_configuration_method
-                      );
-                      handleOrgIdModalOpen();
+                      handleViewAccountConfigInstructions(params.row);
                     }}
                   >
                     <ViewInstructionsIcon />
@@ -397,24 +390,18 @@ useEffect(() => {
         headerName: "Load",
         flex: 0.9,
         minWidth: 100,
-        align: "center",
-        headerAlign: "center",
         renderCell: (params) => {
           const instanceLoadStatus = params.row.instanceLoadStatus;
 
           return (
-            <Stack
-              direction={"row"}
-              justifyContent={"center"}
-              alignItems={"center"}
-              gap="4px"
-            >
+            <Stack direction={"row"} alignItems={"center"} gap="4px">
               {instanceLoadStatus === "UNKNOWN" && "-"}
               {instanceLoadStatus === "POD_IDLE" && (
                 <Image
                   src={SpeedoMeterLow}
                   width={54}
                   height={54}
+                  alt="Low"
                   style={{ marginBottom: "-25px" }}
                 />
               )}
@@ -423,6 +410,7 @@ useEffect(() => {
                   src={SpeedoMeterMedium}
                   width={54}
                   height={54}
+                  alt="Medium"
                   style={{ marginBottom: "-25px" }}
                 />
               )}
@@ -431,6 +419,7 @@ useEffect(() => {
                   src={SpeedoMeterHigh}
                   width={54}
                   height={54}
+                  alt="High"
                   style={{ marginBottom: "-25px" }}
                 />
               )}
@@ -443,8 +432,6 @@ useEffect(() => {
         headerName: "Created On",
         flex: 1,
         minWidth: 235,
-        align: "center",
-        headerAlign: "center",
         valueGetter: (params) => {
           const value = formatDateLocal(params.row.created_at);
           return value;
@@ -455,8 +442,6 @@ useEffect(() => {
         headerName: "Last Modified",
         flex: 1,
         minWidth: 225,
-        align: "center",
-        headerAlign: "center",
         valueGetter: (params) => {
           const value = formatDateLocal(params.row.last_modified_at);
           return value;
@@ -466,8 +451,6 @@ useEffect(() => {
         field: "region",
         headerName: "Region",
         flex: 1,
-        align: "center",
-        headerAlign: "center",
         minWidth: 155,
         renderCell: (params) => {
           const region = params.row.region;
@@ -482,7 +465,7 @@ useEffect(() => {
             <GridCellExpand
               value={"Global"}
               startIcon={<RegionIcon />}
-              width={params.colDef.computedWidth}
+              justifyContent="start"
             />
           );
         },
@@ -495,8 +478,6 @@ useEffect(() => {
         headerName: "Health Status",
         flex: 1,
         minWidth: 200,
-        align: "center",
-        headerAlign: "center",
         renderCell: (params) => {
           const status = params?.row?.status;
           let mainResource = [];
@@ -559,8 +540,6 @@ useEffect(() => {
         field: "cloud_provider",
         headerName: "Account ID",
         flex: 0.8,
-        align: "center",
-        headerAlign: "center",
         renderCell: (params) => {
           let Logo;
           const provider = params.row.cloud_provider;
@@ -579,8 +558,6 @@ useEffect(() => {
         field: "cloud_provider",
         headerName: "☁️ Provider(s)",
         flex: 0.8,
-        align: "center",
-        headerAlign: "center",
         minWidth: 130,
         renderCell: (params) => {
           const cloudProvider = isCurrentResourceBYOA
@@ -605,8 +582,6 @@ useEffect(() => {
         field: "kubernetesDashboardEndpoint",
         headerName: "Dashboard Endpoint",
         flex: 1,
-        headerAlign: "center",
-        align: "center",
         minWidth: 150,
         renderCell: (params) => {
           const { row } = params;
@@ -623,6 +598,7 @@ useEffect(() => {
               href={"https://" + dashboardEndpoint}
               target="_blank"
               externalLinkArrow
+              justifyContent="start"
             />
           );
         },
@@ -773,12 +749,13 @@ useEffect(() => {
       defaultCloudProvider = "gcp";
     }
   }
+
   //create resource instance
   const createformik = useFormik({
     initialValues: {
       serviceId: serviceId,
       cloud_provider: defaultCloudProvider,
-      network_type: "",
+      network_type: "PUBLIC",
       region: "",
       requestParams: { ...requestParams },
       serviceProviderId: service?.serviceProviderId,
@@ -953,6 +930,17 @@ useEffect(() => {
               data.requestParams.account_configuration_method =
                 values.configMethod;
             }
+          }
+
+          let isCloudProvider = false;
+          for (const param of schemaArray) {
+            if (["cloud_provider"].includes(param.key)) {
+              isCloudProvider = true;
+            }
+          }
+
+          if (!isCloudProvider || isCustomNetworkEnabled) {
+            delete data["network_type"];
           }
 
           if (!isTypeError) {
@@ -1893,7 +1881,12 @@ useEffect(() => {
           />
         ) : (
           <>
-            <Box mt={insightsVisible ? "32px" : "10px"}>
+            <Box
+              mt={insightsVisible ? "32px" : "10px"}
+              sx={{
+                transition: "margin-top 0.5s ease-in-out",
+              }}
+            >
               <DataGrid
                 components={{
                   Header: InstancesTableHeader,
@@ -2099,6 +2092,7 @@ useEffect(() => {
             fetchResourceInstancesOfSelectedResource
           }
           cloudFormationTemplateUrlNoLB={cloudFormationTemplateUrlNoLB}
+          viewInstructionsItem={viewInstructionsItem}
         />
 
         <AccessSideRestoreInstance

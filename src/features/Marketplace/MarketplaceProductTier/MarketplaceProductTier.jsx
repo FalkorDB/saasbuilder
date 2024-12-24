@@ -113,7 +113,7 @@ function MarketplaceProductTier({ orgLogoURL, orgName }) {
       >
         <NoServiceFoundUI
           text={
-            shouldDisplayNoServicesUI ? "No Service Found" : "Service Not Found"
+            shouldDisplayNoServicesUI ? "No service found" : "Service not found"
           }
         />
       </DashboardLayout>

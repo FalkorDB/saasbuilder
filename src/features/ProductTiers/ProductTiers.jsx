@@ -160,7 +160,7 @@ function ProductTiers(props) {
                 fontSize: "30px",
               }}
             >
-              No Subscription Plans
+              No subscription plans
             </div>
             <div
               justifyContent="center"

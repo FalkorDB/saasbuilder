@@ -27,6 +27,7 @@ import DisplayHeading from "components/NonDashboardComponents/DisplayHeading";
 import { Text } from "src/components/Typography/Typography";
 import { jwtDecode } from "jwt-decode";
 import { clarity } from "react-microsoft-clarity";
+import { getMarketplaceProductTierRoute } from "src/utils/route/access/accessRoute";
 
 const createSigninValidationSchema = Yup.object({
   email: Yup.string()
@@ -52,6 +53,7 @@ const SigninPage = (props) => {
   const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
   const reCaptchaRef = useRef(null);
   const snackbar = useSnackbar();
+
   useEffect(() => {
     if (redirect_reason === "idp_auth_error") {
       snackbar.showError("Something went wrong. Please retry");
@@ -66,6 +68,47 @@ const SigninPage = (props) => {
   }, [redirect_reason]);
 
   function handleSignInSuccess(jwtToken) {
+    function isValidDestination(destination) {
+      const decodedURL = decodeURIComponent(destination);
+      const allowedPaths = ["/service-plans", "service-plans"];
+      const isAllowedPath = allowedPaths.some((path) =>
+        decodedURL.startsWith(path)
+      );
+
+      if (isAllowedPath) {
+        const { serviceId } = extractQueryParams(decodedURL);
+        if (serviceId) return true;
+      }
+
+      return false;
+    }
+
+    function extractQueryParams(decodedURL) {
+      try {
+        if (!decodedURL) return { serviceId: null, environmentId: null };
+
+        const queryString = decodedURL.split("?")[1];
+        if (!queryString) return { serviceId: null, environmentId: null };
+
+        const queryParams = new URLSearchParams(queryString);
+
+        const serviceId = queryParams.get("serviceId");
+        const environmentId = queryParams.get("environmentId");
+
+        // Sanitize parameters
+        const sanitizedServiceId = serviceId?.trim();
+        const sanitizedEnvironmentId = environmentId?.trim();
+
+        return {
+          serviceId: sanitizedServiceId || null,
+          environmentId: sanitizedEnvironmentId || null,
+        };
+      } catch (error) {
+        return { serviceId: null, environmentId: null };
+      }
+    }
+    
+
     if (jwtToken) {
       Cookies.set("token", jwtToken, { sameSite: "Lax", secure: true });
       axios.defaults.headers["Authorization"] = "Bearer " + jwtToken;
@@ -76,12 +119,13 @@ const SigninPage = (props) => {
       }
 
       // Redirect to the Destination URL
-      if (
-        destination &&
-        (destination.startsWith("/service-plans") ||
-          destination.startsWith("%2Fservice-plans"))
-      ) {
-        router.replace(decodeURIComponent(DOMPurify(destination)));
+      if (destination && isValidDestination(destination)) {
+        const decodedDestination = decodeURIComponent(DOMPurify(destination));
+        const { serviceId, environmentId } =
+          extractQueryParams(decodedDestination);
+
+        const route = getMarketplaceProductTierRoute(serviceId, environmentId);
+        router.replace(route);
       } else {
         router.replace("/redirect");
       }

@@ -4,6 +4,7 @@ import { CustomNetwork } from "src/types/customNetwork";
 import { MenuItem } from "src/types/common/generalTypes";
 import { ServiceOffering } from "src/types/serviceOffering";
 import { resourceInstanceStatusMap } from "src/constants/statusChipStyles/resourceInstanceStatus";
+import { fromProvider } from "cloud-regions-country-flags";
 
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -94,14 +95,14 @@ export const getRegionMenuItems = (
   if (cloudProvider === "aws") {
     offering.awsRegions?.forEach((region: string) => {
       menuItems.push({
-        label: region,
+        label: `${fromProvider(region, 'AWS').flag} ${region}`,
         value: region,
       });
     });
   } else if (cloudProvider === "gcp") {
     offering.gcpRegions?.forEach((region: string) => {
       menuItems.push({
-        label: region,
+        label: `${fromProvider(region, 'GCP').flag} ${region}`,
         value: region,
       });
     });
@@ -109,7 +110,7 @@ export const getRegionMenuItems = (
     // @ts-ignore
     offering.azureRegions?.forEach((region: string) => {
       menuItems.push({
-        label: region,
+        label: `${fromProvider(region, 'AZURE').flag} ${region}`,
         value: region,
       });
     });

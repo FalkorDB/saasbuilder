@@ -19,6 +19,7 @@ import { CloudProvider, FormMode } from "src/types/common/enums";
 import { APIEntity, ServiceOffering } from "src/types/serviceOffering";
 import SubscriptionMenu from "app/(dashboard)/components/SubscriptionMenu/SubscriptionMenu";
 import AccountConfigDescription from "./AccountConfigDescription";
+import { fromProvider } from 'cloud-regions-country-flags'
 
 export const getStandardInformationFields = (
   servicesObj,
@@ -56,6 +57,19 @@ export const getStandardInformationFields = (
   const resourceMenuItems = getResourceMenuItems(
     serviceOfferingsObj[serviceId]?.[servicePlanId]
   );
+
+  resourceMenuItems.sort((a, b) => {
+    const order = [
+      "Standalone",
+      "Single-Zone",
+      "Multi-Zone",
+      "Cluster-Single-Zone",
+      "Cluster-Multi-Zone",
+      "Grafana",
+    ]
+
+    return order.indexOf(a.label) - order.indexOf(b.label);
+  })
 
   const inputParametersObj = (resourceSchema?.inputParameters || []).reduce(
     (acc: any, param: any) => {
@@ -132,8 +146,16 @@ export const getStandardInformationFields = (
         <SubscriptionPlanRadio
           servicePlans={Object.values(
             serviceOfferingsObj[serviceId] || {}
-          ).sort((a: any, b: any) =>
-            a.productTierName.localeCompare(b.productTierName)
+          ).sort((a: any, b: any) => {
+            const order = {
+              "FalkorDB Free": 0,
+              "FalkorDB Startup": 1,
+              "FalkorDB Pro": 2,
+              "FalkorDB Enterprise": 3  
+            }
+
+            return order[a.productTierName] - order[b.productTierName]
+            }
           )}
           name="servicePlanId"
           formData={formData}
@@ -293,6 +315,9 @@ export const getStandardInformationFields = (
         cloudProvider
       ),
       disabled: formMode !== "create",
+      previewValue: values.region && values.cloudProvider ? () => {
+        return `${fromProvider(values.region, values.cloudProvider.toUpperCase()).flag} ${values.region}`
+      } : null,
     });
   }
 
@@ -629,6 +654,32 @@ export const getDeploymentConfigurationFields = (
       }
     }
   });
+
+  const order = [
+    "requestParams.memory",
+    "requestParams.nodeInstanceType",
+    "requestParams.name",
+    "requestParams.description",
+    "requestParams.falkordbUser",
+    "requestParams.falkordbPassword",
+    "requestParams.enableTLS",
+    "requestParams.maxMemory",
+    "requestParams.RDBPersistenceConfig",
+    "requestParams.AOFPersistenceConfig",
+    "requestParams.falkorDBCacheSize",
+    "requestParams.falkorDBNodeCreationBuffer",
+    "requestParams.falkorDBMaxQueuedQueries",
+    "requestParams.falkorDBTimeoutMax",
+    "requestParams.falkorDBTimeoutDefault",
+    "requestParams.falkorDBResultSetSize",
+    "requestParams.falkorDBQueryMemCapacity"
+  ]
+
+  fields.sort((a, b) => {
+    if (order.indexOf(a.name) === undefined) return 1;
+    if (order.indexOf(b.name) === undefined) return -1;
+    return order.indexOf(a.name) - order.indexOf(b.name);
+  })
 
   return fields;
 };

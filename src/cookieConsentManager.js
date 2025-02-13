@@ -40,6 +40,10 @@ export const cookieConsentInitialObject = {
           // clarity
           type: "script",
           src: "https://cdn.clarity.ms/gdpr/consent.js",
+          name: "clarity",
+          "consent-category": "analytics",
+          handleEnable: "addClarity",
+          handleDisable: "removeClarity",
         }
       ],
       hide: false,
@@ -53,6 +57,7 @@ const handlerMap = {
   addGoogleAnalytics,
   removeGoogleAnalyticsScriptsAndCookies,
   addClarity,
+  removeClarity,
 };
 
 function addGoogleAnalytics() {
@@ -139,9 +144,15 @@ function addClarity() {
     const token = Cookies.get("token");
     if (token) {
       const payload = jwtDecode(token);
-      payload.userID && clarity.identify(payload.userID);
+      if (payload.userID) {
+        clarity.identify(payload.userID);
+      }
     }
   }
+}
+
+function removeClarity() {
+  clarity.clear();
 }
 
 export const handleConsentChanges = (categories) => {

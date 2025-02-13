@@ -1,19 +1,39 @@
 import Cookies from "js-cookie";
-import { useRouter } from "next/router";
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { usePathname, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+
 import axios from "../axios";
+import { initialiseUserData } from "src/slices/userDataSlice";
 
 function useLogout() {
   const router = useRouter();
-  //const snackbar = useSnackbar();
+  const dispatch = useDispatch();
+  const pathname = usePathname();
+  const QueryClient = useQueryClient();
 
-  //remove token from cookies, remove other user data and redirect to signin
+  // remove token from cookies, remove other user data and redirect to signin
   function handleLogout() {
     Cookies.remove("token");
     localStorage.removeItem("paymentNotificationHidden");
-    router.reload("/signin");
+    try {
+      localStorage.removeItem("loggedInUsingSSO");
+    } catch (error) {
+      console.warn("Failed to clear SSO state:", error);
+    }
+
+    router.replace("/signin");
   }
 
-  //make backend call and invalidate the token
+  useEffect(() => {
+    if (pathname === "/signin") {
+      dispatch(initialiseUserData());
+      QueryClient.clear();
+    }
+  }, [pathname]);
+
+  // make backend call and invalidate the token
   function logout() {
     axios
       .post("/logout")

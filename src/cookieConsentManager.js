@@ -162,7 +162,7 @@ function removeClarity() {
     if (clarity) {
       clarity.clear();
     }
-  } catch (e) {
+  } catch (error) {
     console.error(error);
   }
 }

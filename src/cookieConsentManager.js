@@ -139,21 +139,32 @@ function removeGoogleAnalyticsScriptsAndCookies() {
 }
 
 function addClarity() {
-  if (process.env.NEXT_PUBLIC_CLARITY_ID) {
-    clarity.init(process.env.NEXT_PUBLIC_CLARITY_ID);
-    clarity.consent();
-    const token = Cookies.get("token");
-    if (token) {
-      const payload = jwtDecode(token);
-      if (payload.userID) {
-        clarity.identify(payload.userID);
+  try {
+    if (process.env.NEXT_PUBLIC_CLARITY_ID) {
+      if (!clarity) return;
+      clarity.init(process.env.NEXT_PUBLIC_CLARITY_ID);
+      clarity.consent();
+      const token = Cookies.get("token");
+      if (token) {
+        const payload = jwtDecode(token);
+        if (payload.userID) {
+          clarity.identify(payload.userID);
+        }
       }
     }
+  } catch (error) {
+    console.error(error);
   }
 }
 
 function removeClarity() {
-  clarity.clear();
+  try {
+    if (clarity) {
+      clarity.clear();
+    }
+  } catch (e) {
+    console.error(error);
+  }
 }
 
 export const handleConsentChanges = (categories) => {

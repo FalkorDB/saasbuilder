@@ -312,6 +312,7 @@ const InstancesTableHeader: FC<InstancesTableHeaderProps> = ({
               isStopDisabled={!actions.stop}
               isDeleteDisabled={!actions.delete}
               isRestoreDisabled={!actions.restore}
+              isConnectDisabled={!actions.connect}
               isLoading={isFetchingInstances || !selectedInstance}
               isModifyDisabled={!actions.modify}
               isVisibleRestore={isVisibleRestore}

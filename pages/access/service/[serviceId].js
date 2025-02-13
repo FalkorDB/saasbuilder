@@ -280,6 +280,13 @@ function MarketplaceService() {
     (instance) => instance.kubernetesDashboardEndpoint
   );
 
+  const isMultiTenancy = useMemo(
+    () =>
+      service?.productTierType === productTierTypes.OMNISTRATE_MULTI_TENANCY,
+
+    [service]
+  );
+
   const handleViewAccountConfigInstructions = (row) => {
     setViewInstructionsItem(row);
     const result_params = row.result_params;
@@ -782,7 +789,7 @@ function MarketplaceService() {
     initialValues: {
       serviceId: serviceId,
       cloud_provider: defaultCloudProvider,
-      network_type: "PUBLIC",
+      network_type: service?.supportsPublicNetwork ? "PUBLIC" : "INTERNAL",
       region: "",
       requestParams: { ...requestParams },
       serviceProviderId: service?.serviceProviderId,
@@ -966,7 +973,11 @@ function MarketplaceService() {
             }
           }
 
-          if (!isCloudProvider || isCustomNetworkEnabled) {
+          if (
+            !isCloudProvider ||
+            isMultiTenancy ||
+            !service?.supportsPublicNetwork
+          ) {
             delete data["network_type"];
           }
 
@@ -1101,9 +1112,14 @@ function MarketplaceService() {
     const resourceInstanceResource = Object.values(resourceInstance.detailedNetworkTopology).find(r => r.publiclyAccessible && r.clusterEndpoint?.length && !r.resourceKey.startsWith("omnistrateobserv"));
     console.log({ resourceInstance, resourceInstanceResource });
 
+    if (!resourceInstanceResource?.clusterEndpoint || !resourceInstanceResource?.clusterPorts?.length) {
+      snackbar.showError("Resource Instance is not ready to connect");
+      return;
+    }
+
     const payload = {
       host: resourceInstanceResource?.clusterEndpoint,
-      port: resourceInstanceResource.clusterPorts[0],
+      port: resourceInstanceResource.clusterPorts?.[0],
       region: resourceInstance.region,
       username: resourceInstance.result_params.falkordbUser
     }
@@ -1592,7 +1608,6 @@ function MarketplaceService() {
       <DashboardLayout
         setSupportDrawerOpen={setSupportDrawerOpen}
         setCurrentTabValue={setCurrentTabValue}
-        isNotShow
         accessPage
         marketplacePage={currentSource === "access" ? false : true}
         SidebarUI={""}
@@ -1634,7 +1649,6 @@ function MarketplaceService() {
       <DashboardLayout
         setSupportDrawerOpen={setSupportDrawerOpen}
         setCurrentTabValue={setCurrentTabValue}
-        isNotShow
         serviceId={serviceId}
         serviceApiId={service?.serviceAPIID}
         marketplacePage
@@ -1659,7 +1673,6 @@ function MarketplaceService() {
         setSupportDrawerOpen={setSupportDrawerOpen}
         setCurrentTabValue={setCurrentTabValue}
         currentSubscription={subscriptionData}
-        isNotShow
         serviceId={serviceId}
         serviceApiId={service?.serviceAPIID}
         marketplacePage={currentSource === "access" ? false : true}
@@ -1787,7 +1800,6 @@ function MarketplaceService() {
       <DashboardLayout
         setSupportDrawerOpen={setSupportDrawerOpen}
         setCurrentTabValue={setCurrentTabValue}
-        isNotShow
         serviceId={serviceId}
         serviceApiId={service?.serviceAPIID}
         marketplacePage
@@ -1814,7 +1826,6 @@ function MarketplaceService() {
         setSupportDrawerOpen={setSupportDrawerOpen}
         setCurrentTabValue={setCurrentTabValue}
         currentSubscription={subscriptionData}
-        isNotShow
         serviceId={serviceId}
         serviceApiId={service?.serviceAPIID}
         marketplacePage={currentSource === "access" ? false : true}
@@ -2078,6 +2089,7 @@ function MarketplaceService() {
                       gcp: service?.gcpRegions || [],
                     }}
                     isCustomNetworkEnabled={isCustomNetworkEnabled}
+                    isMultiTenancy={isMultiTenancy}
                   />
                 }
               />

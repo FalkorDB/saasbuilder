@@ -2,41 +2,12 @@ import * as React from "react";
 import Document, { Html, Head, Main, NextScript } from "next/document";
 import createEmotionServer from "@emotion/server/create-instance";
 import createEmotionCache from "../src/createEmotionCache";
-import Script from "next/script";
+// import Script from "next/script";
 export default class MyDocument extends Document {
   render() {
     return (
       <Html lang="en">
         <Head>
-      {process.env.GOOGLE_ANALYTICS_TAG_ID && (
-        <Script
-          src={`https://www.googletagmanager.com/gtag/js?id=${process.env.GOOGLE_ANALYTICS_TAG_ID}`}
-          strategy="afterInteractive"
-        />
-      )}
-
-      {process.env.GOOGLE_ANALYTICS_TAG_ID && (
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-	              window.dataLayer = window.dataLayer || [];
-	              function gtag(){window.dataLayer.push(arguments);}
-	              gtag('js', new Date());
-
-	              gtag('config', '${process.env.GOOGLE_ANALYTICS_TAG_ID}');
-	            `}
-        </Script>
-      )}
-
-      {process.env.GOOGLE_ANALYTICS_TAG_ID && (
-        <Script id="gtag" strategy="afterInteractive">
-          {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','${process.env.GOOGLE_ANALYTICS_TAG_ID}');`}
-        </Script>
-      )}
-
           {/* PWA primary color */}
           <link rel="icon" href="" id="provider-favicon" />
           <meta httpEquiv="cache-control" content="no-cache" />

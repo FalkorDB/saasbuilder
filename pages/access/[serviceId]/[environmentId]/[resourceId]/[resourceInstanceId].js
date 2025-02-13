@@ -48,6 +48,7 @@ import {
   selectInstanceDetailsSummaryVisibility,
   toggleInstanceDetailsSummaryVisibility,
 } from "src/slices/genericSlice";
+import ResourceCustomDNS from "src/components/ResourceInstance/Connectivity/ResourceCustomDNS";
 
 export const getServerSideProps = async () => {
   return {
@@ -153,6 +154,25 @@ function ResourceInstance() {
     [resourceType]
   );
 
+  const checkCustomDNSEndpoint = (resources) => {
+    if (
+      resources.primary?.customDNSEndpoint &&
+      resources.primary?.customDNSEndpoint.enabled === true
+    ) {
+      return true;
+    }
+
+    if (Array.isArray(resources.others)) {
+      return resources.others.some(
+        (resource) =>
+          resource?.customDNSEndpoint &&
+          resource?.customDNSEndpoint.enabled === true
+      );
+    }
+
+    return false;
+  };
+
   const tabs = getTabs(
     resourceInstanceData?.isMetricsEnabled,
     resourceInstanceData?.isLogsEnabled,
@@ -160,7 +180,12 @@ function ResourceInstance() {
     isResourceBYOA,
     isCliManagedResource,
     resourceType,
-    resourceInstanceData?.backupStatus?.backupPeriodInHours
+    resourceInstanceData?.backupStatus?.backupPeriodInHours,
+    checkCustomDNSEndpoint(
+      resourceInstanceData
+        ? resourceInstanceData?.connectivity?.globalEndpoints
+        : {}
+    )
   );
 
   let pageTitle = "Resource";
@@ -261,7 +286,6 @@ function ResourceInstance() {
       <DashboardLayout
         setSupportDrawerOpen={setSupportDrawerOpen}
         setCurrentTabValue={setCurrentTabValue}
-        isNotShow
         marketplacePage={currentSource === "access" ? false : true}
         accessPage
         currentSubscription={subscriptionData}
@@ -295,7 +319,6 @@ function ResourceInstance() {
       <DashboardLayout
         setSupportDrawerOpen={setSupportDrawerOpen}
         setCurrentTabValue={setCurrentTabValue}
-        isNotShow
         marketplacePage={currentSource === "access" ? false : true}
         accessPage
         currentSubscription={subscriptionData}
@@ -363,7 +386,6 @@ function ResourceInstance() {
       apiDocsurl={serviceAPIDocsLink}
       serviceId={serviceId}
       serviceApiId={serviceOffering?.serviceAPIID}
-      isNotShow
       SidebarUI={
         <MarketplaceServiceSidebar
           serviceId={serviceId}
@@ -587,6 +609,15 @@ function ResourceInstance() {
           }
         />
       )}
+      {currentTab === tabs.customDNS && (
+        <ResourceCustomDNS
+          globalEndpoints={resourceInstanceData.connectivity.globalEndpoints}
+          context="access"
+          accessQueryParams={queryData}
+          refetchInstance={resourceInstanceQuery.refetch}
+        />
+      )}
+
       <SideDrawerRight
         size="xlarge"
         open={supportDrawerOpen}
@@ -611,7 +642,8 @@ function getTabs(
   isResourceBYOA,
   isCliManagedResource,
   resourceType,
-  isBackup
+  isBackup,
+  isCustomDNS
 ) {
   const tabs = {
     resourceInstanceDetails: "Resource Instance Details",
@@ -630,6 +662,9 @@ function getTabs(
   tabs["auditLogs"] = "Events";
   if (isBackup) {
     tabs["backups"] = "Backups";
+  }
+  if (isCustomDNS) {
+    tabs["customDNS"] = "Custom DNS";
   }
 
   return tabs;

@@ -69,6 +69,7 @@ function CreateResourceInstanceForm(props) {
     service,
     subscriptionId,
     isCustomNetworkEnabled = false,
+    isMultiTenancy,
   } = props;
 
   const [isSchemaLoading, setIsSchemaLoading] = useState(true);
@@ -251,7 +252,9 @@ function CreateResourceInstanceForm(props) {
   const selectedCustomNetworkId = formData.values?.custom_network_id ?? "";
 
   const networkTypeFieldExists =
-    cloudProviderFieldExists && !isCustomNetworkEnabled;
+    cloudProviderFieldExists &&
+    !isMultiTenancy &&
+    service?.supportsPublicNetwork;
 
   if (isSchemaLoading)
     return (

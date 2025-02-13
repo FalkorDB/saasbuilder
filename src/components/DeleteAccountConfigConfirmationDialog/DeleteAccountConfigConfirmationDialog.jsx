@@ -7,6 +7,218 @@ import DeleteCirleIcon from "components/Icons/DeleteCircle/DeleteCirleIcon";
 import { Text } from "components/Typography/Typography";
 import CloseIcon from "@mui/icons-material/Close";
 import Link from "next/link";
+import { TextContainerToCopy } from "../CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
+
+const StyledForm = styled(Form)({
+  position: "fixed",
+  top: "50%",
+  right: "50%",
+  transform: "translateX(50%) translateY(-50%)",
+  background: "white",
+  borderRadius: "12px",
+  boxShadow:
+    "0px 8px 8px -4px rgba(16, 24, 40, 0.03), 0px 20px 24px -4px rgba(16, 24, 40, 0.08)",
+  padding: "24px",
+  width: "100%",
+  maxWidth: "550px",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "flex-start",
+});
+
+const Header = styled(Box)({
+  width: "100%",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+});
+
+const Content = styled(Box)({
+  marginTop: "20px",
+  width: "100%",
+});
+
+const Footer = styled(Box)({
+  marginTop: "24px",
+  width: "100%",
+  display: "flex",
+  justifyContent: "flex-end",
+  alignItems: "center",
+  gap: "16px",
+});
+
+const StyledLink = styled(Link)({
+  textDecoration: "underline",
+  color: "#7F56D9",
+  fontWeight: 700,
+  // fontStyle: "italic",
+});
+
+const List = styled(Box)({
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+  marginTop: "8px",
+});
+
+const ListItem = styled(Box)({
+  display: "flex",
+  justifyContent: "flex-start",
+  alignItems: "flex-start",
+  gap: "12px",
+});
+
+const ListItemIcon = styled(Box)({
+  flexShrink: 0,
+});
+
+const ArrowBullet = (props) => (
+  <svg
+    width={24}
+    height={24}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M8.7515 17.6485C8.28287 17.1799 8.28287 16.4201 8.7515 15.9515L12.703 12L8.7515 8.04853C8.28287 7.5799 8.28287 6.8201 8.7515 6.35147C9.22013 5.88284 9.97992 5.88284 10.4486 6.35147L15.2486 11.1515C15.7172 11.6201 15.7172 12.3799 15.2486 12.8485L10.4486 17.6485C9.97992 18.1172 9.22013 18.1172 8.7515 17.6485Z"
+      fill="#344054"
+    />
+  </svg>
+);
+
+const DeleteInstructions = ({ accountInstructionDetails }) => {
+  return (
+    <Box width={"100%"} mb="30px">
+      {accountInstructionDetails?.awsAccountID && (
+        <Box marginBottom={"20px"}>
+          <Text size="small" weight="semibold" color="#374151">
+            AWS Account ID
+          </Text>
+          <TextContainerToCopy
+            text={accountInstructionDetails?.awsAccountID}
+            marginTop="6px"
+          />
+        </Box>
+      )}
+
+      {accountInstructionDetails?.gcpProjectID && (
+        <Stack
+          direction={"row"}
+          alignItems={"flex-start"}
+          gap="12px"
+          marginBottom={"20px"}
+        >
+          <Box flex={1} maxWidth={"50%"}>
+            <Text size="small" weight="semibold" color="#374151">
+              GCP Project ID
+            </Text>
+            <TextContainerToCopy
+              text={accountInstructionDetails?.gcpProjectID}
+              marginTop="6px"
+            />
+          </Box>
+          <Box flex={1} maxWidth={"50%"}>
+            <Text size="small" weight="semibold" color="#374151">
+              GCP Project Number
+            </Text>
+            <TextContainerToCopy
+              text={accountInstructionDetails?.gcpProjectNumber}
+              marginTop="6px"
+            />
+          </Box>
+        </Stack>
+      )}
+
+      <Text size="medium" weight="semibold" color="#374151">
+        To off-board your account:
+      </Text>
+
+      <List>
+        <ListItem>
+          <ListItemIcon>
+            <ArrowBullet />
+          </ListItemIcon>
+
+          <Text size="medium" weight="regular" color="#374151">
+            <b>Delete Account Config:</b> Start by deleting the account
+            configuration below to remove all artifacts created by Omnistrate.
+          </Text>
+        </ListItem>
+        {accountInstructionDetails?.awsAccountID && (
+          <ListItem>
+            <ListItemIcon>
+              <ArrowBullet />
+            </ListItemIcon>
+
+            <Text size="medium" weight="regular" color="#374151">
+              For CloudFormation, follow the provided steps{" "}
+              <StyledLink
+                target="_blank"
+                rel="noopener noreferrer"
+                href="https://docs.omnistrate.com/getting-started/account-offboarding/"
+              >
+                here
+              </StyledLink>{" "}
+              to complete the off-boarding process and revoke our access.
+            </Text>
+          </ListItem>
+        )}
+
+        {accountInstructionDetails?.gcpProjectID && (
+          <ListItem>
+            <ListItemIcon>
+              <ArrowBullet />
+            </ListItemIcon>
+
+            <Text size="medium" weight="regular" color="#374151">
+              Open the Google Cloud Shell environment using the following link{" "}
+              <StyledLink
+                target="_blank"
+                rel="noopener noreferrer"
+                href="https://shell.cloud.google.com/?cloudshell_ephemeral=true&show=terminal"
+              >
+                Google Cloud Shell
+              </StyledLink>
+              . Once the terminal is open, execute the following command to
+              complete the off-boarding process and revoke our access.
+            </Text>
+          </ListItem>
+        )}
+      </List>
+
+      {accountInstructionDetails?.gcpProjectID &&
+        accountInstructionDetails?.gcpOffboardCommand && (
+          <TextContainerToCopy
+            text={accountInstructionDetails?.gcpOffboardCommand}
+            marginTop="12px"
+          />
+        )}
+
+      <List sx={{ marginTop: "12px" }}>
+        <ListItem>
+          <ListItemIcon>
+            <ArrowBullet />
+          </ListItemIcon>
+
+          <Text size="medium" weight="regular" color="#374151">
+            For more details, refer to the documentation{" "}
+            <StyledLink
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://docs.omnistrate.com/getting-started/account-offboarding/"
+            >
+              here
+            </StyledLink>{" "}
+          </Text>
+        </ListItem>
+      </List>
+    </Box>
+  );
+};
 
 function DeleteAccountConfigConfirmationDialog(props) {
   const {
@@ -14,11 +226,12 @@ function DeleteAccountConfigConfirmationDialog(props) {
     handleClose,
     formData,
     title = "Delete",
-    message = "To confirm deletion, please enter <i><b> deleteme</b></i>, in the field below:",
+    message = "To confirm deletion, please enter <b>deleteme</b>, in the field below:",
     buttonLabel = "Delete",
     buttonColor = "#D92D20",
     isLoading,
     IconComponent = DeleteCirleIcon,
+    accountInstructionDetails,
   } = props;
 
   return (
@@ -36,7 +249,9 @@ function DeleteAccountConfigConfirmationDialog(props) {
           </IconButton>
         </Header>
         <Content>
-          <DeleteInstructions />
+          <DeleteInstructions
+            accountInstructionDetails={accountInstructionDetails}
+          />
 
           <Text
             size="small"
@@ -85,136 +300,3 @@ function DeleteAccountConfigConfirmationDialog(props) {
 }
 
 export default DeleteAccountConfigConfirmationDialog;
-
-const StyledForm = styled(Form)({
-  position: "fixed",
-  top: "0",
-  right: "50%",
-  transform: "translateX(50%)",
-  background: "white",
-  borderRadius: "12px",
-  boxShadow:
-    "0px 8px 8px -4px rgba(16, 24, 40, 0.03), 0px 20px 24px -4px rgba(16, 24, 40, 0.08)",
-  padding: "24px",
-  width: "100%",
-  maxWidth: "550px",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "flex-start",
-});
-
-const Header = styled(Box)({
-  width: "100%",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-});
-
-const Content = styled(Box)({
-  marginTop: "20px",
-  width: "100%",
-});
-
-const Footer = styled(Box)({
-  marginTop: "24px",
-  width: "100%",
-  display: "flex",
-  justifyContent: "flex-end",
-  alignItems: "center",
-  gap: "16px",
-});
-
-const StyledLink = styled(Link)({
-  textDecoration: "underline",
-  color: "#7F56D9",
-  fontWeight: 700,
-  fontStyle: "italic",
-});
-
-const DeleteInstructions = () => {
-  return (
-    <Box width={"100%"} mb="30px">
-      <Text size="medium" weight="semibold" color="#374151">
-        To off-board your account:
-      </Text>
-
-      <List>
-        <ListItem>
-          <ListItemIcon>
-            <ArrowBullet />
-          </ListItemIcon>
-
-          <Text size="medium" weight="regular" color="#374151">
-            Delete Account Config: Start by deleting the account configuration
-            below to remove all artifacts created by Omnistrate.
-          </Text>
-        </ListItem>
-        <ListItem>
-          <ListItemIcon>
-            <ArrowBullet />
-          </ListItemIcon>
-
-          <Text size="medium" weight="regular" color="#374151">
-            <b>Terraform Users:</b> If you set up your account using Terraform,
-            execute terraform destroy to revoke our access.{" "}
-          </Text>
-        </ListItem>
-
-        <ListItem>
-          <ListItemIcon>
-            <ArrowBullet />
-          </ListItemIcon>
-
-          <Text size="medium" weight="regular" color="#374151">
-            <b>CloudFormation Users (AWS):</b> If you used CloudFormation,
-            follow the provided steps{" "}
-            <StyledLink
-              target="_blank"
-              rel="noopener noreferrer"
-              href="https://docs.omnistrate.com/getting-started/account-offboarding/"
-            >
-              here
-            </StyledLink>{" "}
-            to complete the off-boarding process and revoke our access.
-          </Text>
-        </ListItem>
-      </List>
-    </Box>
-  );
-};
-
-const List = styled(Box)({
-  display: "flex",
-  flexDirection: "column",
-  gap: "8px",
-  marginTop: "8px",
-});
-
-const ListItem = styled(Box)({
-  display: "flex",
-  justifyContent: "flex-start",
-  alignItems: "flex-start",
-  gap: "12px",
-});
-
-const ListItemIcon = styled(Box)({
-  flexShrink: 0,
-});
-
-const ArrowBullet = (props) => (
-  <svg
-    width={24}
-    height={24}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    {...props}
-  >
-    <path
-      fillRule="evenodd"
-      clipRule="evenodd"
-      d="M8.7515 17.6485C8.28287 17.1799 8.28287 16.4201 8.7515 15.9515L12.703 12L8.7515 8.04853C8.28287 7.5799 8.28287 6.8201 8.7515 6.35147C9.22013 5.88284 9.97992 5.88284 10.4486 6.35147L15.2486 11.1515C15.7172 11.6201 15.7172 12.3799 15.2486 12.8485L10.4486 17.6485C9.97992 18.1172 9.22013 18.1172 8.7515 17.6485Z"
-      fill="#344054"
-    />
-  </svg>
-);

@@ -1,6 +1,7 @@
 import { jwtDecode } from "jwt-decode";
 import { NextResponse } from "next/server";
 import { baseURL } from "src/axios";
+import { PAGE_TITLE_MAP } from "src/constants/pageTitleMap";
 import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
 
 const environmentType = getEnvironmentType();
@@ -46,27 +47,16 @@ export async function middleware(request) {
       return redirectToSignIn();
     }
 
-    // Subscriptions page should only be accessible in PROD
-    // Removing This for Now
-    // if (request.nextUrl.pathname.startsWith("/subscriptions")) {
-    //   if (environmentType !== "PROD") {
-    //     const response = NextResponse.redirect(
-    //       new URL("/service-plans", request.url)
-    //     );
-    //     response.headers.set(`x-middleware-cache`, `no-cache`);
-    //     return response;
-    //   }
-    // }
-
-    if (request.nextUrl.pathname.startsWith("/signin")) {
+    console.log(request.nextUrl.pathname);
+    if (
+      request.nextUrl.pathname.startsWith("/signin") ||
+      request.nextUrl.pathname.startsWith("/redirect")
+    ) {
       let destination = request.nextUrl.searchParams.get("destination");
 
-      destination =
-        destination &&
-        (destination.startsWith("%2Fservice-plans") ||
-          destination.startsWith("/service-plans"))
-          ? decodeURIComponent(destination)
-          : "/service-plans";
+      if (!destination || !PAGE_TITLE_MAP[destination]) {
+        destination = "/instances";
+      }
 
       const response = NextResponse.redirect(new URL(destination, request.url));
       response.headers.set(`x-middleware-cache`, `no-cache`);
@@ -95,6 +85,6 @@ export async function middleware(request) {
 
 export const config = {
   matcher: [
-    "/((?!api/action|api/signup|api/signin|api/reset-password|api/provider-details|idp-auth|api/sign-in-with-idp|privacy-policy|terms-of-use|favicon.ico|_next/image|_next/static|static|validate-token|mail).*)",
+    "/((?!api/action|api/signup|api/signin|api/reset-password|api/provider-details|idp-auth|api/sign-in-with-idp|privacy-policy|cookie-policy|terms-of-use|favicon.ico|_next/image|_next/static|static|validate-token|mail).*)",
   ],
 };

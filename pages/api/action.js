@@ -1,5 +1,6 @@
 import { httpRequestMethods } from "src/server/utils/constants/httpsRequestMethods";
 import Axios from "axios";
+import Qs from "qs";
 //omnistrate backend base url
 import { baseURL } from "src/axios";
 import {
@@ -9,6 +10,7 @@ import {
 
 const axios = Axios.create({
   baseURL: baseURL,
+  paramsSerializer: (params) => Qs.stringify(params, { arrayFormat: "repeat" }),
 });
 
 const defaultErrorMessage = "";
@@ -19,7 +21,6 @@ export default async function handleAction(nextRequest, nextResponse) {
     const { endpoint, method, data = {}, queryParams = {} } = nextRequest.body;
 
     if (endpoint && method && endpoint?.startsWith("/")) {
-
       let response = null;
       try {
         if (endpoint === "/change-password") {
@@ -84,7 +85,7 @@ export default async function handleAction(nextRequest, nextResponse) {
         const errorCode = error?.response?.status || 500;
         const errorMessage =
           error?.response?.data?.message || defaultErrorMessage;
-          return nextResponse.status(errorCode).send({
+        return nextResponse.status(errorCode).send({
           message: errorMessage,
         });
       }

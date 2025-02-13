@@ -11,6 +11,58 @@ import SearchIcon from "@mui/icons-material/Search";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "src/components/Tooltip/Tooltip";
 
+const CopyButton = (props) => {
+  const { textToCopy = "" } = props;
+  const [text, setText] = useState("Click to copy");
+
+  function handleClick() {
+    if (textToCopy) {
+      clipboard
+        .write(textToCopy)
+        .then(() => {
+          setText("Copied");
+        })
+        .catch(() => {
+          setText("Unable to copy to clipboard");
+        });
+    } else {
+      setText("Nothing to be copied!");
+    }
+  }
+
+  return (
+    <Tooltip
+      title={text}
+      onOpen={() => {
+        setText("Click to copy");
+      }}
+      placement="top"
+    >
+      <ButtonBase
+        sx={{
+          borderLeft: "1px solid #D0D5DD",
+          height: "100%",
+          paddingLeft: "18px",
+          paddingRight: "10px",
+          color: "#344054",
+          fontSize: "16px",
+          lineHeight: "24px",
+          fontWeight: 600,
+        }}
+        onClick={handleClick}
+      >
+        <ContentCopyIcon sx={{ fontSize: "16px", color: "#344054" }} />
+      </ButtonBase>
+    </Tooltip>
+  );
+};
+
+const InputAdornment = styled(MuiInputAdornment)({
+  height: "100%",
+  maxHeight: "none",
+  marginLeft: "0px",
+});
+
 const StyledTextField = styled(MuiTextField, {
   shouldForwardProp: (prop) => {
     return prop !== "readonly";
@@ -73,7 +125,12 @@ const TextField = forwardRef(function StyledTextFieldRef(props, ref) {
   if (type === "password") {
     endAdornment = (
       <InputAdornment position="end">
-        <ShowPasswordButton showPassword={showPassword} setShowPassword={setShowPassword} />
+        <IconButton
+          showPassword={showPassword}
+          setShowPassword={setShowPassword}
+        >
+          {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+        </IconButton>
       </InputAdornment>
     );
   }
@@ -81,7 +138,7 @@ const TextField = forwardRef(function StyledTextFieldRef(props, ref) {
   return (
     <Box display="flex">
       <StyledTextField
-        type={type === 'password' && !showPassword ? 'password' : "text"}
+        type={type === "password" && !showPassword ? "password" : "text"}
         fullWidth
         InputProps={{
           endAdornment,
@@ -99,71 +156,3 @@ const TextField = forwardRef(function StyledTextFieldRef(props, ref) {
 });
 
 export default TextField;
-
-const CopyButton = (props) => {
-  const { textToCopy = "" } = props;
-  const [text, setText] = useState("Click to copy");
-
-  function handleClick() {
-    if (textToCopy) {
-      clipboard
-        .write(textToCopy)
-        .then(() => {
-          setText("Copied");
-        })
-        .catch(() => {
-          setText("Unable to copy to clipboard");
-        });
-    } else {
-      setText("Nothing to be copied!");
-    }
-  }
-
-  return (
-    <Tooltip
-      title={text}
-      onOpen={() => {
-        setText("Click to copy");
-      }}
-      placement="top"
-    >
-      <ButtonBase
-        sx={{
-          borderLeft: "1px solid #D0D5DD",
-          height: "100%",
-          paddingLeft: "18px",
-          paddingRight: "10px",
-          color: "#344054",
-          fontSize: "16px",
-          lineHeight: "24px",
-          fontWeight: 600,
-        }}
-        onClick={handleClick}
-      >
-        <ContentCopyIcon sx={{ fontSize: "16px", color: "#344054" }} />
-      </ButtonBase>
-    </Tooltip>
-  );
-};
-
-const ShowPasswordButton = (props) => {
-  const { showPassword, setShowPassword } = props;
-
-  return (
-    <Tooltip title={showPassword ? "Hide" : "Show"} placement="top">
-      <IconButton
-        aria-label={showPassword ? "Hide password" : "Show password"}
-        onClick={() => setShowPassword(!showPassword)}
-        edge="end"
-      >
-        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-      </IconButton>
-    </Tooltip>
-  );
-}
-
-const InputAdornment = styled(MuiInputAdornment)({
-  height: "100%",
-  maxHeight: "none",
-  marginLeft: "0px",
-});

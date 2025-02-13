@@ -2,7 +2,7 @@ import * as React from "react";
 const ConnectIcon = (props) => {
   let { color } = props;
   if (!color) {
-    color = "#039855"
+    color = "#039855";
   }
   return (
     <svg

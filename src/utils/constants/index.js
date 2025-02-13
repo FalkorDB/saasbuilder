@@ -1,4 +1,3 @@
-
 // export const apiDocsUrl = "https://docs.omnistrate.com/";
 
 export const devDocsUrl = "https://docs.omnistrate.com/";

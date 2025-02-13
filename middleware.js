@@ -47,8 +47,11 @@ export async function middleware(request) {
       return redirectToSignIn();
     }
 
-    console.log(request.nextUrl.pathname)
-    if (request.nextUrl.pathname.startsWith("/signin") || request.nextUrl.pathname.startsWith("/redirect")) {
+    console.log(request.nextUrl.pathname);
+    if (
+      request.nextUrl.pathname.startsWith("/signin") ||
+      request.nextUrl.pathname.startsWith("/redirect")
+    ) {
       let destination = request.nextUrl.searchParams.get("destination");
 
       if (!destination || !PAGE_TITLE_MAP[destination]) {

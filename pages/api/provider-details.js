@@ -9,7 +9,9 @@ export default async function handleGetProviderDetails(
       const response = await getProviderOrgDetails();
 
       const faviconURL = response?.data?.orgFavIconURL;
-      return nextResponse.status(200).send({ providerOrgFaviconURL: faviconURL });
+      return nextResponse
+        .status(200)
+        .send({ providerOrgFaviconURL: faviconURL });
     } catch (error) {
       const defaultErrorMessage = "Something went wrong. Please retry";
 

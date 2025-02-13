@@ -193,7 +193,9 @@ const AuditLogs: FC<AuditLogsTabProps> = ({ instanceId, subscriptionId }) => {
         id: "time",
         header: "Time",
         cell: (data) =>
-          data.row.original.time ? formatDateLocal(data.row.original.time) : "-",
+          data.row.original.time
+            ? formatDateLocal(data.row.original.time)
+            : "-",
       }),
 
       columnHelper.accessor("userName", {

@@ -83,35 +83,32 @@ export const restartResourceInstance = (payload) => {
 export const connectToInstance = (payload) => {
   const queryParams = [
     {
-      key: 'host',
+      key: "host",
       value: payload.host,
     },
     {
-      key: 'port',
+      key: "port",
       value: payload.port,
     },
     {
-      key: 'region',
-      value: payload.region
+      key: "region",
+      value: payload.region,
     },
     {
-      key: 'username',
-      value: payload.username
+      key: "username",
+      value: payload.username,
     },
     {
-      key: 'tls',
-      value: payload.tls ?? false
-    }
-  ]
+      key: "tls",
+      value: payload.tls ?? false,
+    },
+  ];
 
   const url = `${process.env.NEXT_PUBLIC_FALKORDB_BROWSER_URL}?${queryParams.map((param) => `${param.key}=${encodeURIComponent(param.value)}`).join("&")}`;
-  window.open(
-    url,
-    '_blank'
-  )
+  window.open(url, "_blank");
 
-  return Promise.resolve()
-}
+  return Promise.resolve();
+};
 
 export const getResourceInstanceIds = (
   serviceProviderId,

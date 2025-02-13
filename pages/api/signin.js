@@ -55,7 +55,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
         }, delayInMilliseconds);
       });
       console.error("Error in signin", error);
-      
+
       if (
         error.name === "ProviderAuthError" ||
         error?.response?.status === undefined

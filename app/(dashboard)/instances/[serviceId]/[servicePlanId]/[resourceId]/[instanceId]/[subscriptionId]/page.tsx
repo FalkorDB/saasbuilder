@@ -34,7 +34,6 @@ import ResourceCustomDNS from "src/components/ResourceInstance/Connectivity/Reso
 import { useSearchParams } from "next/navigation";
 import { Tab, Tabs } from "src/components/Tab/Tab";
 import ConnectIcon from "src/components/Icons/Connect/Connect";
-import { useMutation } from "@tanstack/react-query";
 import { connectToInstance } from "src/api/resourceInstance";
 
 export type CurrentTab =
@@ -207,10 +206,15 @@ const InstanceDetailsPage = ({
       cloudProvider = resourceInstanceData?.resultParameters?.cloud_provider;
     }
   }
-  const componentName = Object.entries(resourceInstanceData.detailedNetworkTopology).filter(([k, v]) => {
-    return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate") 
-  })[0][0]
-  
+  const componentName = Object.entries(
+    resourceInstanceData.detailedNetworkTopology
+  ).filter(([_, v]) => {
+    return (
+      (v as any).clusterEndpoint &&
+      !(v as any).resourceName.startsWith("Omnistrate")
+    );
+  })[0][0];
+
   return (
     <PageContainer>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -253,59 +257,74 @@ const InstanceDetailsPage = ({
           }}
         />
       </Collapse>
-      <Box flexDirection="row" justifyContent="space-between" width="100%" display="flex">
-
-      <Tabs
-        value={currentTab}
-        sx={{ marginTop: "20px" }}
-        // sx={{
-        //   marginTop: "24px",
-        //   borderBottom: "1px solid #E9EAEB",
-        //   "& .MuiTabs-indicator": {
-        //     backgroundColor: colors.purple700,
-        //   },
-        // }}
+      <Box
+        flexDirection="row"
+        justifyContent="space-between"
+        width="100%"
+        display="flex"
       >
-        {Object.entries(tabs).map(([key, value]) => {
-          return (
-            <Tab
-              key={key}
-              label={value}
-              value={value}
-              onClick={() => {
-                setCurrentTab(value as CurrentTab);
-              }}
-              disableRipple
-              // sx={{
-              //   minWidth: "0px",
-              //   textTransform: "none",
-              //   fontWeight: "600",
-              //   color: "#717680",
-              //   "&.Mui-selected": {
-              //     color: colors.purple800,
-              //   },
-              // }}
-            />
-          );
-        })}
-      </Tabs>
-      <Button
-            variant="contained"
-            size="xlarge"
-            sx={{ marginTop: "16px" }}
-            disabled={resourceInstanceData.status !== 'RUNNING'}
-            onClick={() => connectToInstance({
-              host: (resourceInstanceData.detailedNetworkTopology[componentName] as any)?.clusterEndpoint,
-              port: (resourceInstanceData.detailedNetworkTopology[componentName] as any).clusterPorts?.[0],
-              username: (resourceInstanceData.resultParameters as any)?.falkordbUser,
+        <Tabs
+          value={currentTab}
+          sx={{ marginTop: "20px" }}
+          // sx={{
+          //   marginTop: "24px",
+          //   borderBottom: "1px solid #E9EAEB",
+          //   "& .MuiTabs-indicator": {
+          //     backgroundColor: colors.purple700,
+          //   },
+          // }}
+        >
+          {Object.entries(tabs).map(([key, value]) => {
+            return (
+              <Tab
+                key={key}
+                label={value}
+                value={value}
+                onClick={() => {
+                  setCurrentTab(value as CurrentTab);
+                }}
+                disableRipple
+                // sx={{
+                //   minWidth: "0px",
+                //   textTransform: "none",
+                //   fontWeight: "600",
+                //   color: "#717680",
+                //   "&.Mui-selected": {
+                //     color: colors.purple800,
+                //   },
+                // }}
+              />
+            );
+          })}
+        </Tabs>
+        <Button
+          variant="contained"
+          size="xlarge"
+          sx={{ marginTop: "16px" }}
+          disabled={resourceInstanceData.status !== "RUNNING"}
+          onClick={() =>
+            connectToInstance({
+              host: (
+                resourceInstanceData.detailedNetworkTopology[
+                  componentName
+                ] as any
+              )?.clusterEndpoint,
+              port: (
+                resourceInstanceData.detailedNetworkTopology[
+                  componentName
+                ] as any
+              ).clusterPorts?.[0],
+              username: (resourceInstanceData.resultParameters as any)
+                ?.falkordbUser,
               region: resourceInstanceData.region,
               tls: (resourceInstanceData.resultParameters as any)?.enableTLS,
-            })}
-          >
-            <ConnectIcon color="white" style={{ marginRight: '8px' }}></ConnectIcon>
-            Connect
-          </Button>
-        </Box>
+            })
+          }
+        >
+          <ConnectIcon color="white" style={{ marginRight: "8px" }} />
+          Connect
+        </Button>
+      </Box>
       {currentTab === tabs.resourceInstanceDetails && (
         <ResourceInstanceDetails
           resourceInstanceId={instanceId}

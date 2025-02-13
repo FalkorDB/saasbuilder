@@ -125,7 +125,12 @@ const TextField = forwardRef(function StyledTextFieldRef(props, ref) {
   if (type === "password") {
     endAdornment = (
       <InputAdornment position="end">
-        <ShowPasswordButton showPassword={showPassword} setShowPassword={setShowPassword} />
+        <IconButton
+          showPassword={showPassword}
+          setShowPassword={setShowPassword}
+        >
+          {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+        </IconButton>
       </InputAdornment>
     );
   }
@@ -133,7 +138,7 @@ const TextField = forwardRef(function StyledTextFieldRef(props, ref) {
   return (
     <Box display="flex">
       <StyledTextField
-        type={type === 'password' && !showPassword ? 'password' : "text"}
+        type={type === "password" && !showPassword ? "password" : "text"}
         fullWidth
         InputProps={{
           endAdornment,

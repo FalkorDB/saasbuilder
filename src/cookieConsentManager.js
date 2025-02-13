@@ -1,6 +1,5 @@
-
-import { clarity } from 'react-microsoft-clarity';
-import Cookies from 'js-cookie';
+import { clarity } from "react-microsoft-clarity";
+import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 
 export const cookieConsentInitialObject = {
@@ -28,7 +27,9 @@ export const cookieConsentInitialObject = {
       services: [
         {
           type: "script",
-          src: "https://www.googletagmanager.com/gtag/js?id=" + process.env.GOOGLE_ANALYTICS_TAG_ID,
+          src:
+            "https://www.googletagmanager.com/gtag/js?id=" +
+            process.env.GOOGLE_ANALYTICS_TAG_ID,
           name: "googletagmanager",
           "consent-category": "analytics",
           gtag: process.env.GOOGLE_ANALYTICS_TAG_ID,
@@ -44,7 +45,7 @@ export const cookieConsentInitialObject = {
           "consent-category": "analytics",
           handleEnable: "addClarity",
           handleDisable: "removeClarity",
-        }
+        },
       ],
       hide: false,
       editable: true,

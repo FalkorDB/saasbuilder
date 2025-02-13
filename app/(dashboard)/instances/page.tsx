@@ -40,7 +40,6 @@ import AzureLogo from "components/Logos/AzureLogo/AzureLogo";
 import GridCellExpand from "components/GridCellExpand/GridCellExpand";
 import CapacityDialog from "components/CapacityDialog/CapacityDialog";
 import GenerateTokenDialog from "components/GenerateToken/GenerateTokenDialog";
-import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithLogo";
 import AccessSideRestoreInstance from "components/RestoreInstance/AccessSideRestoreInstance";
 import TextConfirmationDialog from "components/TextConfirmationDialog/TextConfirmationDialog";
 import CreateInstanceModal from "components/ResourceInstance/CreateInstanceModal/CreateInstanceModal";
@@ -137,10 +136,8 @@ const InstancesPage = () => {
         id: "name",
         header: "Name",
         cell: (data) => {
-          const {
-            result_params,
-          } = data.row.original;
-          return (result_params as any).name ?? ''
+          const { result_params } = data.row.original;
+          return (result_params as any).name ?? "";
         },
         meta: {
           minWidth: 240,
@@ -362,7 +359,12 @@ const InstancesPage = () => {
           return (
             <GridCellExpand
               value={data.row.original.region || "Global"}
-              startIcon={<RegionIcon region={data.row.original.region} provider={data.row.original.cloud_provider} />}
+              startIcon={
+                <RegionIcon
+                  region={data.row.original.region}
+                  provider={data.row.original.cloud_provider}
+                />
+              }
             />
           );
         },

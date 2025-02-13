@@ -19,7 +19,7 @@ import { CloudProvider, FormMode } from "src/types/common/enums";
 import { APIEntity, ServiceOffering } from "src/types/serviceOffering";
 import SubscriptionMenu from "app/(dashboard)/components/SubscriptionMenu/SubscriptionMenu";
 import AccountConfigDescription from "./AccountConfigDescription";
-import { fromProvider } from 'cloud-regions-country-flags'
+import { fromProvider } from "cloud-regions-country-flags";
 
 export const getStandardInformationFields = (
   servicesObj,
@@ -66,10 +66,10 @@ export const getStandardInformationFields = (
       "Cluster-Single-Zone",
       "Cluster-Multi-Zone",
       "Grafana",
-    ]
+    ];
 
     return order.indexOf(a.label) - order.indexOf(b.label);
-  })
+  });
 
   const inputParametersObj = (resourceSchema?.inputParameters || []).reduce(
     (acc: any, param: any) => {
@@ -151,12 +151,11 @@ export const getStandardInformationFields = (
               "FalkorDB Free": 0,
               "FalkorDB Startup": 1,
               "FalkorDB Pro": 2,
-              "FalkorDB Enterprise": 3  
-            }
+              "FalkorDB Enterprise": 3,
+            };
 
-            return order[a.productTierName] - order[b.productTierName]
-            }
-          )}
+            return order[a.productTierName] - order[b.productTierName];
+          })}
           name="servicePlanId"
           formData={formData}
           disabled={formMode !== "create"}
@@ -315,9 +314,12 @@ export const getStandardInformationFields = (
         cloudProvider
       ),
       disabled: formMode !== "create",
-      previewValue: values.region && values.cloudProvider ? () => {
-        return `${fromProvider(values.region, values.cloudProvider.toUpperCase()).flag} ${values.region}`
-      } : null,
+      previewValue:
+        values.region && values.cloudProvider
+          ? () => {
+              return `${fromProvider(values.region, values.cloudProvider.toUpperCase()).flag} ${values.region}`;
+            }
+          : null,
     });
   }
 
@@ -672,14 +674,14 @@ export const getDeploymentConfigurationFields = (
     "requestParams.falkorDBTimeoutMax",
     "requestParams.falkorDBTimeoutDefault",
     "requestParams.falkorDBResultSetSize",
-    "requestParams.falkorDBQueryMemCapacity"
-  ]
+    "requestParams.falkorDBQueryMemCapacity",
+  ];
 
   fields.sort((a, b) => {
     if (order.indexOf(a.name) === undefined) return 1;
     if (order.indexOf(b.name) === undefined) return -1;
     return order.indexOf(a.name) - order.indexOf(b.name);
-  })
+  });
 
   return fields;
 };

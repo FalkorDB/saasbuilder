@@ -85,7 +85,7 @@ export default async function handleAction(nextRequest, nextResponse) {
         const errorCode = error?.response?.status || 500;
         const errorMessage =
           error?.response?.data?.message || defaultErrorMessage;
-          return nextResponse.status(errorCode).send({
+        return nextResponse.status(errorCode).send({
           message: errorMessage,
         });
       }

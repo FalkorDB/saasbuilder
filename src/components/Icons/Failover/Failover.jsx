@@ -6,7 +6,7 @@ const FailoverIcon = (props) => {
   const { disabled } = props;
 
   if (disabled) {
-    color = colors.gray400 ;
+    color = colors.gray400;
   }
 
   return (

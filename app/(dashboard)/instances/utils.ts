@@ -95,14 +95,14 @@ export const getRegionMenuItems = (
   if (cloudProvider === "aws") {
     offering.awsRegions?.forEach((region: string) => {
       menuItems.push({
-        label: `${fromProvider(region, 'AWS').flag} ${region}`,
+        label: `${fromProvider(region, "AWS").flag} ${region}`,
         value: region,
       });
     });
   } else if (cloudProvider === "gcp") {
     offering.gcpRegions?.forEach((region: string) => {
       menuItems.push({
-        label: `${fromProvider(region, 'GCP').flag} ${region}`,
+        label: `${fromProvider(region, "GCP").flag} ${region}`,
         value: region,
       });
     });
@@ -110,7 +110,7 @@ export const getRegionMenuItems = (
     // @ts-ignore
     offering.azureRegions?.forEach((region: string) => {
       menuItems.push({
-        label: `${fromProvider(region, 'AZURE').flag} ${region}`,
+        label: `${fromProvider(region, "AZURE").flag} ${region}`,
         value: region,
       });
     });

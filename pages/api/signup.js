@@ -28,7 +28,8 @@ export default async function handleSignup(nextRequest, nextResponse) {
       }
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
+      const xForwardedForHeader =
+        nextRequest.get?.call("X-Forwarded-For") || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP || "";
 
@@ -53,11 +54,9 @@ export default async function handleSignup(nextRequest, nextResponse) {
         const responseErrorMessage = error.response?.data?.message;
 
         if (responseErrorMessage === "tenant already exists") {
-          return nextResponse
-            .status(400)
-            .send({
-              message: `This email is already registered. You may reset your password or contact support for help`,
-            });
+          return nextResponse.status(400).send({
+            message: `This email is already registered. You may reset your password or contact support for help`,
+          });
         }
         return nextResponse.status(error.response?.status || 500).send({
           message: responseErrorMessage || defaultErrorMessage,

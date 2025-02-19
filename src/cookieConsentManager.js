@@ -2,7 +2,7 @@ import { clarity } from "react-microsoft-clarity";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 
-export const cookieConsentInitialObject = {
+export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
   consentGiven: false,
   categories: [
     {
@@ -27,12 +27,10 @@ export const cookieConsentInitialObject = {
       services: [
         {
           type: "script",
-          src:
-            "https://www.googletagmanager.com/gtag/js?id=" +
-            process.env.GOOGLE_ANALYTICS_TAG_ID,
+          src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsTagID}`,
           name: "googletagmanager",
           "consent-category": "analytics",
-          gtag: process.env.GOOGLE_ANALYTICS_TAG_ID,
+          gtag: `${googleAnalyticsTagID}`,
           cookies: ["_ga", "_ga_*", "_gid"],
           handleEnable: "addGoogleAnalytics",
           handleDisable: "removeGoogleAnalyticsScriptsAndCookies",
@@ -52,7 +50,7 @@ export const cookieConsentInitialObject = {
       enabled: false,
     },
   ],
-};
+});
 
 const handlerMap = {
   addGoogleAnalytics,
@@ -62,23 +60,25 @@ const handlerMap = {
 };
 
 function addGoogleAnalytics() {
-  window[`ga-disable-${this.gtag}`] = false;
-  const id = `script-${this.name}`;
-  if (document.getElementById(id)) return; // Avoid duplicate scripts
+  if (this.gtag && this.gtag?.toLowerCase() !== "undefined") {
+    window[`ga-disable-${this.gtag}`] = false;
+    const id = `script-${this.name}`;
+    if (document.getElementById(id)) return; // Avoid duplicate scripts
 
-  const script = document.createElement("script");
-  script.src = this.src;
-  script.id = id;
-  script.async = true;
-  document.head.appendChild(script);
+    const script = document.createElement("script");
+    script.src = this.src;
+    script.id = id;
+    script.async = true;
+    document.head.appendChild(script);
 
-  script.onload = () => {
-    initializeGoogleAnalytics.call(this);
-  };
+    script.onload = () => {
+      initializeGoogleAnalytics.call(this);
+    };
 
-  script.onerror = () => {
-    console.error(`Failed to load script ${id}.`);
-  };
+    script.onerror = () => {
+      console.error(`Failed to load script ${id}.`);
+    };
+  }
 }
 
 function initializeGoogleAnalytics() {

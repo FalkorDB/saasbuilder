@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Stack } from "@mui/material";
 import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
@@ -43,10 +42,6 @@ import GenerateTokenDialog from "components/GenerateToken/GenerateTokenDialog";
 import AccessSideRestoreInstance from "components/RestoreInstance/AccessSideRestoreInstance";
 import TextConfirmationDialog from "components/TextConfirmationDialog/TextConfirmationDialog";
 import CreateInstanceModal from "components/ResourceInstance/CreateInstanceModal/CreateInstanceModal";
-
-import SpeedoMeterLow from "public/assets/images/dashboard/resource-instance-speedo-meter/idle.png";
-import SpeedoMeterHigh from "public/assets/images/dashboard/resource-instance-speedo-meter/high.png";
-import SpeedoMeterMedium from "public/assets/images/dashboard/resource-instance-speedo-meter/normal.png";
 import { getInitialFilterState } from "src/components/InstanceFilters/InstanceFilters";
 import InstanceHealthStatusChip, {
   getInstanceHealthStatus,
@@ -54,6 +49,10 @@ import InstanceHealthStatusChip, {
 import { getInstanceDetailsRoute } from "src/utils/routes";
 import { loadStatusMap } from "./constants";
 import { isCloudAccountInstance } from "src/utils/access/byoaResource";
+import { BlackTooltip } from "src/components/Tooltip/Tooltip";
+import LoadIndicatorIdle from "src/components/Icons/LoadIndicator/LoadIndicatorIdle";
+import LoadIndicatorNormal from "src/components/Icons/LoadIndicator/LoadIndicatorNormal";
+import LoadIndicatorHigh from "src/components/Icons/LoadIndicator/LoadIndicatorHigh";
 
 const columnHelper = createColumnHelper<ResourceInstance>();
 type Overlay =
@@ -278,44 +277,53 @@ const InstancesPage = () => {
 
             return (
               <Stack direction="row" alignItems="center" gap="4px">
-                {instanceLoadStatus === "Unknown" && (
-                  <StatusChip status="Unknown" category="unknown" />
+                {(instanceLoadStatus === "STOPPED" ||
+                  instanceLoadStatus === "N/A") && (
+                  <StatusChip status="UNKNOWN" label="N/A" />
                 )}
+                {instanceLoadStatus === "Unknown" && (
+                  <StatusChip status={"UNKNOWN"} />
+                )}
+
                 {instanceLoadStatus === "Low" && (
-                  <Image
-                    src={SpeedoMeterLow}
-                    width={54}
-                    height={54}
-                    alt="Low"
-                    style={{ marginBottom: "-25px" }}
-                  />
+                  <BlackTooltip title="Idle" placement="top">
+                    <span style={{ display: "flex", alignItems: "center" }}>
+                      <LoadIndicatorIdle />
+                    </span>
+                  </BlackTooltip>
                 )}
                 {instanceLoadStatus === "Medium" && (
-                  <Image
-                    src={SpeedoMeterMedium}
-                    width={54}
-                    height={54}
-                    alt="Medium"
-                    style={{ marginBottom: "-25px" }}
-                  />
+                  <BlackTooltip title="Normal" placement="top">
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: "-2px",
+                      }}
+                    >
+                      <LoadIndicatorNormal />
+                    </span>
+                  </BlackTooltip>
                 )}
                 {instanceLoadStatus === "High" && (
-                  <Image
-                    src={SpeedoMeterHigh}
-                    width={54}
-                    height={54}
-                    alt="High"
-                    style={{ marginBottom: "-25px" }}
-                  />
-                )}
-                {instanceLoadStatus === "N/A" && (
-                  <StatusChip status="N/A" category="unknown" />
+                  <BlackTooltip title="High" placement="top">
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: "-4px",
+                      }}
+                    >
+                      <LoadIndicatorHigh />
+                    </span>
+                  </BlackTooltip>
                 )}
               </Stack>
             );
           },
           meta: {
             minWidth: 120,
+            disableBrowserTooltip: true,
           },
         }
       ),
@@ -613,7 +621,10 @@ const InstancesPage = () => {
         onConfirm={async () => {
           if (!selectedInstance)
             return snackbar.showError("No instance selected");
-          if (!selectedInstanceOffering || !selectedInstanceSubscription) {
+          if (!selectedInstanceOffering) {
+            return snackbar.showError("Offering not found");
+          }
+          if (!selectedInstanceSubscription) {
             return snackbar.showError("Subscription not found");
           }
           if (!selectedResource) {

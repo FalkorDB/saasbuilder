@@ -282,8 +282,10 @@ export const getStandardInformationFields = (
           onChange={(newCloudProvider: CloudProvider) => {
             if (newCloudProvider === "aws") {
               setFieldValue("region", offering.awsRegions?.[0] || "");
+              setFieldValue("requestParams.nodeInstanceType", "m6i.large");
             } else if (newCloudProvider === "gcp") {
               setFieldValue("region", offering.gcpRegions?.[0] || "");
+              setFieldValue("requestParams.nodeInstanceType", "e2-standard-2");
             } else if (newCloudProvider === "azure") {
               // @ts-ignore
               setFieldValue("region", offering.azureRegions?.[0] || "");
@@ -385,7 +387,8 @@ export const getNetworkConfigurationFields = (
   const networkTypeFieldExists =
     cloudProviderFieldExists &&
     !isMultiTenancy &&
-    offering?.supportsPublicNetwork;
+    offering?.supportsPublicNetwork &&
+    values.requestParams?.custom_network_id !== undefined;
 
   if (networkTypeFieldExists) {
     fields.push({
@@ -606,6 +609,7 @@ export const getDeploymentConfigurationFields = (
         disabled: formMode !== "create" && param.custom && !param.modifiable,
       });
     } else if (param.options !== undefined && param.isList === false) {
+      console.log({param})
       fields.push({
         dataTestId: `${param.key}-select`,
         label: param.displayName || param.key,
@@ -613,7 +617,19 @@ export const getDeploymentConfigurationFields = (
         name: `requestParams.${param.key}`,
         value: values.requestParams[param.key] || "",
         type: "single-select-autocomplete",
-        menuItems: param.options.map((option) => option),
+        menuItems: param.options
+          .filter((option) => {
+            if (param.key !== "nodeInstanceType") {
+              return true;
+            }
+            // Check cloud provider value and filter instance types accordingly
+            if (values.cloudProvider === "aws") {
+              return option.includes("c6") || option.includes("m6");
+            } else if (values.cloudProvider === "gcp") {
+              return option.includes("e2");
+            }
+          })
+          .map((option) => option),
         required: formMode !== "modify" && param.required,
         previewValue: values.requestParams[param.key],
         disabled: formMode !== "create" && param.custom && !param.modifiable,

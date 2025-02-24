@@ -369,7 +369,8 @@ const InstanceForm = ({
       const networkTypeFieldExists =
         inputParameters.find((param) => param.key === "cloud_provider") &&
         !isMultiTenancy &&
-        offering?.supportsPublicNetwork;
+        offering?.supportsPublicNetwork &&
+        values.requestParams?.custom_network_id !== undefined;
 
       if (networkTypeFieldExists) {
         formData.setFieldValue("network_type", "PUBLIC");

@@ -20,6 +20,7 @@ import { APIEntity, ServiceOffering } from "src/types/serviceOffering";
 import SubscriptionMenu from "app/(dashboard)/components/SubscriptionMenu/SubscriptionMenu";
 import AccountConfigDescription from "./AccountConfigDescription";
 import { fromProvider } from "cloud-regions-country-flags";
+import CustomNetworkDescription from "./CustomNetworkDescription";
 
 export const getStandardInformationFields = (
   servicesObj,
@@ -86,6 +87,7 @@ export const getStandardInformationFields = (
 
   const fields: Field[] = [
     {
+      dataTestId: "service-name-select",
       label: "Service Name",
       subLabel: "Select the service you want to deploy",
       name: "serviceId",
@@ -206,6 +208,7 @@ export const getStandardInformationFields = (
       previewValue: offering?.productTierName,
     },
     {
+      dataTestId: "subscription-select",
       label: "Subscription",
       subLabel: "Select the subscription",
       name: "subscriptionId",
@@ -241,6 +244,7 @@ export const getStandardInformationFields = (
       previewValue: subscriptionsObj[values.subscriptionId]?.id,
     },
     {
+      dataTestId: "resource-type-select",
       label: "Resource Type",
       subLabel: "Select the resource",
       name: "resourceId",
@@ -278,8 +282,10 @@ export const getStandardInformationFields = (
           onChange={(newCloudProvider: CloudProvider) => {
             if (newCloudProvider === "aws") {
               setFieldValue("region", offering.awsRegions?.[0] || "");
+              setFieldValue("requestParams.nodeInstanceType", "m6i.large");
             } else if (newCloudProvider === "gcp") {
               setFieldValue("region", offering.gcpRegions?.[0] || "");
+              setFieldValue("requestParams.nodeInstanceType", "e2-standard-2");
             } else if (newCloudProvider === "azure") {
               // @ts-ignore
               setFieldValue("region", offering.azureRegions?.[0] || "");
@@ -299,6 +305,7 @@ export const getStandardInformationFields = (
 
   if (regionFieldExists) {
     fields.push({
+      dataTestId: "region-select",
       label: "Region",
       subLabel: "Select the region",
       name: "region",
@@ -325,6 +332,7 @@ export const getStandardInformationFields = (
 
   if (customAvailabilityZoneFieldExists) {
     fields.push({
+      dataTestId: "custom-availability-zone-select",
       label: "Custom Availability Zone",
       subLabel:
         "Select a specific availability zone for deploying your instance",
@@ -379,7 +387,8 @@ export const getNetworkConfigurationFields = (
   const networkTypeFieldExists =
     cloudProviderFieldExists &&
     !isMultiTenancy &&
-    offering?.supportsPublicNetwork;
+    offering?.supportsPublicNetwork &&
+    values.requestParams?.custom_network_id !== undefined;
 
   if (networkTypeFieldExists) {
     fields.push({
@@ -391,8 +400,14 @@ export const getNetworkConfigurationFields = (
       required: true,
       disabled: formMode !== "create",
       options: [
-        { label: "Public", value: "PUBLIC", disabled: formMode !== "create" },
         {
+          dataTestId: "public-radio",
+          label: "Public",
+          value: "PUBLIC",
+          disabled: formMode !== "create",
+        },
+        {
+          dataTestId: "private-radio",
           label: "Private",
           value: "INTERNAL",
           disabled: formMode !== "create",
@@ -404,8 +419,10 @@ export const getNetworkConfigurationFields = (
 
   if (customNetworkFieldExists) {
     fields.push({
+      dataTestId: "custom-network-id-select",
       label: "Custom Network ID",
       subLabel: "Select the custom network ID",
+      description: <CustomNetworkDescription overlay="create" />,
       name: "requestParams.custom_network_id",
       value: values.requestParams.custom_network_id || "",
       type: "select",
@@ -437,6 +454,7 @@ export const getNetworkConfigurationFields = (
   ) {
     const param = inputParametersObj["cloud_provider_native_network_id"];
     fields.push({
+      dataTestId: `${param.key}-input`,
       label: param.displayName || param.key,
       subLabel: (
         <>
@@ -469,6 +487,7 @@ export const getNetworkConfigurationFields = (
   if (customDNSFieldExists) {
     const param = inputParametersObj["custom_dns_configuration"];
     fields.push({
+      dataTestId: `${param.key}-input`,
       label: param.displayName || param.key,
       subLabel: param.description,
       disabled: formMode !== "create",
@@ -508,6 +527,7 @@ export const getDeploymentConfigurationFields = (
   filteredSchema.forEach((param) => {
     if (param.type?.toLowerCase() === "password") {
       fields.push({
+        dataTestId: `${param.key}-input`,
         label: param.displayName || param.key,
         subLabel: param.description,
         name: `requestParams.${param.key}`,
@@ -528,6 +548,7 @@ export const getDeploymentConfigurationFields = (
         : [];
 
       fields.push({
+        dataTestId: `${param.key}-select`,
         label: param.displayName || param.key,
         subLabel: param.description,
         name: `requestParams.${param.key}`,
@@ -552,12 +573,14 @@ export const getDeploymentConfigurationFields = (
         type: "radio",
         options: [
           {
+            dataTestId: `${param.key}-true-radio`,
             label: "True",
             value: "true",
             disabled:
               formMode !== "create" && param.custom && !param.modifiable,
           },
           {
+            dataTestId: `${param.key}-false-radio`,
             label: "False",
             value: "false",
             disabled:
@@ -571,6 +594,7 @@ export const getDeploymentConfigurationFields = (
       });
     } else if (param.options !== undefined && param.isList === true) {
       fields.push({
+        dataTestId: `${param.key}-select`,
         label: param.displayName || param.key,
         subLabel: param.description,
         name: `requestParams.${param.key}`,
@@ -585,19 +609,34 @@ export const getDeploymentConfigurationFields = (
         disabled: formMode !== "create" && param.custom && !param.modifiable,
       });
     } else if (param.options !== undefined && param.isList === false) {
+      console.log({param})
       fields.push({
+        dataTestId: `${param.key}-select`,
         label: param.displayName || param.key,
         subLabel: param.description,
         name: `requestParams.${param.key}`,
         value: values.requestParams[param.key] || "",
         type: "single-select-autocomplete",
-        menuItems: param.options.map((option) => option),
+        menuItems: param.options
+          .filter((option) => {
+            if (param.key !== "nodeInstanceType") {
+              return true;
+            }
+            // Check cloud provider value and filter instance types accordingly
+            if (values.cloudProvider === "aws") {
+              return option.includes("c6") || option.includes("m6");
+            } else if (values.cloudProvider === "gcp") {
+              return option.includes("e2");
+            }
+          })
+          .map((option) => option),
         required: formMode !== "modify" && param.required,
         previewValue: values.requestParams[param.key],
         disabled: formMode !== "create" && param.custom && !param.modifiable,
       });
     } else if (param.key === "cloud_provider_account_config_id") {
       fields.push({
+        dataTestId: `${param.key}-select`,
         label: param.displayName || param.key,
         subLabel: param.description,
         name: `requestParams.${param.key}`,
@@ -634,6 +673,7 @@ export const getDeploymentConfigurationFields = (
         param.type?.toLowerCase() === "number"
       ) {
         fields.push({
+          dataTestId: `${param.key}-input`,
           label: param.displayName || param.key,
           subLabel: param.description,
           name: `requestParams.${param.key}`,
@@ -644,6 +684,7 @@ export const getDeploymentConfigurationFields = (
         });
       } else {
         fields.push({
+          dataTestId: `${param.key}-input`,
           label: param.displayName || param.key,
           subLabel: param.description,
           disabled: formMode !== "create" && param.custom && !param.modifiable,

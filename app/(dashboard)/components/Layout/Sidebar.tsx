@@ -21,7 +21,6 @@ import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 
 import { colors } from "src/themeConfig";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
-import useBillingDetails from "src/hooks/query/useBillingDetails";
 import FullScreenDrawer from "../FullScreenDrawer/FullScreenDrawer";
 import PlanDetails from "./PlanDetails";
 import {
@@ -30,11 +29,12 @@ import {
   getInstancesRoute,
   getAccessControlRoute,
   getSubscriptionsRoute,
-  getAuditLogsRoute,
+  getEventsRoute,
   getNotificationsRoute,
   getBillingRoute,
   getSettingsRoute,
 } from "src/utils/routes";
+import useBillingStatus from "app/(dashboard)/billing/hooks/useBillingStatus";
 
 const SingleNavItem = ({
   name,
@@ -184,7 +184,7 @@ const Sidebar = () => {
           ) || currentPath.startsWith("/instances"),
         "Governance Hub": [
           getAccessControlRoute(),
-          getAuditLogsRoute(),
+          getEventsRoute(),
           getNotificationsRoute(),
         ].includes(currentPath),
         "Account Management": [
@@ -213,10 +213,10 @@ const Sidebar = () => {
   }, [serviceOfferings]);
 
   // Prefetch Billing Data
-  const billingDetailsQuery = useBillingDetails();
-  const isBillingEnabled = Boolean(
-    billingDetailsQuery.isFetched && billingDetailsQuery.data
-  );
+  const billingStatusQuery = useBillingStatus();
+
+  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled);
+
 
   const bottomItems = useMemo(
     () => [
@@ -295,7 +295,7 @@ const Sidebar = () => {
         isExpandible: true,
         subItems: [
           { name: "Access Control", href: getAccessControlRoute() },
-          { name: "Audit Logs", href: getAuditLogsRoute() },
+          { name: "Events", href: getEventsRoute() },
           { name: "Notifications", href: getNotificationsRoute() },
         ],
       },

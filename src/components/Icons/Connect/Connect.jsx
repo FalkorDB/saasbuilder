@@ -1,12 +1,10 @@
-import * as React from "react";
+import { colors } from "src/themeConfig";
+
 const ConnectIcon = (props) => {
-  let { color } = props;
-  if (!color) {
-    color = "#039855";
-  }
+  const { color = colors.gray700, disabled } = props;
+
   return (
     <svg
-      aria-hidden="true"
       xmlns="http://www.w3.org/2000/svg"
       width={20}
       height={20}
@@ -14,11 +12,11 @@ const ConnectIcon = (props) => {
       {...props}
     >
       <path
-        stroke={color}
+        stroke={disabled ? "#A4A7AE" : color}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={1.667}
-        d="M20 12H8m12 0-4 4m4-4-4-4M9 4H7a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h2"
+        d="M6.25 5.833h-.417a4.167 4.167 0 1 0 0 8.334H7.5A4.167 4.167 0 0 0 11.666 10m2.084 4.167h.416a4.167 4.167 0 0 0 0-8.334H12.5A4.167 4.167 0 0 0 8.333 10"
       />
     </svg>
   );

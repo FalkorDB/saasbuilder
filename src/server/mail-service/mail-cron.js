@@ -30,6 +30,11 @@ const {
 const {
   getInvoiceCreatedTemplate,
 } = require("./templates/invoiceCreatedTemplate");
+const {
+  getUpgradeScheduledMailContent,
+  getUpgradeCompletedMailContent,
+} = require("./templates/upgradeNotification");
+
 const { getProviderOrgDetails } = require("../api/customer-user");
 const { getNodeMailerConfig } = require("./mail-config");
 const { getEnvironmentType } = require("../utils/getEnvironmentType");
@@ -56,6 +61,7 @@ function startMailServiceCron() {
       console.log("Events", events);
       const orgDetailsResponse = await getProviderOrgDetails();
       const orgLogoURL = orgDetailsResponse.data.orgLogoURL;
+      const orgSupportEmail = orgDetailsResponse.data.orgSupportEmail;
 
       const mailPromises = [];
 
@@ -128,6 +134,24 @@ function startMailServiceCron() {
               mailContent = await getSubscriptionTerminateMailContent(
                 event,
                 orgLogoURL
+              );
+              break;
+            }
+
+            case eventTypes.InstanceMaintenanceScheduled: {
+              mailContent = await getUpgradeScheduledMailContent(
+                event,
+                orgLogoURL,
+                orgSupportEmail
+              );
+              break;
+            }
+
+            case eventTypes.InstanceMaintenanceCompleted: {
+              mailContent = await getUpgradeCompletedMailContent(
+                event,
+                orgLogoURL,
+                orgSupportEmail
               );
               break;
             }

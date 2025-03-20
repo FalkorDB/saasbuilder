@@ -227,6 +227,7 @@ const InstancesTableHeader = ({
       isDisabled:
         !selectedInstance ||
         status === "DELETING" ||
+        status === "DISCONNECTED" ||
         isProxyResource ||
         !isDeleteAllowedByRBAC,
       onClick: () => {
@@ -387,7 +388,7 @@ const InstancesTableHeader = ({
       other.push({
         dataTestId: "open-dashboard-button",
         label: "Generate Token",
-        isDisabled: !selectedInstance,
+        isDisabled: !selectedInstance || status === "DISCONNECTED",
         disabledMessage: !selectedInstance ? "Please select an instance" : "",
         onClick: () => {
           if (!selectedInstance)
@@ -500,8 +501,8 @@ const InstancesTableHeader = ({
     <div>
       <div className="flex items-center justify-between gap-4 py-4 px-6 border-b border-[#EAECF0]">
         <DataGridHeaderTitle
-          title="List of Instances"
-          desc="Details of instances"
+          title="List of Deployments"
+          desc="Details of deployments"
           count={count}
           units={{ singular: "Instance", plural: "Instances" }}
         />

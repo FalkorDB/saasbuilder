@@ -22,6 +22,10 @@ const CustomDNSEndPoint: React.FC<CustomDNSEndPointProps> = ({
   containerStyles,
   endpointName,
 }) => {
+  const endpointURLWithProtocol = endpointURL.includes("http")
+    ? endpointURL
+    : `https://${endpointURL}`;
+
   return (
     <Box
       sx={{
@@ -67,10 +71,16 @@ const CustomDNSEndPoint: React.FC<CustomDNSEndPointProps> = ({
                   weight="regular"
                   color={isPrimaryResource ? "#6941C6" : ""}
                 >
-                  {endpointURL}
+                  <a
+                    href={`${endpointURLWithProtocol}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {endpointURLWithProtocol}
+                  </a>
                 </Text>
                 <CopyButton
-                  text={endpointURL}
+                  text={endpointURLWithProtocol}
                   iconProps={{
                     color: "#6941C6",
                     width: 20,

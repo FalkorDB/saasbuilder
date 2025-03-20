@@ -147,6 +147,14 @@ const InstanceDetailsPage = ({
     [resourceInstanceData, isCliManagedResource, resourceType]
   );
 
+  const enabledTabs = useMemo(
+    () =>
+      resourceInstanceData?.status === "DISCONNECT"
+        ? ["resourceInstanceDetails", "connectivity", "auditLogs"] // Fixed predefined tabs
+        : Object.keys(tabs), // Extract only keys from tabs
+    [resourceInstanceData, tabs]
+  );
+
   if (
     !isFetchingServiceOfferings &&
     !isFetchingSubscriptions &&
@@ -267,18 +275,9 @@ const InstanceDetailsPage = ({
         width="100%"
         display="flex"
       >
-        <Tabs
-          value={currentTab}
-          sx={{ marginTop: "20px" }}
-          // sx={{
-          //   marginTop: "24px",
-          //   borderBottom: "1px solid #E9EAEB",
-          //   "& .MuiTabs-indicator": {
-          //     backgroundColor: colors.purple700,
-          //   },
-          // }}
-        >
+        <Tabs value={currentTab} sx={{ marginTop: "20px" }}>
           {Object.entries(tabs).map(([key, value]) => {
+            const isEnabled = enabledTabs?.includes(key);
             return (
               <Tab
                 key={key}
@@ -288,19 +287,12 @@ const InstanceDetailsPage = ({
                   setCurrentTab(value as CurrentTab);
                 }}
                 disableRipple
-                // sx={{
-                //   minWidth: "0px",
-                //   textTransform: "none",
-                //   fontWeight: "600",
-                //   color: "#717680",
-                //   "&.Mui-selected": {
-                //     color: colors.purple800,
-                //   },
-                // }}
+                disabled={!isEnabled}
               />
             );
           })}
         </Tabs>
+
         <Button
           variant="contained"
           size="xlarge"
@@ -310,12 +302,12 @@ const InstanceDetailsPage = ({
             connectToInstance({
               host: (
                 resourceInstanceData.detailedNetworkTopology[
-                  componentName
+                componentName
                 ] as any
               )?.clusterEndpoint,
               port: (
                 resourceInstanceData.detailedNetworkTopology[
-                  componentName
+                componentName
                 ] as any
               ).clusterPorts?.[0],
               username: (resourceInstanceData.resultParameters as any)
@@ -352,6 +344,8 @@ const InstanceDetailsPage = ({
           autoscaling={resourceInstanceData.autoscaling}
           serverlessEnabled={resourceInstanceData.serverlessEnabled}
           isCliManagedResource={isCliManagedResource}
+          maintenanceTasks={resourceInstanceData.maintenanceTasks}
+          licenseDetails={resourceInstanceData?.subscriptionLicense}
         />
       )}
       {currentTab === tabs.connectivity && (
@@ -392,7 +386,7 @@ const InstanceDetailsPage = ({
           resourceInstanceId={instanceId}
           subscriptionData={subscription}
           subscriptionId={subscription.id}
-          isBYOAServicePlan = {offering?.serviceModelType === "BYOA"}
+          isBYOAServicePlan={offering?.serviceModelType === "BYOA"}
         />
       )}
       {currentTab === tabs.metrics && (

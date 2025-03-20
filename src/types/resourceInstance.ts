@@ -14,6 +14,9 @@ export type ResourceInstance =
 export type ResourceInstanceNetworkTopology =
   components["schemas"]["ResourceNetworkTopologyResult"];
 
+export type ResourceNetworkTopologyAdditionalEndpoint =
+  components["schemas"]["ClusterEndpoint"];
+
 export type ResourceInstanceNode =
   components["schemas"]["NodeNetworkTopologyResult"];
 
@@ -28,3 +31,12 @@ export type InstanceComputedHealthStatus =
   | "DEGRADED"
   | "UNKNOWN"
   | "NA";
+
+export type UpgradeStatus =
+  | "IN_PROGRESS"
+  | "COMPLETE"
+  | "SCHEDULED"
+  | "PENDING"
+  | "FAILED"
+  | "PAUSED"
+  | "CANCELLED";

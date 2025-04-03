@@ -131,7 +131,7 @@ const InstanceDetailsPage = ({
   const tabs = useMemo(
     () =>
       getTabs(
-        resourceInstanceData?.isMetricsEnabled,
+        true,// resourceInstanceData?.isMetricsEnabled,
         resourceInstanceData?.isLogsEnabled,
         resourceInstanceData?.active,
         isResourceBYOA,
@@ -390,16 +390,31 @@ const InstanceDetailsPage = ({
         />
       )}
       {currentTab === tabs.metrics && (
-        <Metrics
-          resourceInstanceId={instanceId}
-          nodes={resourceInstanceData.nodes}
-          socketBaseURL={resourceInstanceData.metricsSocketURL}
-          instanceStatus={resourceInstanceData.status}
-          resourceKey={resourceInstanceData.resourceKey}
-          customMetrics={resourceInstanceData.customMetrics || []}
-          mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
-          productTierType={offering.productTierType}
-        />
+        // <Metrics
+        //   resourceInstanceId={instanceId}
+        //   nodes={resourceInstanceData.nodes}
+        //   socketBaseURL={resourceInstanceData.metricsSocketURL}
+        //   instanceStatus={resourceInstanceData.status}
+        //   resourceKey={resourceInstanceData.resourceKey}
+        //   customMetrics={resourceInstanceData.customMetrics || []}
+        //   mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
+        //   productTierType={offering.productTierType}
+        // />
+        <Stack
+          marginTop="16px"
+          sx={{
+            //marginTop: "46px",
+            flexDirection: "row",
+            justifyContent: "space-between",
+          }}
+          alignItems="center"
+        >
+          <iframe width="100%" style={{
+            'minHeight': '500px'
+          }} src={process.env.NEXT_PUBLIC_GRAFANA_URL + "/d/" + instanceId + "?orgId=" + subscription.id}>
+
+          </iframe>
+        </Stack>
       )}
       {currentTab === tabs.logs && (
         <Logs

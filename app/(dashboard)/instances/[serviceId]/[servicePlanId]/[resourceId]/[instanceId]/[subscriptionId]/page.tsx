@@ -11,7 +11,6 @@ import Button from "components/Button/Button";
 import Logs from "components/ResourceInstance/Logs/Logs";
 import Backup from "components/ResourceInstance/Backup/Backup";
 import { DisplayText } from "components/Typography/Typography";
-import Metrics from "components/ResourceInstance/Metrics/Metrics";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import AuditLogs from "components/ResourceInstance/AuditLogs/AuditLogs";
 import NodesTable from "components/ResourceInstance/NodesTable/NodesTable";
@@ -411,9 +410,7 @@ const InstanceDetailsPage = ({
         >
           <iframe width="100%" style={{
             'minHeight': '500px'
-          }} src={process.env.NEXT_PUBLIC_GRAFANA_URL + "/d/" + instanceId + "?orgId=" + subscription.id}>
-
-          </iframe>
+          }} src={process.env.NEXT_PUBLIC_GRAFANA_URL + "/d/" + instanceId + "?orgId=" + subscription.id} />
         </Stack>
       )}
       {currentTab === tabs.logs && (

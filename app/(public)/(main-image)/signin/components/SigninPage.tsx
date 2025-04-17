@@ -82,7 +82,7 @@ const SigninPage = (props) => {
     }
 
     if (jwtToken) {
-      Cookies.set("token", jwtToken, { sameSite: "Lax", secure: true });
+      Cookies.set("token", jwtToken, { sameSite: "Lax", secure: true, domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN });
 
       try {
         localStorage.removeItem("loggedInUsingSSO");
@@ -309,8 +309,8 @@ const SigninPage = (props) => {
               <GoogleOAuthProvider
                 // @ts-ignore
                 clientId={googleIDPClientID}
-                onScriptLoadError={() => {}}
-                onScriptLoadSuccess={() => {}}
+                onScriptLoadError={() => { }}
+                onScriptLoadSuccess={() => { }}
               >
                 <GoogleLogin
                   disabled={isGoogleLoginDisabled}

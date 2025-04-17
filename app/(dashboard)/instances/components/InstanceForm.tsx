@@ -178,7 +178,18 @@ const InstanceForm = ({
               else data.requestParams[key] = false;
               break;
           }
+
+          if (key === "nodeInstanceType" &&
+            (data.cloudProvider === "aws" && !data.requestParams["nodeInstanceType"].includes(".")) ||
+            (data.cloudProvider === "gcp") && !data.requestParams["nodeInstanceType"].includes("-")) {
+            snackbar.showError(`Invalid Node Instance Type`)
+            isTypeError = true;
+          }
         });
+
+        if (isTypeError) {
+          return;
+        }
 
         for (const key in data.requestParams) {
           const value = data.requestParams[key];
@@ -207,7 +218,7 @@ const InstanceForm = ({
         const networkTypeFieldExists =
           inputParametersObj["cloud_provider"] &&
           offering?.productTierType !==
-            productTierTypes.OMNISTRATE_MULTI_TENANCY &&
+          productTierTypes.OMNISTRATE_MULTI_TENANCY &&
           offering?.supportsPublicNetwork;
 
         if (!data.network_type) {
@@ -356,7 +367,7 @@ const InstanceForm = ({
     offering?.productTierURLKey,
     offering?.resourceParameters,
     subscriptionsObj[values.subscriptionId]?.productTierId ===
-      values.servicePlanId && values.subscriptionId
+    values.servicePlanId && values.subscriptionId
   );
 
   const requiresValidPaymentConfig = getOfferingPaymentConfigRequiredStatus(
@@ -544,7 +555,7 @@ const InstanceForm = ({
         </CardWithTitle>
 
         {isFetchingResourceSchema ||
-        !networkConfigurationFields.length ? null : (
+          !networkConfigurationFields.length ? null : (
           <CardWithTitle title="Network Configuration">
             <div className="space-y-6">
               {networkConfigurationFields.map((field, index) => {
@@ -636,8 +647,8 @@ const InstanceForm = ({
                   {formMode === "create" ? "Create" : "Update"}
                   {(createInstanceMutation.isLoading ||
                     updateResourceInstanceMutation.isLoading) && (
-                    <LoadingSpinnerSmall />
-                  )}
+                      <LoadingSpinnerSmall />
+                    )}
                 </Button>
               </span>
             </Tooltip>

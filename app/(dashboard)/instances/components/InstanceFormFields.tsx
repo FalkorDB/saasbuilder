@@ -387,8 +387,7 @@ export const getNetworkConfigurationFields = (
   const networkTypeFieldExists =
     cloudProviderFieldExists &&
     !isMultiTenancy &&
-    offering?.supportsPublicNetwork &&
-    values.requestParams?.custom_network_id !== undefined;
+    offering?.supportsPublicNetwork;
 
   if (networkTypeFieldExists) {
     fields.push({

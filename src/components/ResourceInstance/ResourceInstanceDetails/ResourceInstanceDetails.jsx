@@ -82,18 +82,22 @@ function ResourceInstanceDetails(props) {
   const instanceInfoData = useMemo(() => {
     const res = [
       {
-        label: "Deployment ID",
+        dataTestId: "deployment-id",
+        label: "Instance ID",
         value: resourceInstanceId,
       },
       {
+        dataTestId: "created-at",
         label: "Created at",
         value: formatDateLocal(createdAt),
       },
       {
+        dataTestId: "modified-at",
         label: "Modified at",
         value: formatDateLocal(modifiedAt),
       },
       {
+        dataTestId: "high-availability-status",
         label: "HA",
         value: highAvailability ? "Enabled" : "Disabled",
         valueType: "boolean",
@@ -102,11 +106,13 @@ function ResourceInstanceDetails(props) {
     if (!isCliManagedResource) {
       res.push(
         {
+          dataTestId: "backups-status",
           label: "Backups",
           value: backupStatus?.backupPeriodInHours ? "Enabled" : "Disabled",
           valueType: "boolean",
         },
         {
+          dataTestId: "autoscaling-status",
           label: "Autoscaling",
           value: autoscalingEnabled ? "Enabled" : "Disabled",
           valueType: "boolean",
@@ -375,14 +381,14 @@ function ResourceInstanceDetails(props) {
         data-testid="resource-instance-details-table"
         rows={{
           title: "Instance Info",
-          desc: "Basic information about this resource instance",
+          desc: "Basic information about this deployment instance",
           rows: instanceInfoData,
           flexWrap: true,
         }}
       />
       {licenseDetails?.expirationDate && (
         <PropertyDetails
-          data-testid="resource-instance-details-table"
+          data-testid="license-status-table"
           rows={{
             title: "License Status",
             desc: "Shows the current license status, expiry date, and option to download the license file.",
@@ -394,7 +400,7 @@ function ResourceInstanceDetails(props) {
       )}
       {outputParameterData.length > 0 && (
         <PropertyDetails
-          data-testid="resource-instance-details-table"
+          data-testid="output-parameters-table"
           rows={{
             title: CloudPRoviderInstance?.isCloudPRoviderInstance
               ? `${CloudPRoviderInstance?.cloudProviderName === "aws" ? "AWS" : "GCP"} Cloud account config`

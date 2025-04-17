@@ -31,6 +31,7 @@ import {
   stepsDisconnectRunAccountConfig,
 } from "../Stepper/utils";
 import useSnackbar from "src/hooks/useSnackbar";
+import { TextContainerToCopy } from "../CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
 
 const StyledForm = styled(Box)({
   position: "fixed",
@@ -170,7 +171,7 @@ const usePolling = (
   return { isPolling };
 };
 
-const Trigger = ({ formData, serviceOrgName }) => {
+const Trigger = ({ formData, serviceProviderName }) => {
   return (
     <Box width={"100%"} display={"flex"} flexDirection={"column"} gap="10px">
       <Stack direction="row" alignItems="center" gap="16px">
@@ -195,7 +196,7 @@ const Trigger = ({ formData, serviceOrgName }) => {
         <ListItem>
           <Text size="small" weight="regular" color="#414651">
             {`Disconnecting your cloud account will disconnect all associated
-            instances from the ${serviceOrgName} Control Plane`}
+            instances from the ${serviceProviderName} Control Plane`}
           </Text>
         </ListItem>
       </List>
@@ -232,7 +233,7 @@ const Run = ({
   instance,
   fetchClickedInstanceDetails,
   setClickedInstance,
-  serviceOrgName,
+  serviceProviderName,
 }) => {
   useEffect(() => {
     let timer = null;
@@ -245,7 +246,10 @@ const Run = ({
     }
 
     // Handle instance status updates separately
-    if (instance?.status === "DETACHING") {
+    if (
+      instance?.status === "DETACHING" ||
+      instance?.status === "PENDING_DETACHING"
+    ) {
       setActiveStepRun(1);
     } else if (instance?.status === "DISCONNECTING") {
       setActiveStepRun(2);
@@ -290,18 +294,42 @@ const Run = ({
             borderRadius: "12px",
           }}
         >
-          <Text size="small" weight="semibold" color="#414651">
-            Run{" "}
-            <StyledLink
-              target="_blank"
-              rel="noopener noreferrer"
-              href={`${instance?.result_params?.disconnect_cloudformation_url}`}
-            >
-              this
-            </StyledLink>
-             CloudFormation template to revoke all {`${serviceOrgName}`}
-            permissions from your account.
-          </Text>
+          {instance?.result_params?.aws_account_id ? (
+            <Text size="small" weight="semibold" color="#414651">
+              Run{" "}
+              <StyledLink
+                target="_blank"
+                rel="noopener noreferrer"
+                href={`${instance?.result_params?.disconnect_cloudformation_url}`}
+              >
+                this
+              </StyledLink>
+               CloudFormation template to revoke all {`${serviceProviderName}`}{" "}
+              permissions from your account.
+            </Text>
+          ) : (
+            <Box>
+              <Text size="medium" weight="regular" color="#374151">
+                {/* <b>Using GCP Cloud Shell:</b>  */}
+                Please open the Google Cloud Shell environment using the
+                following link:
+                <StyledLink
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  href="https://shell.cloud.google.com/?cloudshell_ephemeral=true&show=terminal"
+                >
+                  Google Cloud Shell
+                </StyledLink>
+                . Once the terminal is open, execute the following command:
+              </Text>
+              {instance?.result_params?.gcp_disconnect_shell_script && (
+                <TextContainerToCopy
+                  text={instance?.result_params?.gcp_disconnect_shell_script}
+                  marginTop="12px"
+                />
+              )}
+            </Box>
+          )}
           <Chip
             label={
               <Stack direction="row" alignItems="center" gap="6px">
@@ -327,12 +355,7 @@ const Run = ({
   );
 };
 
-const Check = ({
-  status,
-  instance,
-  fetchClickedInstanceDetails,
-  setClickedInstance,
-}) => {
+const Check = ({ status, fetchClickedInstanceDetails, setClickedInstance }) => {
   usePolling(fetchClickedInstanceDetails, setClickedInstance, "DISCONNECTED");
 
   return (
@@ -395,18 +418,6 @@ const Check = ({
                 change to Disconnected.
               </Text>
             </ListItem>
-            <ListItem>
-              <Text size="small" weight="semibold" color="#414651">
-                If you need to update the CloudFormation stack configuration{" "}
-                <StyledLink
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  href={`${instance?.result_params?.disconnect_cloudformation_url}`}
-                >
-                  click here.
-                </StyledLink>
-              </Text>
-            </ListItem>
           </List>
         </Box>
       )}
@@ -425,7 +436,7 @@ function DisconnectAccountConfigDialog(props) {
     fetchClickedInstanceDetails,
     setClickedInstance,
     serviceId,
-    serviceOrgName,
+    serviceProviderName,
   } = props;
   const snackbar = useSnackbar();
   const [disconnectState, setDisconnectState] = useState(
@@ -435,8 +446,10 @@ function DisconnectAccountConfigDialog(props) {
 
   useEffect(() => {
     if (
-      instance?.status === "DETACHING" ||
-      (instance?.status === "DISCONNECTING" && activeStepRun < 2)
+      (instance?.status === "DETACHING" ||
+        instance?.status === "PENDING_DETACHING" ||
+        instance?.status === "DISCONNECTING") &&
+      activeStepRun < 2
     ) {
       setDisconnectState(stateAccountConfigStepper.run);
     } else if (
@@ -463,8 +476,8 @@ function DisconnectAccountConfigDialog(props) {
     {
       onSuccess: () => {
         refetchInstances();
-        snackbar.showSuccess("Disconnect account config...");
-        connectStatechange(stateAccountConfigStepper.run);
+        snackbar.showSuccess("Disconnecting cloud account");
+        setDisconnectState(stateAccountConfigStepper.run);
         // eslint-disable-next-line no-use-before-define
         formik.resetForm();
       },
@@ -505,7 +518,10 @@ function DisconnectAccountConfigDialog(props) {
         </Header>
         <Content>
           {disconnectState === stateAccountConfigStepper.trigger && (
-            <Trigger formData={formik} serviceOrgName={serviceOrgName} />
+            <Trigger
+              formData={formik}
+              serviceProviderName={serviceProviderName}
+            />
           )}
           {disconnectState === stateAccountConfigStepper.run && (
             <Run
@@ -514,14 +530,13 @@ function DisconnectAccountConfigDialog(props) {
               instance={instance}
               fetchClickedInstanceDetails={fetchClickedInstanceDetails}
               setClickedInstance={setClickedInstance}
-              serviceOrgName={serviceOrgName}
+              serviceProviderName={serviceProviderName}
             />
           )}
 
           {disconnectState === stateAccountConfigStepper.check && (
             <Check
               status={instance?.status}
-              instance={instance}
               fetchClickedInstanceDetails={fetchClickedInstanceDetails}
               setClickedInstance={setClickedInstance}
             />
@@ -568,7 +583,7 @@ function DisconnectAccountConfigDialog(props) {
                 connectStatechange(stateAccountConfigStepper.check);
               }}
             >
-              {"Verify"} {isFetching && <LoadingSpinnerSmall />}
+              {"Confirm"} {isFetching && <LoadingSpinnerSmall />}
             </Button>
           )}
           {disconnectState === stateAccountConfigStepper.check && (

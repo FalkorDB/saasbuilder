@@ -9,11 +9,8 @@ import { createColumnHelper } from "@tanstack/react-table";
 
 import Tooltip from "components/Tooltip/Tooltip";
 import DataTable from "components/DataTable/DataTable";
-import AwsLogo from "components/Logos/AwsLogo/AwsLogo";
-import GcpLogo from "components/Logos/GcpLogo/GcpLogo";
 import StatusChip from "components/StatusChip/StatusChip";
 import DataGridText from "components/DataGrid/DataGridText";
-import AzureLogo from "components/Logos/AzureLogo/AzureLogo";
 import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithLogo";
 import ViewInstructionsIcon from "components/Icons/AccountConfig/ViewInstrcutionsIcon";
 import CloudProviderAccountOrgIdModal from "components/CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
@@ -34,7 +31,7 @@ import { useGlobalData } from "src/providers/GlobalDataProvider";
 import {
   deleteResourceInstance,
   getResourceInstanceDetails,
-  getTerraformKit,
+  // getTerraformKit,
 } from "src/api/resourceInstance";
 import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
 import { getCloudAccountsRoute } from "src/utils/routes";
@@ -45,6 +42,9 @@ import {
 } from "src/utils/accountConfig/accountConfig";
 import DisconnectAccountConfigDialog from "src/components/AccountConfigDialog/DisconnectAccountConfigDialog";
 import ConnectAccountConfigDialog from "src/components/AccountConfigDialog/ConnectAccountConfigDialog";
+import useBillingDetails from "../billing/hooks/useBillingDetails";
+import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
+import { CloudProvider } from "src/types/common/enums";
 
 const columnHelper = createColumnHelper<ResourceInstance>();
 
@@ -106,6 +106,9 @@ const CloudAccountsPage = () => {
     isFetching: isFetchingInstances,
     refetch: refetchInstances,
   } = useInstances();
+
+  const { data: billingConfig } = useBillingDetails();
+  const isPaymentConfigured = Boolean(billingConfig?.paymentConfigured);
 
   // Open the Create Form Overlay when serviceId, servicePlanId and subscriptionId are present in the URL
   useEffect(() => {
@@ -198,6 +201,7 @@ const CloudAccountsPage = () => {
           ].includes(status as string);
 
           const showDisconnectInstructions = [
+            "PENDING_DETACHING",
             "DETACHING",
             "DISCONNECTING",
           ].includes(status as string);
@@ -316,24 +320,35 @@ const CloudAccountsPage = () => {
 
       columnHelper.accessor(
         // @ts-ignore
-        (row) => row.cloud_provider || row.result_params?.cloud_provider || "-",
+        (row) => {
+          let cloudProvider: CloudProvider | undefined;
+          const result_params = row.result_params;
+          // @ts-ignore
+          if (result_params?.aws_account_id) cloudProvider = "aws";
+          // @ts-ignore
+          else if (result_params?.gcp_project_id) cloudProvider = "gcp";
+          // @ts-ignore
+          else if (result_params?.azure_subscription_id)
+            cloudProvider = "azure";
+          return cloudProvider;
+        },
         {
           id: "cloud_provider",
           header: "Provider",
           cell: (data) => {
-            const cloudProvider =
-              // @ts-ignore
-              data.row.original.result_params?.gcp_project_id ? "gcp" : "aws";
+            let cloudProvider: CloudProvider | undefined;
+            const result_params = data.row.original.result_params;
+            // @ts-ignore
+            if (result_params?.aws_account_id) cloudProvider = "aws";
+            // @ts-ignore
+            else if (result_params?.gcp_project_id) cloudProvider = "gcp";
+            // @ts-ignore
+            else if (result_params?.azure_subscription_id)
+              cloudProvider = "azure";
 
-            return cloudProvider === "aws" ? (
-              <AwsLogo />
-            ) : cloudProvider === "gcp" ? (
-              <GcpLogo />
-            ) : cloudProvider === "azure" ? (
-              <AzureLogo />
-            ) : (
-              "-"
-            );
+            return cloudProvider
+              ? cloudProviderLongLogoMap[cloudProvider]
+              : "-";
           },
         }
       ),
@@ -474,37 +489,37 @@ const CloudAccountsPage = () => {
     );
   };
 
-  const downloadTerraformKitMutation = useMutation(
-    () => {
-      if (clickedInstanceOffering && clickedInstanceSubscription) {
-        return getTerraformKit(
-          clickedInstanceOffering.serviceProviderId,
-          clickedInstanceOffering.serviceURLKey,
-          clickedInstanceOffering.serviceAPIVersion,
-          clickedInstanceOffering.serviceEnvironmentURLKey,
-          clickedInstanceOffering.serviceModelURLKey,
-          clickedInstanceSubscription.id,
-          // @ts-ignore
-          clickedInstance?.result_params?.gcp_project_id ? "gcp" : "aws"
-        );
-      }
-    },
-    {
-      onSuccess: (response: any) => {
-        if (!response?.data) {
-          return snackbar.showError("Failed to download terraform kit");
-        }
-        const href = URL.createObjectURL(response.data);
-        const link = document.createElement("a");
-        link.href = href;
-        link.setAttribute("download", "terraformkit.tar");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(href);
-      },
-    }
-  );
+  // const downloadTerraformKitMutation = useMutation(
+  //   () => {
+  //     if (clickedInstanceOffering && clickedInstanceSubscription) {
+  //       return getTerraformKit(
+  //         clickedInstanceOffering.serviceProviderId,
+  //         clickedInstanceOffering.serviceURLKey,
+  //         clickedInstanceOffering.serviceAPIVersion,
+  //         clickedInstanceOffering.serviceEnvironmentURLKey,
+  //         clickedInstanceOffering.serviceModelURLKey,
+  //         clickedInstanceSubscription.id,
+  //         // @ts-ignore
+  //         clickedInstance?.result_params?.gcp_project_id ? "gcp" : "aws"
+  //       );
+  //     }
+  //   },
+  //   {
+  //     onSuccess: (response: any) => {
+  //       if (!response?.data) {
+  //         return snackbar.showError("Failed to download terraform kit");
+  //       }
+  //       const href = URL.createObjectURL(response.data);
+  //       const link = document.createElement("a");
+  //       link.href = href;
+  //       link.setAttribute("download", "terraformkit.tar");
+  //       document.body.appendChild(link);
+  //       link.click();
+  //       document.body.removeChild(link);
+  //       URL.revokeObjectURL(href);
+  //     },
+  //   }
+  // );
 
   useEffect(() => {
     if (isAccountCreation) {
@@ -551,6 +566,7 @@ const CloudAccountsPage = () => {
             selectedInstance,
             refetchInstances: refetchInstances,
             isFetchingInstances: isFetchingInstances,
+            serviceModelType: selectedInstanceOffering?.serviceModelType,
           }}
           isLoading={isLoadingInstances}
           selectionMode="single"
@@ -582,6 +598,8 @@ const CloudAccountsPage = () => {
             setIsAccountCreation={setIsAccountCreation}
             setOverlayType={setOverlayType}
             setClickedInstance={setClickedInstance}
+            instances={instances}
+            isPaymentConfigured={isPaymentConfigured}
           />
         }
       />
@@ -608,7 +626,7 @@ const CloudAccountsPage = () => {
         fetchClickedInstanceDetails={fetchClickedInstanceDetails}
         setClickedInstance={setClickedInstance}
         serviceId={selectedInstanceSubscription?.serviceId}
-        serviceOrgName={selectedInstanceSubscription?.serviceOrgName}
+        serviceProviderName={selectedInstanceOffering?.serviceProviderName}
       />
 
       <DisconnectAccountConfigDialog
@@ -622,7 +640,7 @@ const CloudAccountsPage = () => {
         fetchClickedInstanceDetails={fetchClickedInstanceDetails}
         setClickedInstance={setClickedInstance}
         serviceId={selectedInstanceSubscription?.serviceId}
-        serviceOrgName={selectedInstanceSubscription?.serviceOrgName}
+        serviceProviderName={selectedInstanceOffering?.serviceProviderName}
       />
       <CloudProviderAccountOrgIdModal
         isAccessPage
@@ -640,8 +658,8 @@ const CloudAccountsPage = () => {
         isAccountCreation={isAccountCreation}
         gcpBootstrapShellCommand={gcpBootstrapShellCommand}
         accountInstructionDetails={accountInstructionDetails}
-        downloadTerraformKitMutation={downloadTerraformKitMutation}
-        orgId={clickedInstanceSubscription?.accountConfigIdentityId}
+        // downloadTerraformKitMutation={downloadTerraformKitMutation}
+        // orgId={clickedInstanceSubscription?.accountConfigIdentityId}
         accountConfigMethod={
           // @ts-ignore
           clickedInstance?.result_params?.account_configuration_method

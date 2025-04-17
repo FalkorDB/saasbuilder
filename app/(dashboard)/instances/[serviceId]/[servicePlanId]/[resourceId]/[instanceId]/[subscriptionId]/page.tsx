@@ -147,11 +147,11 @@ const InstanceDetailsPage = ({
     [resourceInstanceData, isCliManagedResource, resourceType]
   );
 
-  const enabledTabs = useMemo(
+  const disabledTabs = useMemo(
     () =>
-      resourceInstanceData?.status === "DISCONNECT"
-        ? ["resourceInstanceDetails", "connectivity", "auditLogs"] // Fixed predefined tabs
-        : Object.keys(tabs), // Extract only keys from tabs
+      resourceInstanceData?.status === "DISCONNECTED"
+        ? ["backups", "metrics", "logs"]
+        : [],
     [resourceInstanceData, tabs]
   );
 
@@ -188,7 +188,7 @@ const InstanceDetailsPage = ({
             size="xsmall"
             sx={{ wordBreak: "break-word", textAlign: "center", maxWidth: 900 }}
           >
-            Resource Instance not found
+            Deployment Instance not found
           </DisplayText>
         </Stack>
       </PageContainer>
@@ -277,9 +277,10 @@ const InstanceDetailsPage = ({
       >
         <Tabs value={currentTab} sx={{ marginTop: "20px" }}>
           {Object.entries(tabs).map(([key, value]) => {
-            const isEnabled = enabledTabs?.includes(key);
+          const isDisabled = disabledTabs?.includes(key);
             return (
               <Tab
+              data-testid={`${value?.replace(" ", "-").toLowerCase()}-tab`}
                 key={key}
                 label={value}
                 value={value}
@@ -287,7 +288,7 @@ const InstanceDetailsPage = ({
                   setCurrentTab(value as CurrentTab);
                 }}
                 disableRipple
-                disabled={!isEnabled}
+                disabled={isDisabled}
               />
             );
           })}
@@ -384,6 +385,7 @@ const InstanceDetailsPage = ({
           serviceOffering={offering}
           resourceKey={resourceKey}
           resourceInstanceId={instanceId}
+          resourceInstancestatus={resourceInstanceData.status}
           subscriptionData={subscription}
           subscriptionId={subscription.id}
           isBYOAServicePlan={offering?.serviceModelType === "BYOA"}

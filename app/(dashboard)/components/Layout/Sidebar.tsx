@@ -33,6 +33,7 @@ import {
   getNotificationsRoute,
   getBillingRoute,
   getSettingsRoute,
+  getCostExplorerRoute,
 } from "src/utils/routes";
 import useBillingStatus from "app/(dashboard)/billing/hooks/useBillingStatus";
 
@@ -190,6 +191,7 @@ const Sidebar = () => {
         "Account Management": [
           getSettingsRoute(),
           getBillingRoute(),
+          getCostExplorerRoute(),
           getSubscriptionsRoute({}),
         ].includes(currentPath),
       }));
@@ -198,7 +200,11 @@ const Sidebar = () => {
 
   const showCloudProvidersPage = useMemo(() => {
     return Boolean(
-      serviceOfferings.find((offering) => offering.serviceModelType === "BYOA")
+      serviceOfferings.find(
+        (offering) =>
+          offering.serviceModelType === "BYOA" ||
+          offering.serviceModelType === "ON_PREM_COPILOT"
+      )
     );
   }, [serviceOfferings]);
 
@@ -216,7 +222,6 @@ const Sidebar = () => {
   const billingStatusQuery = useBillingStatus();
 
   const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled);
-
 
   const bottomItems = useMemo(
     () => [
@@ -308,6 +313,11 @@ const Sidebar = () => {
           {
             name: "Billing",
             href: getBillingRoute(),
+            isHidden: !isBillingEnabled,
+          },
+          {
+            name: "Cost Explorer",
+            href: getCostExplorerRoute(),
             isHidden: !isBillingEnabled,
           },
           { name: "Subscriptions", href: getSubscriptionsRoute({}) },

@@ -90,18 +90,7 @@ const ArrowBullet = (props) => (
   </svg>
 );
 
-const getCloudOptions = (cloudprovider) => {
-  if (cloudprovider === "aws") {
-    return "(CloudFormation or Terraform)";
-  }
-  if (cloudprovider === "gcp") {
-    return "(GCP Cloud Shell or Terraform)";
-  }
-  return "";
-};
-
 const DeleteInstructions = ({ accountInstructionDetails }) => {
-  const cloudProvider = accountInstructionDetails?.awsAccountID ? "aws" : "gcp";
   return (
     <Box width={"100%"} mb="30px">
       {accountInstructionDetails?.awsAccountID && (
@@ -155,10 +144,9 @@ const DeleteInstructions = ({ accountInstructionDetails }) => {
           </ListItemIcon>
 
           <Text size="medium" weight="regular" color="#374151">
-            <b>Delete Account Config:</b> Start by deleting this account
-            configuration to remove all artifacts created by Omnistrate and
-            choose one of the options below {getCloudOptions(cloudProvider)} to
-            complete the offboarding process
+            To off-board this cloud account, first delete this cloud account
+            instance. If this cloud account is used for other services, delete
+            those cloud account instances too before proceeding to the next step
           </Text>
         </ListItem>
         {accountInstructionDetails?.awsAccountID && (
@@ -168,7 +156,8 @@ const DeleteInstructions = ({ accountInstructionDetails }) => {
             </ListItemIcon>
 
             <Text size="medium" weight="regular" color="#374151">
-              <b>Using CloudFormation:</b> Follow the provided steps{" "}
+              {/* <b>Using CloudFormation:</b>  */}
+              Follow the provided steps{" "}
               <StyledLink
                 target="_blank"
                 rel="noopener noreferrer"
@@ -188,8 +177,8 @@ const DeleteInstructions = ({ accountInstructionDetails }) => {
             </ListItemIcon>
             <Box overflow={"hidden"} flex={1}>
               <Text size="medium" weight="regular" color="#374151">
-                <b>Using GCP Cloud Shell:</b> Open the Google Cloud Shell
-                environment using the following link{" "}
+                {/* <b>Using GCP Cloud Shell:</b>  */}
+                Open the Google Cloud Shell environment using the following link{" "}
                 <StyledLink
                   target="_blank"
                   rel="noopener noreferrer"
@@ -211,7 +200,7 @@ const DeleteInstructions = ({ accountInstructionDetails }) => {
         )}
       </List>
 
-      <List sx={{ marginTop: "12px" }}>
+      {/* <List sx={{ marginTop: "12px" }}>
         <ListItem>
           <ListItemIcon>
             <ArrowBullet />
@@ -230,7 +219,7 @@ const DeleteInstructions = ({ accountInstructionDetails }) => {
             .
           </Text>
         </ListItem>
-      </List>
+      </List> */}
     </Box>
   );
 };

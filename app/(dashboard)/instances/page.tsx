@@ -30,12 +30,9 @@ import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { deleteResourceInstance } from "src/api/resourceInstance";
 import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
 import RegionIcon from "components/Region/RegionIcon";
-import AwsLogo from "components/Logos/AwsLogo/AwsLogo";
-import GcpLogo from "components/Logos/GcpLogo/GcpLogo";
 import DataTable from "components/DataTable/DataTable";
 import StatusChip from "components/StatusChip/StatusChip";
 import DataGridText from "components/DataGrid/DataGridText";
-import AzureLogo from "components/Logos/AzureLogo/AzureLogo";
 import GridCellExpand from "components/GridCellExpand/GridCellExpand";
 import CapacityDialog from "components/CapacityDialog/CapacityDialog";
 import GenerateTokenDialog from "components/GenerateToken/GenerateTokenDialog";
@@ -55,6 +52,8 @@ import LoadIndicatorNormal from "src/components/Icons/LoadIndicator/LoadIndicato
 import LoadIndicatorHigh from "src/components/Icons/LoadIndicator/LoadIndicatorHigh";
 import StatusCell from "./components/StatusCell";
 import { getResourceInstanceDetailsStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceDetailsStatus";
+import useBillingDetails from "../billing/hooks/useBillingDetails";
+import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 
 const columnHelper = createColumnHelper<ResourceInstance>();
 type Overlay =
@@ -78,6 +77,9 @@ const InstancesPage = () => {
     instanceId?: string;
     isCustomDNS?: boolean;
   }>({});
+  const { data: billingConfig, isLoading: isLoadingPaymentConfiguration } =
+    useBillingDetails();
+  const isPaymentConfigured = Boolean(billingConfig?.paymentConfigured);
 
   const [statusFilters, setStatusFilters] = useState(getInitialFilterState());
 
@@ -96,7 +98,7 @@ const InstancesPage = () => {
     return [
       columnHelper.accessor("id", {
         id: "id",
-        header: "Deployment ID",
+        header: "Instance ID",
         cell: (data) => {
           const {
             id: instanceId,
@@ -183,7 +185,7 @@ const InstancesPage = () => {
         },
         {
           id: "resourceName",
-          header: "Resource Type",
+          header: "Resource Name",
         }
       ),
       // columnHelper.accessor(
@@ -389,15 +391,7 @@ const InstancesPage = () => {
         cell: (data) => {
           const cloudProvider = data.row.original.cloud_provider;
 
-          return cloudProvider === "aws" ? (
-            <AwsLogo />
-          ) : cloudProvider === "gcp" ? (
-            <GcpLogo />
-          ) : cloudProvider === "azure" ? (
-            <AzureLogo />
-          ) : (
-            "-"
-          );
+          return cloudProvider ? cloudProviderLongLogoMap[cloudProvider] : "-";
         },
         meta: {
           minWidth: 100,
@@ -567,7 +561,7 @@ const InstancesPage = () => {
         setSelectedRows([]);
         refetchInstances();
         setIsOverlayOpen(false);
-        snackbar.showSuccess("Deleting resource instance...");
+        snackbar.showSuccess("Deleting deployment instance...");
       },
     }
   );
@@ -602,6 +596,8 @@ const InstancesPage = () => {
             filterOptionsMap,
             selectedFilters,
             setSelectedFilters,
+            isLoadingInstances,
+            isLoadingPaymentConfiguration,
             instancesFilterCount: instancesFilterCount,
             statusFilters: statusFilters,
             setStatusFilters: setStatusFilters,
@@ -675,6 +671,7 @@ const InstancesPage = () => {
             setCreateInstanceModalData={setCreateInstanceModalData}
             setIsOverlayOpen={setIsOverlayOpen}
             setOverlayType={setOverlayType}
+            isPaymentConfigured={isPaymentConfigured}
           />
         }
       />

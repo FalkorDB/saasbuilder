@@ -58,6 +58,8 @@ const InstancesTableHeader = ({
   instancesFilterCount,
   statusFilters,
   setStatusFilters,
+  isLoadingInstances,
+  isLoadingPaymentConfiguration,
 }) => {
   const snackbar = useSnackbar();
 
@@ -65,7 +67,7 @@ const InstancesTableHeader = ({
     onSuccess: async () => {
       refetchInstances();
       setSelectedRows([]);
-      snackbar.showSuccess("Stopping resource instance...");
+      snackbar.showSuccess("Stopping deployment instance...");
     },
   });
 
@@ -73,7 +75,7 @@ const InstancesTableHeader = ({
     onSuccess: async () => {
       refetchInstances();
       setSelectedRows([]);
-      snackbar.showSuccess("Starting resource instance...");
+      snackbar.showSuccess("Starting deployment instance...");
     },
   });
 
@@ -81,7 +83,7 @@ const InstancesTableHeader = ({
     onSuccess: async () => {
       refetchInstances();
       setSelectedRows([]);
-      snackbar.showSuccess("Rebooting resource instance...");
+      snackbar.showSuccess("Rebooting deployment instance...");
     },
   });
 
@@ -200,7 +202,9 @@ const InstancesTableHeader = ({
       actionType: "secondary",
       isDisabled:
         !selectedInstance ||
-        (status !== "RUNNING" && status !== "FAILED") ||
+        (status !== "RUNNING" &&
+          status !== "FAILED" &&
+          status !== "COMPLETE") ||
         isProxyResource ||
         !isUpdateAllowedByRBAC,
       onClick: () => {
@@ -240,23 +244,26 @@ const InstancesTableHeader = ({
         ? "Please select an instance"
         : status === "DELETING"
           ? "Instance deletion is already in progress"
-          : isProxyResource
-            ? "System managed instances cannot be deleted"
-            : !isDeleteAllowedByRBAC
-              ? "Unauthorized to delete instances"
-              : "",
+          : status === "DISCONNECTED"
+            ? "Cloud account is disconnected"
+            : isProxyResource
+              ? "System managed instances cannot be deleted"
+              : !isDeleteAllowedByRBAC
+                ? "Unauthorized to delete instances"
+                : "",
     });
 
     actions.push({
       dataTestId: "create-button",
       label: "Create",
       actionType: "primary",
-      isDisabled: false,
+      isDisabled: isLoadingInstances || isLoadingPaymentConfiguration,
       onClick: () => {
         setSelectedRows([]); // To make selectedInstance becomes undefined. See page.tsx
         setOverlayType("create-instance-form");
         setIsOverlayOpen(true);
       },
+      disabledMessage: "Please wait for the instances to load",
     });
 
     const other: Action[] = [];
@@ -299,7 +306,9 @@ const InstancesTableHeader = ({
         isLoading: restartInstanceMutation.isLoading,
         isDisabled:
           !selectedInstance ||
-          (status !== "RUNNING" && status !== "FAILED") ||
+          (status !== "RUNNING" &&
+            status !== "FAILED" &&
+            status !== "COMPLETE") ||
           !isUpdateAllowedByRBAC,
         onClick: () => {
           if (!selectedInstance)
@@ -386,10 +395,14 @@ const InstancesTableHeader = ({
 
     if (selectedInstance?.kubernetesDashboardEndpoint?.dashboardEndpoint) {
       other.push({
-        dataTestId: "open-dashboard-button",
+        dataTestId: "generate-token-button",
         label: "Generate Token",
         isDisabled: !selectedInstance || status === "DISCONNECTED",
-        disabledMessage: !selectedInstance ? "Please select an instance" : "",
+        disabledMessage: !selectedInstance
+          ? "Please select an instance"
+          : status === "DISCONNECTED"
+            ? "Cloud account is disconnected"
+            : "",
         onClick: () => {
           if (!selectedInstance)
             return snackbar.showError("Please select an instance");
@@ -521,6 +534,7 @@ const InstancesTableHeader = ({
             const Icon = icons[action.label];
             return (
               <Button
+                data-testid={action.dataTestId || action.label}
                 key={index}
                 variant={
                   action.actionType === "primary" ? "contained" : "outlined"

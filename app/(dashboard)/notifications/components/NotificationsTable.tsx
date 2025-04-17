@@ -47,7 +47,7 @@ const NotificationsTable = () => {
         const upgradePath = instance.maintenanceTasks?.upgrade_paths?.[0];
         const status = upgradePath?.upgrade_status;
         const scheduledTime = upgradePath?.upgrade_path_scheduled_at;
-        const message = `Upgrade is ${statusMap[status] || status}${scheduledTime && " at " + formatDateUTC(scheduledTime)}`;
+        const message = `Upgrade is ${statusMap[status] || status}${scheduledTime ? " at " + formatDateUTC(scheduledTime) : ""}`;
         return {
           ...instance,
           message,
@@ -59,7 +59,7 @@ const NotificationsTable = () => {
     return [
       columnHelper.accessor("id", {
         id: "id",
-        header: "Deployment ID",
+        header: "Instance ID",
         meta: {
           minWidth: 200,
         },

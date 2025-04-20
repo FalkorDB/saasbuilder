@@ -226,6 +226,8 @@ const InstanceDetailsPage = ({
     );
   })[0][0];
 
+  const url = window.location.href;
+
   return (
     <PageContainer>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -401,6 +403,7 @@ const InstanceDetailsPage = ({
         //   mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
         //   productTierType={offering.productTierType}
         // />
+
         <Stack
           marginTop="16px"
           sx={{
@@ -410,9 +413,16 @@ const InstanceDetailsPage = ({
           }}
           alignItems="center"
         >
-          <iframe width="100%" style={{
-            'minHeight': '500px'
-          }} src={process.env.NEXT_PUBLIC_GRAFANA_URL + "/d/" + instanceId + "?orgId=" + subscription.id} />
+          {
+            url.includes("falkordb.cloud") ? (
+              <iframe width="100%" style={{
+                'minHeight': '700px'
+              }} src={process.env.NEXT_PUBLIC_GRAFANA_URL + "/d/" + instanceId + "?orgId=" + subscription.id} />
+            ) : (
+              <DisplayText>
+                You must be on FalkorDB Cloud to view metrics.
+              </DisplayText>
+            )}
         </Stack>
       )}
       {currentTab === tabs.logs && (

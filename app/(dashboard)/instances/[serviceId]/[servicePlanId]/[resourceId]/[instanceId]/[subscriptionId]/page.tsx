@@ -11,7 +11,6 @@ import Button from "components/Button/Button";
 import Logs from "components/ResourceInstance/Logs/Logs";
 import Backup from "components/ResourceInstance/Backup/Backup";
 import { DisplayText } from "components/Typography/Typography";
-import Metrics from "components/ResourceInstance/Metrics/Metrics";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import AuditLogs from "components/ResourceInstance/AuditLogs/AuditLogs";
 import NodesTable from "components/ResourceInstance/NodesTable/NodesTable";
@@ -131,7 +130,7 @@ const InstanceDetailsPage = ({
   const tabs = useMemo(
     () =>
       getTabs(
-        resourceInstanceData?.isMetricsEnabled,
+        true,// resourceInstanceData?.isMetricsEnabled,
         resourceInstanceData?.isLogsEnabled,
         resourceInstanceData?.active,
         isResourceBYOA,
@@ -147,11 +146,11 @@ const InstanceDetailsPage = ({
     [resourceInstanceData, isCliManagedResource, resourceType]
   );
 
-  const enabledTabs = useMemo(
+  const disabledTabs = useMemo(
     () =>
-      resourceInstanceData?.status === "DISCONNECT"
-        ? ["resourceInstanceDetails", "connectivity", "auditLogs"] // Fixed predefined tabs
-        : Object.keys(tabs), // Extract only keys from tabs
+      resourceInstanceData?.status === "DISCONNECTED"
+        ? ["backups", "metrics", "logs"]
+        : [],
     [resourceInstanceData, tabs]
   );
 
@@ -188,7 +187,7 @@ const InstanceDetailsPage = ({
             size="xsmall"
             sx={{ wordBreak: "break-word", textAlign: "center", maxWidth: 900 }}
           >
-            Resource Instance not found
+            Deployment Instance not found
           </DisplayText>
         </Stack>
       </PageContainer>
@@ -226,6 +225,8 @@ const InstanceDetailsPage = ({
       !(v as any).resourceName.startsWith("Omnistrate")
     );
   })[0][0];
+
+  const url = window.location.href;
 
   return (
     <PageContainer>
@@ -277,9 +278,10 @@ const InstanceDetailsPage = ({
       >
         <Tabs value={currentTab} sx={{ marginTop: "20px" }}>
           {Object.entries(tabs).map(([key, value]) => {
-            const isEnabled = enabledTabs?.includes(key);
+          const isDisabled = disabledTabs?.includes(key);
             return (
               <Tab
+              data-testid={`${value?.replace(" ", "-").toLowerCase()}-tab`}
                 key={key}
                 label={value}
                 value={value}
@@ -287,7 +289,7 @@ const InstanceDetailsPage = ({
                   setCurrentTab(value as CurrentTab);
                 }}
                 disableRipple
-                disabled={!isEnabled}
+                disabled={isDisabled}
               />
             );
           })}
@@ -384,22 +386,44 @@ const InstanceDetailsPage = ({
           serviceOffering={offering}
           resourceKey={resourceKey}
           resourceInstanceId={instanceId}
+          resourceInstancestatus={resourceInstanceData.status}
           subscriptionData={subscription}
           subscriptionId={subscription.id}
           isBYOAServicePlan={offering?.serviceModelType === "BYOA"}
         />
       )}
       {currentTab === tabs.metrics && (
-        <Metrics
-          resourceInstanceId={instanceId}
-          nodes={resourceInstanceData.nodes}
-          socketBaseURL={resourceInstanceData.metricsSocketURL}
-          instanceStatus={resourceInstanceData.status}
-          resourceKey={resourceInstanceData.resourceKey}
-          customMetrics={resourceInstanceData.customMetrics || []}
-          mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
-          productTierType={offering.productTierType}
-        />
+        // <Metrics
+        //   resourceInstanceId={instanceId}
+        //   nodes={resourceInstanceData.nodes}
+        //   socketBaseURL={resourceInstanceData.metricsSocketURL}
+        //   instanceStatus={resourceInstanceData.status}
+        //   resourceKey={resourceInstanceData.resourceKey}
+        //   customMetrics={resourceInstanceData.customMetrics || []}
+        //   mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
+        //   productTierType={offering.productTierType}
+        // />
+
+        <Stack
+          marginTop="16px"
+          sx={{
+            //marginTop: "46px",
+            flexDirection: "row",
+            justifyContent: "space-between",
+          }}
+          alignItems="center"
+        >
+          {
+            url.includes("falkordb.cloud") ? (
+              <iframe width="100%" style={{
+                'minHeight': '700px'
+              }} src={process.env.NEXT_PUBLIC_GRAFANA_URL + "/d/" + instanceId + "?orgId=" + subscription.id} />
+            ) : (
+              <DisplayText>
+                You must be on FalkorDB Cloud to view metrics.
+              </DisplayText>
+            )}
+        </Stack>
       )}
       {currentTab === tabs.logs && (
         <Logs

@@ -20,7 +20,7 @@ export const getStepperProps = (
   if (StepperSetpStatus === stateAccountConfigStepper.trigger) {
     return {
       step1: {
-        title: "Tigger",
+        title: "Trigger",
         icon: <StepperInProgressIcon />,
       },
       step2: {
@@ -37,7 +37,7 @@ export const getStepperProps = (
   if (StepperSetpStatus === stateAccountConfigStepper.run) {
     return {
       step1: {
-        title: "Tigger",
+        title: "Trigger",
         icon: <StepperSuccessIcon />,
       },
       step2: {
@@ -54,7 +54,7 @@ export const getStepperProps = (
   if (StepperSetpStatus === stateAccountConfigStepper.check) {
     return {
       step1: {
-        title: "Tigger",
+        title: "Trigger",
         icon: <StepperSuccessIcon />,
       },
       step2: {
@@ -70,7 +70,7 @@ export const getStepperProps = (
 
   return {
     step1: {
-      title: "Tigger",
+      title: "Trigger",
       icon: <StepperDefaultIcon />,
     },
     step2: {
@@ -95,7 +95,7 @@ export const stepsDisconnectRunAccountConfig = [
   {
     label: (
       <Text size="small" weight="semibold" color="#414651">
-        Syncing & Purging
+        Disconnecting
       </Text>
     ),
   },
@@ -108,22 +108,29 @@ export const stepsDisconnectRunAccountConfig = [
   },
 ];
 
-export const stepsConnectRunAccountConfig = [
-  {
-    label: (
-      <Text size="small" weight="semibold" color="#414651">
-        Validating Your Request
-      </Text>
-    ),
-  },
-  {
-    label: (
-      <Text size="small" weight="semibold" color="#414651">
-        Granting Permissions (manual step)
-      </Text>
-    ),
-  },
-];
+export const stepsConnectRunAccountConfig = (cloudProvider: "aws" | "gcp") => {
+  const actionText =
+    cloudProvider === "aws"
+      ? "Action Required: Please run the CloudFormation template to proceed."
+      : "Action Required: Please run the Google Cloud Shell Script to proceed.";
+
+  return [
+    {
+      label: (
+        <Text size="small" weight="semibold" color="#414651">
+          Validating Your Request
+        </Text>
+      ),
+    },
+    {
+      label: (
+        <Text size="small" weight="semibold" color="#414651">
+          {actionText}
+        </Text>
+      ),
+    },
+  ];
+};
 
 export const CustomStepIcon = (props) => {
   const { active, completed } = props;

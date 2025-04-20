@@ -8,10 +8,10 @@ import CopyToClipboardButton from "../CopyClipboardButton/CopyClipboardButton";
 import ArrowBulletIcon from "../Icons/ArrowIcon/ArrowBulletIcon";
 import LoadingSpinnerSmall from "../CircularProgress/CircularProgress";
 import {
-  ACCOUNT_CREATION_METHODS,
+  // ACCOUNT_CREATION_METHODS,
   getAccountConfigStatusBasedHeader,
 } from "src/utils/constants/accountConfig";
-import { CLOUD_PROVIDERS } from "src/constants/cloudProviders";
+// import { CLOUD_PROVIDERS } from "src/constants/cloudProviders";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -144,10 +144,10 @@ const CreationTimeInstructions = (props) => {
     gcpCloudShellLink,
     shellScriptGuide,
     accountInstructionDetails,
-    orgId,
+    // orgId,
     accountConfigMethod,
-    terraformlink,
-    terraformGuide,
+    // terraformlink,
+    // terraformGuide,
     fetchClickedInstanceDetails,
     setClickedInstance,
   } = props;
@@ -216,7 +216,7 @@ const CreationTimeInstructions = (props) => {
 
   useEffect(() => {
     if (
-      accountConfigMethod === ACCOUNT_CREATION_METHODS.GCP_SCRIPT &&
+      // accountConfigMethod === ACCOUNT_CREATION_METHODS.GCP_SCRIPT &&
       !gcpBootstrapShellCommand
     ) {
       startPolling();
@@ -319,27 +319,30 @@ const CreationTimeInstructions = (props) => {
           </Box>
         </Stack>
 
-        {accountConfigMethod === ACCOUNT_CREATION_METHODS.GCP_SCRIPT && (
-          <>
-            {gcpBootstrapShellCommand ? (
-              <>
-                <BodyText sx={{ marginTop: "20px" }}>
-                  Please open the Google Cloud Shell environment using the
-                  following link {gcpCloudShellLink} and execute the below
-                  command. For guidance, our instructional video is available{" "}
-                  {shellScriptGuide}.
-                </BodyText>
-                <TextContainerToCopy text={gcpBootstrapShellCommand} />
-              </>
-            ) : (
+        {/* {accountConfigMethod === ACCOUNT_CREATION_METHODS.GCP_SCRIPT && ( */}
+        <>
+          {gcpBootstrapShellCommand ? (
+            <>
               <BodyText sx={{ marginTop: "20px" }}>
-                Your GCP shell script is being configured. Please check back
-                shortly for detailed setup instructions.
+                Please open the Google Cloud Shell environment using the
+                following link {gcpCloudShellLink} and execute the below
+                command.
               </BodyText>
-            )}
-          </>
-        )}
-
+              <TextContainerToCopy text={gcpBootstrapShellCommand} />
+              <BodyText sx={{ marginTop: "20px" }}>
+                For guidance, our instructional video is available{" "}
+                {shellScriptGuide}.
+              </BodyText>
+            </>
+          ) : (
+            <BodyText sx={{ marginTop: "20px" }}>
+              Your GCP shell script is being configured. Please check back
+              shortly for detailed setup instructions.
+            </BodyText>
+          )}
+        </>
+        {/* )} */}
+        {/* 
         {accountConfigMethod === ACCOUNT_CREATION_METHODS.TERRAFORM && (
           <>
             {terraformlink ? (
@@ -358,7 +361,7 @@ const CreationTimeInstructions = (props) => {
               </BodyText>
             )}
           </>
-        )}
+        )} */}
       </>
     );
   } else {
@@ -381,10 +384,10 @@ const NonCreationTimeInstructions = (props) => {
     gcpCloudShellLink,
     shellScriptGuide,
     accountInstructionDetails,
-    orgId,
-    accountConfigMethod,
-    terraformlink,
-    terraformGuide,
+    // orgId,
+    // accountConfigMethod,
+    // terraformlink,
+    // terraformGuide,
   } = props;
 
   if (
@@ -434,51 +437,65 @@ const NonCreationTimeInstructions = (props) => {
         <BodyText sx={{ marginTop: "20px", fontWeight: 600 }}>
           {getAccountConfigStatusBasedHeader(
             selectedAccountConfig?.status,
-            accountConfigMethod,
-            accountInstructionDetails?.gcpProjectID
-              ? CLOUD_PROVIDERS.gcp
-              : CLOUD_PROVIDERS.aws
+            selectedAccountConfig?.result_params
+              ?.cloud_provider_account_config_id
+            // accountConfigMethod,
+            // accountInstructionDetails?.gcpProjectID
+            //   ? CLOUD_PROVIDERS.gcp
+            //   : CLOUD_PROVIDERS.aws
           )}
         </BodyText>
 
         <List>
-          {accountInstructionDetails?.awsAccountID && (
-            <ListItem>
-              <ListItemIcon>
-                <ArrowBulletSmall />
-              </ListItemIcon>
-              {cloudFormationTemplateUrl ? (
-                <>
+          <>
+            {accountInstructionDetails?.awsAccountID && (
+              <ListItem>
+                <ListItemIcon>
+                  <ArrowBulletSmall />
+                </ListItemIcon>
+                {cloudFormationTemplateUrl ? (
+                  <>
+                    <Box display={"flex"} flexDirection={"column"} gap={"10px"}>
+                      <BodyText>
+                        Please create your CloudFormation Stack using the
+                        provided template {cloudformationlink}.
+                      </BodyText>
+                      <BodyText>
+                        If an existing AWSLoadBalancerControllerIAMPolicy policy
+                        causes an error while creating the CloudFormation stack,
+                        set the parameter CreateLoadBalancerPolicy to
+                        &quot;false&quot;.
+                      </BodyText>
+                      <BodyText>
+                        For guidance, our instructional video is available{" "}
+                        {cloudFormationGuide}.
+                      </BodyText>
+                    </Box>
+                  </>
+                ) : selectedAccountConfig?.status === "FAILED" ? (
                   <Box display={"flex"} flexDirection={"column"} gap={"10px"}>
                     <BodyText>
-                      Please create your CloudFormation Stack using the provided
-                      template {cloudformationlink}.
+                      You may delete this failed configuration and retry adding
+                      it after carefully verifying the AWS Account ID
                     </BodyText>
                     <BodyText>
-                      If an existing AWSLoadBalancerControllerIAMPolicy policy
-                      causes an error while creating the CloudFormation stack,
-                      set the parameter CreateLoadBalancerPolicy to
-                      &quot;false&quot;.
-                    </BodyText>
-                    <BodyText>
-                      For guidance, our instructional video is available{" "}
-                      {cloudFormationGuide}.
+                      If the issue persists, please contact Support for
+                      assistance.
                     </BodyText>
                   </Box>
-                </>
-              ) : (
-                <BodyText>
-                  Your CloudFormation Stack is being configured. Please check
-                  back shortly for detailed setup instructions.
-                </BodyText>
-              )}
-            </ListItem>
-          )}
-          {accountInstructionDetails?.gcpProjectID && (
-            <>
-              {(!accountConfigMethod ||
+                ) : (
+                  <BodyText>
+                    Your account details are being configured. Please check back
+                    shortly for detailed setup instructions.
+                  </BodyText>
+                )}
+              </ListItem>
+            )}
+            {accountInstructionDetails?.gcpProjectID && (
+              <>
+                {/* {(!accountConfigMethod ||
                 accountConfigMethod ===
-                  ACCOUNT_CREATION_METHODS.GCP_SCRIPT) && (
+                  ACCOUNT_CREATION_METHODS.GCP_SCRIPT) && ( */}
                 <ListItem>
                   <ListItemIcon>
                     <ArrowBulletSmall />
@@ -487,28 +504,41 @@ const NonCreationTimeInstructions = (props) => {
                   {gcpBootstrapShellCommand ? (
                     <Box flex={1} overflow={"hidden"}>
                       <BodyText>
-                        <b>Using GCP Cloud Shell:</b> Please open the Google
-                        Cloud Shell environment using the following link{" "}
-                        {gcpCloudShellLink} and execute the command below. For
-                        guidance our instructional video is {shellScriptGuide}.
+                        Please open the Google Cloud Shell environment using the
+                        following link {gcpCloudShellLink} and execute the
+                        command below.
                       </BodyText>
 
                       <TextContainerToCopy
                         text={gcpBootstrapShellCommand}
                         marginTop="12px"
                       />
+                      <BodyText sx={{ marginTop: "20px" }}>
+                        For guidance our instructional video is{" "}
+                        {shellScriptGuide}.
+                      </BodyText>
+                    </Box>
+                  ) : selectedAccountConfig?.status === "FAILED" ? (
+                    <Box display={"flex"} flexDirection={"column"} gap={"10px"}>
+                      <BodyText>
+                        You may delete this failed configuration and retry
+                        adding it after carefully verifying the GCP Project ID
+                        and Project Number.
+                      </BodyText>
+                      <BodyText>
+                        If the issue persists, please contact Support for
+                        assistance.
+                      </BodyText>
                     </Box>
                   ) : (
-                    <BodyText flex={1} overflow={"hidden"}>
-                      <b>Using GCP Cloud Shell:</b> Your Google cloud script is
-                      being configured. Please check back shortly for detailed
-                      setup instructions.
+                    <BodyText>
+                      Your account details are being configured. Please check
+                      back shortly for detailed setup instructions.
                     </BodyText>
                   )}
                 </ListItem>
-              )}
 
-              {(!accountConfigMethod ||
+                {/* {(!accountConfigMethod ||
                 accountConfigMethod === ACCOUNT_CREATION_METHODS.TERRAFORM) && (
                 <ListItem>
                   <ListItemIcon>
@@ -534,9 +564,10 @@ const NonCreationTimeInstructions = (props) => {
                     </BodyText>
                   )}
                 </ListItem>
-              )}
-            </>
-          )}
+              )} */}
+              </>
+            )}
+          </>
         </List>
       </Box>
     </>
@@ -545,7 +576,7 @@ const NonCreationTimeInstructions = (props) => {
 
 function CloudProviderAccountOrgIdModal(props) {
   const {
-    orgId,
+    // orgId,
     open,
     handleClose,
     isAccountCreation,
@@ -556,7 +587,7 @@ function CloudProviderAccountOrgIdModal(props) {
     gcpBootstrapShellCommand,
     accountInstructionDetails,
     accountConfigMethod,
-    downloadTerraformKitMutation,
+    // downloadTerraformKitMutation,
     fetchClickedInstanceDetails,
     setClickedInstance,
   } = props;
@@ -581,35 +612,35 @@ function CloudProviderAccountOrgIdModal(props) {
     </StyledLink>
   );
 
-  const terraformlink = isAccessPage ? (
-    <>
-      <Box
-        sx={{
-          cursor: "pointer",
-          textDecoration: "underline",
-          color: "#7F56D9",
-          fontWeight: 600,
-        }}
-        component="span"
-        onClick={() => {
-          downloadTerraformKitMutation.mutate();
-        }}
-      >
-        here
-      </Box>
-      {downloadTerraformKitMutation.isLoading && (
-        <LoadingSpinnerSmall sx={{ color: "black", ml: "16px" }} size={12} />
-      )}
-    </>
-  ) : (
-    <StyledLink
-      href="https://github.com/omnistrate-oss/account-setup"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      here
-    </StyledLink>
-  );
+  // const terraformlink = isAccessPage ? (
+  //   <>
+  //     <Box
+  //       sx={{
+  //         cursor: "pointer",
+  //         textDecoration: "underline",
+  //         color: "#7F56D9",
+  //         fontWeight: 600,
+  //       }}
+  //       component="span"
+  //       onClick={() => {
+  //         downloadTerraformKitMutation.mutate();
+  //       }}
+  //     >
+  //       here
+  //     </Box>
+  //     {downloadTerraformKitMutation.isLoading && (
+  //       <LoadingSpinnerSmall sx={{ color: "black", ml: "16px" }} size={12} />
+  //     )}
+  //   </>
+  // ) : (
+  //   <StyledLink
+  //     href="https://github.com/omnistrate-oss/account-setup"
+  //     target="_blank"
+  //     rel="noopener noreferrer"
+  //   >
+  //     here
+  //   </StyledLink>
+  // );
 
   // links pointing to guides for different methods
 
@@ -649,23 +680,23 @@ function CloudProviderAccountOrgIdModal(props) {
     </StyledLink>
   );
 
-  const terraformGuide = isAccessPage ? (
-    <StyledLink
-      href="https://youtu.be/l6lMEZdMMxs"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      here
-    </StyledLink>
-  ) : (
-    <StyledLink
-      href="https://youtu.be/eKktc4QKgaA"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      here
-    </StyledLink>
-  );
+  // const terraformGuide = isAccessPage ? (
+  //   <StyledLink
+  //     href="https://youtu.be/l6lMEZdMMxs"
+  //     target="_blank"
+  //     rel="noopener noreferrer"
+  //   >
+  //     here
+  //   </StyledLink>
+  // ) : (
+  //   <StyledLink
+  //     href="https://youtu.be/eKktc4QKgaA"
+  //     target="_blank"
+  //     rel="noopener noreferrer"
+  //   >
+  //     here
+  //   </StyledLink>
+  // );
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth={"tablet"}>
@@ -701,7 +732,7 @@ function CloudProviderAccountOrgIdModal(props) {
         <Content>
           {isAccountCreation ? (
             <CreationTimeInstructions
-              orgId={orgId}
+              // orgId={orgId}
               cloudformationlink={cloudformationlink}
               cloudFormationGuide={cloudFormationGuide}
               accountConfigStatus={selectedAccountConfig?.status}
@@ -712,14 +743,14 @@ function CloudProviderAccountOrgIdModal(props) {
               shellScriptGuide={shellScriptGuide}
               accountInstructionDetails={accountInstructionDetails}
               accountConfigMethod={accountConfigMethod}
-              terraformlink={terraformlink}
-              terraformGuide={terraformGuide}
+              // terraformlink={terraformlink}
+              // terraformGuide={terraformGuide}
               fetchClickedInstanceDetails={fetchClickedInstanceDetails}
               setClickedInstance={setClickedInstance}
             />
           ) : (
             <NonCreationTimeInstructions
-              orgId={orgId}
+              // orgId={orgId}
               selectedAccountConfig={selectedAccountConfig}
               cloudformationlink={cloudformationlink}
               cloudFormationGuide={cloudFormationGuide}
@@ -729,8 +760,8 @@ function CloudProviderAccountOrgIdModal(props) {
               shellScriptGuide={shellScriptGuide}
               accountInstructionDetails={accountInstructionDetails}
               accountConfigMethod={accountConfigMethod}
-              terraformlink={terraformlink}
-              terraformGuide={terraformGuide}
+              // terraformlink={terraformlink}
+              // terraformGuide={terraformGuide}
             />
           )}
         </Content>

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 
 import Footer from "src/components/NonDashboardComponents/Footer";
 
-import MainImg from "public/assets/images/non-dashboard/signin-main.svg";
+import MainImg from "public/assets/images/non-dashboard/signin-main.webp";
 
 const MainImageLayout = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();

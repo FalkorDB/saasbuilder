@@ -1,17 +1,16 @@
 import Link from "next/link";
 import { Field } from "src/components/DynamicForm/types";
 import { productTierTypes } from "src/constants/servicePlan";
-import { cloudProviderLogoMap } from "src/constants/cloudProviders";
+import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 import {
   getCustomNetworksMenuItems,
   getRegionMenuItems,
   getResourceMenuItems,
   getServiceMenuItems,
+  getValidSubscriptionForInstanceCreation,
 } from "../utils";
-
 import CloudProviderRadio from "../../components/CloudProviderRadio/CloudProviderRadio";
 import SubscriptionPlanRadio from "../../components/SubscriptionPlanRadio/SubscriptionPlanRadio";
-
 import { Subscription } from "src/types/subscription";
 import { CustomNetwork } from "src/types/customNetwork";
 import { AvailabilityZone } from "src/types/availabilityZone";
@@ -21,6 +20,7 @@ import SubscriptionMenu from "app/(dashboard)/components/SubscriptionMenu/Subscr
 import AccountConfigDescription from "./AccountConfigDescription";
 import { fromProvider } from "cloud-regions-country-flags";
 import CustomNetworkDescription from "./CustomNetworkDescription";
+import { ResourceInstance } from "src/types/resourceInstance";
 
 export const getStandardInformationFields = (
   servicesObj,
@@ -34,9 +34,36 @@ export const getStandardInformationFields = (
   resourceSchema: APIEntity,
   formMode: FormMode,
   customAvailabilityZones: AvailabilityZone[],
-  isFetchingCustomAvailabilityZones: boolean
+  isFetchingCustomAvailabilityZones: boolean,
+  isPaymentConfigured: boolean,
+  instances: ResourceInstance[]
 ) => {
   if (isFetchingServiceOfferings) return [];
+
+  //subscriptionID -> key, number of instances -> value
+  const subscriptionInstanceCountHash: Record<string, number> = {};
+  instances.forEach((instance) => {
+    if (subscriptionInstanceCountHash[instance?.subscriptionId as string]) {
+      subscriptionInstanceCountHash[instance.subscriptionId as string] =
+        subscriptionInstanceCountHash[instance.subscriptionId as string] + 1;
+    } else {
+      subscriptionInstanceCountHash[instance.subscriptionId as string] = 1;
+    }
+  });
+
+  //key-> subscriptionID value-> boolean that indicates if the subscription has reached its quota limit
+  const subscriptionQuotaLimitHash: Record<string, boolean> = {};
+  subscriptions.forEach((subscription) => {
+    const { serviceId, productTierId } = subscription;
+    const offering = serviceOfferingsObj[serviceId]?.[productTierId];
+    const quotaLimit = offering?.maxNumberOfInstances;
+    const instanceCount = subscriptionInstanceCountHash[subscription.id] || 0;
+    let hasReachedInstanceQuotaLimit = false;
+    if (quotaLimit) {
+      hasReachedInstanceQuotaLimit = instanceCount >= quotaLimit;
+    }
+    subscriptionQuotaLimitHash[subscription.id] = hasReachedInstanceQuotaLimit;
+  });
 
   const { values, setFieldValue, setFieldTouched } = formData;
   const {
@@ -99,21 +126,17 @@ export const getStandardInformationFields = (
       onChange: (e) => {
         const serviceId = e.target.value;
 
-        const filteredSubscriptions = subscriptions.filter(
-          (sub) =>
-            sub.serviceId === serviceId &&
-            ["root", "editor"].includes(sub.roleType)
-        );
-        const rootSubscription = filteredSubscriptions.find(
-          (sub) => sub.roleType === "root"
+        const subscription = getValidSubscriptionForInstanceCreation(
+          serviceOfferings,
+          serviceOfferingsObj,
+          subscriptions,
+          instances,
+          isPaymentConfigured,
+          serviceId
         );
 
-        const servicePlanId =
-          rootSubscription?.productTierId ||
-          filteredSubscriptions[0]?.productTierId ||
-          "";
-        const subscriptionId =
-          rootSubscription?.id || filteredSubscriptions[0]?.id || "";
+        const servicePlanId = subscription?.productTierId || "";
+        const subscriptionId = subscription?.id || "";
         setFieldValue("servicePlanId", servicePlanId);
         setFieldValue("subscriptionId", subscriptionId);
 
@@ -158,6 +181,9 @@ export const getStandardInformationFields = (
 
             return order[a.productTierName] - order[b.productTierName];
           })}
+          serviceSubscriptions={subscriptions.filter(
+            (subscription) => subscription.serviceId === serviceId
+          )}
           name="servicePlanId"
           formData={formData}
           disabled={formMode !== "create"}
@@ -203,6 +229,8 @@ export const getStandardInformationFields = (
             setFieldTouched("subscriptionId", false);
             setFieldTouched("resourceId", false);
           }}
+          isPaymentConfigured={isPaymentConfigured}
+          instances={instances}
         />
       ),
       previewValue: offering?.productTierName,
@@ -239,13 +267,14 @@ export const getStandardInformationFields = (
           }}
           formData={formData}
           subscriptions={subscriptionMenuItems}
+          subscriptionQuotaLimitHash={subscriptionQuotaLimitHash}
         />
       ),
       previewValue: subscriptionsObj[values.subscriptionId]?.id,
     },
     {
       dataTestId: "resource-type-select",
-      label: "Resource Type",
+      label: "Resource Name",
       subLabel: "Select the resource",
       name: "resourceId",
       type: "select",
@@ -297,7 +326,7 @@ export const getStandardInformationFields = (
       previewValue: values.cloudProvider
         ? () => {
             const cloudProvider = values.cloudProvider;
-            return cloudProviderLogoMap[cloudProvider];
+            return cloudProviderLongLogoMap[cloudProvider];
           }
         : null,
     });
@@ -448,7 +477,8 @@ export const getNetworkConfigurationFields = (
   if (
     cloudProviderNativeNetworkIdFieldExists &&
     cloudProviderFieldExists &&
-    values.cloudProvider !== "gcp"
+    values.cloudProvider !== "gcp" &&
+    values.cloudProvider !== "azure"
   ) {
     const param = inputParametersObj["cloud_provider_native_network_id"];
     fields.push({

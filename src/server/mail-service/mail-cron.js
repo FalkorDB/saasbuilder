@@ -31,13 +31,37 @@ const {
   getInvoiceCreatedTemplate,
 } = require("./templates/invoiceCreatedTemplate");
 const {
-  getUpgradeScheduledMailContent,
-  getUpgradeCompletedMailContent,
+  getUpgradeNotificationMailContent,
 } = require("./templates/upgradeNotification");
 
 const { getProviderOrgDetails } = require("../api/customer-user");
 const { getNodeMailerConfig } = require("./mail-config");
 const { getEnvironmentType } = require("../utils/getEnvironmentType");
+const {
+  getDisconnectedAccountCompleteMailContentAWS,
+} = require("./templates/disconnectedAccountcompleteAWS");
+const {
+  getConnectedAccountCompleteMailContentAWS,
+} = require("./templates/connectedAccountCompleteAWS");
+const {
+  getPendingRevokePermissionsMailContentAWS,
+} = require("./templates/pendingRevokePermissionsAWS");
+const {
+  getPendingRestorePermissionsMailContentAWS,
+} = require("./templates/pendingRestorePermissionsAWS");
+
+const {
+  getDisconnectedAccountCompleteMailContentGCP,
+} = require("./templates/disconnectedAccountcompleteGCP");
+const {
+  getConnectedAccountCompleteMailContentGCP,
+} = require("./templates/connectedAccountCompleteGCP");
+const {
+  getPendingRevokePermissionsMailContentGCP,
+} = require("./templates/pendingRevokePermissionsGCP");
+const {
+  getPendingRestorePermissionsMailContentGCP,
+} = require("./templates/pendingRestorePermissionsGCP");
 
 let isRunning = false;
 
@@ -139,7 +163,8 @@ function startMailServiceCron() {
             }
 
             case eventTypes.InstanceMaintenanceScheduled: {
-              mailContent = await getUpgradeScheduledMailContent(
+              mailContent = await getUpgradeNotificationMailContent(
+                "upgradeScheduled",
                 event,
                 orgLogoURL,
                 orgSupportEmail
@@ -148,7 +173,8 @@ function startMailServiceCron() {
             }
 
             case eventTypes.InstanceMaintenanceCompleted: {
-              mailContent = await getUpgradeCompletedMailContent(
+              mailContent = await getUpgradeNotificationMailContent(
+                "upgradeCompleted",
                 event,
                 orgLogoURL,
                 orgSupportEmail
@@ -158,6 +184,90 @@ function startMailServiceCron() {
 
             case eventTypes.InvoiceCreated: {
               mailContent = await getInvoiceCreatedTemplate(event, orgLogoURL);
+              break;
+            }
+
+            case eventTypes.PendingRestorePermissions: {
+              if (event?.eventPayload?.gcp_connect_bash_script) {
+                mailContent = await getPendingRestorePermissionsMailContentGCP(
+                  event,
+                  orgLogoURL,
+                  orgSupportEmail
+                );
+              } else if (event?.eventPayload?.connect_cfn_url) {
+                mailContent = await getPendingRestorePermissionsMailContentAWS(
+                  event,
+                  orgLogoURL,
+                  orgSupportEmail
+                );
+              } else {
+                console.warn(
+                  `Connection event missing cloud provider signature: ${event.eventID}`
+                );
+              }
+              break;
+            }
+            case eventTypes.PendingRevokePermissions: {
+              if (event?.eventPayload?.gcp_disconnect_bash_script) {
+                mailContent = await getPendingRevokePermissionsMailContentGCP(
+                  event,
+                  orgLogoURL,
+                  orgSupportEmail
+                );
+              } else if (event?.eventPayload?.disconnect_cfn_url) {
+                mailContent = await getPendingRevokePermissionsMailContentAWS(
+                  event,
+                  orgLogoURL,
+                  orgSupportEmail
+                );
+              } else {
+                console.warn(
+                  `Connection event missing cloud provider signature: ${event.eventID}`
+                );
+              }
+              break;
+            }
+            case eventTypes.DisconnectAccountComplete: {
+              if (event?.eventPayload?.gcp_disconnect_bash_script) {
+                mailContent =
+                  await getDisconnectedAccountCompleteMailContentGCP(
+                    event,
+                    orgLogoURL,
+                    orgSupportEmail
+                  );
+              } else if (event?.eventPayload?.disconnect_cfn_url) {
+                mailContent =
+                  await getDisconnectedAccountCompleteMailContentAWS(
+                    event,
+                    orgLogoURL,
+                    orgSupportEmail
+                  );
+              } else {
+                console.warn(
+                  `Connection event missing cloud provider signature: ${event.eventID}`
+                );
+              }
+              break;
+            }
+
+            case eventTypes.ConnectAccountComplete: {
+              if (event?.eventPayload?.gcp_connect_bash_script) {
+                mailContent = await getConnectedAccountCompleteMailContentGCP(
+                  event,
+                  orgLogoURL,
+                  orgSupportEmail
+                );
+              } else if (event?.eventPayload?.connect_cfn_url) {
+                mailContent = await getConnectedAccountCompleteMailContentAWS(
+                  event,
+                  orgLogoURL,
+                  orgSupportEmail
+                );
+              } else {
+                console.warn(
+                  `Connection event missing cloud provider signature: ${event.eventID}`
+                );
+              }
               break;
             }
 

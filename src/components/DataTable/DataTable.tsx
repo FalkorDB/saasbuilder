@@ -70,7 +70,7 @@ type DataTableProps<TData> = {
   isLoading?: boolean;
   getRowCanExpand?: (rowData: Row<TData>) => boolean;
   getSubRows?: (orginalRow: TData) => TData[];
-  HeaderComponent: FC;
+  HeaderComponent?: FC;
   headerProps?: any;
   // Row Selection Props
   selectionMode?: SelectionMode;
@@ -81,6 +81,7 @@ type DataTableProps<TData> = {
   minHeight?: string | number;
   getRowClassName?: (rowData: TData) => string;
   statusColumn?: ColumnDef<TData>;
+  hidePagination?: boolean;
 };
 
 const DEFAULT_COLUMN_MIN_WIDTH = 150;
@@ -104,6 +105,7 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
     minHeight,
     getRowClassName,
     statusColumn,
+    hidePagination = false,
   } = props;
 
   const [expanded, setExpanded] = useState<ExpandedState>({});
@@ -183,6 +185,7 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
     },
     getSubRows: getSubRows,
     paginateExpandedRows: false,
+    getRowId: (row) => String(row[rowId]),
   });
 
   const rowData = table.getRowModel().rows;
@@ -242,7 +245,7 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
 
   return (
     <TableContainer sx={{ borderRadius: "8px", ...tableStyles }}>
-      <HeaderComponent {...headerProps} />
+      {HeaderComponent && <HeaderComponent {...headerProps} />}
       <Stack minHeight={minHeight || "605px"} justifyContent="space-between">
         <Box sx={{ overflowX: "auto", flexGrow: 1, position: "relative" }}>
           <Table
@@ -325,6 +328,7 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
                 rowData.map((row) => (
                   <React.Fragment key={row.id}>
                     <TableRow
+                      data-testid={row.id || "data-table-row"}
                       className={
                         getRowClassName ? getRowClassName(row.original) : ""
                       }
@@ -346,6 +350,7 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
                         }
                         return (
                           <TableCell
+                            data-testid={cell.column.id}
                             key={cell.id}
                             align={columnAlignment}
                             title={isBrowerTooltipDisabled ? "" : title}
@@ -405,16 +410,17 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
             </Stack>
           )}
         </Box>
-
-        <Pagination
-          isPreviousDisabled={!table.getCanPreviousPage()}
-          isNextDisabled={!table.getCanNextPage()}
-          handlePrevious={() => table.previousPage()}
-          handleNext={() => table.nextPage()}
-          pageCount={table.getPageCount()}
-          pageIndex={table.getState().pagination.pageIndex}
-          setPageIndex={table.setPageIndex}
-        />
+        {!hidePagination && (
+          <Pagination
+            isPreviousDisabled={!table.getCanPreviousPage()}
+            isNextDisabled={!table.getCanNextPage()}
+            handlePrevious={() => table.previousPage()}
+            handleNext={() => table.nextPage()}
+            pageCount={table.getPageCount()}
+            pageIndex={table.getState().pagination.pageIndex}
+            setPageIndex={table.setPageIndex}
+          />
+        )}
       </Stack>
     </TableContainer>
   );

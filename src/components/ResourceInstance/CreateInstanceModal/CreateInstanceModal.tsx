@@ -81,7 +81,13 @@ const InstanceIdContainer = (props) => {
           alignItems: "center",
         }}
       >
-        <Text size="medium" weight="medium" color="#667085" ellipsis>
+        <Text
+          data-testid="instance-id"
+          size="medium"
+          weight="medium"
+          color="#667085"
+          ellipsis
+        >
           {instanceId}
         </Text>
 
@@ -138,7 +144,7 @@ function CreateInstanceModal(props: CreateInstanceModalProps) {
           <BodyText>
             Your instance is being set up and will be ready shortly (usually
             within a few minutes). You can track its status in Deployment
-            Instances. Below is the Deployment ID for your reference
+            Instances. Below is the Instance ID for your reference
           </BodyText>
           <InstanceIdContainer instanceId={instanceId} />
           <List>

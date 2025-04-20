@@ -26,7 +26,10 @@ import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import GridDynamicField from "components/DynamicForm/GridDynamicField";
 import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
 
-import { getInitialValues } from "../utils";
+import {
+  getInitialValues,
+  getOfferingPaymentConfigRequiredStatus,
+} from "../utils";
 import useResourceSchema from "../hooks/useResourceSchema";
 import {
   getDeploymentConfigurationFields,
@@ -37,6 +40,7 @@ import useCustomNetworks from "app/(dashboard)/custom-networks/hooks/useCustomNe
 import { CloudProvider } from "src/types/common/enums";
 import { productTierTypes } from "src/constants/servicePlan";
 import { isCloudAccountInstance } from "src/utils/access/byoaResource";
+import Tooltip from "src/components/Tooltip/Tooltip";
 
 const InstanceForm = ({
   formMode,
@@ -46,6 +50,7 @@ const InstanceForm = ({
   setOverlayType,
   setIsOverlayOpen,
   setCreateInstanceModalData,
+  isPaymentConfigured,
 }) => {
   const snackbar = useSnackbar();
   const {
@@ -57,6 +62,10 @@ const InstanceForm = ({
     subscriptionsObj,
     isFetchingSubscriptions,
   } = useGlobalData();
+
+  const nonCloudAccountInstances = useMemo(() => {
+    return instances.filter((instance) => !isCloudAccountInstance(instance));
+  }, [instances]);
 
   const createInstanceMutation = useMutation(
     async (payload: any) => {
@@ -84,7 +93,7 @@ const InstanceForm = ({
     onSuccess: () => {
       refetchInstances();
       formData.resetForm();
-      snackbar.showSuccess("Updated Resource Instance");
+      snackbar.showSuccess("Updated Deployment Instance");
       setIsOverlayOpen(false);
     },
   });
@@ -94,14 +103,16 @@ const InstanceForm = ({
       selectedInstance,
       subscriptions,
       serviceOfferingsObj,
-      serviceOfferings
+      serviceOfferings,
+      nonCloudAccountInstances,
+      isPaymentConfigured
     ),
     enableReinitialize: true,
     validationSchema: yup.object({
       serviceId: yup.string().required("Service is required"),
       servicePlanId: yup
         .string()
-        .required("Plan with active subscription is required"),
+        .required("A service plan with a valid subscription is required"),
       subscriptionId: yup.string().required("Subscription is required"),
       resourceId: yup.string().required("Resource is required"),
     }),
@@ -167,7 +178,18 @@ const InstanceForm = ({
               else data.requestParams[key] = false;
               break;
           }
+
+          if (key === "nodeInstanceType" &&
+            (data.cloudProvider === "aws" && !data.requestParams["nodeInstanceType"].includes(".")) ||
+            (data.cloudProvider === "gcp") && !data.requestParams["nodeInstanceType"].includes("-")) {
+            snackbar.showError(`Invalid Node Instance Type`)
+            isTypeError = true;
+          }
         });
+
+        if (isTypeError) {
+          return;
+        }
 
         for (const key in data.requestParams) {
           const value = data.requestParams[key];
@@ -180,8 +202,8 @@ const InstanceForm = ({
           }
         }
 
-        // Remove cloud_provider_native_network_id if cloudProvider is GCP
-        if (data.cloudProvider === "GCP") {
+        // Remove cloud_provider_native_network_id if cloudProvider is gcp or azure
+        if (data.cloudProvider === "gcp" || data.cloudProvider === "azure") {
           delete data.requestParams.cloud_provider_native_network_id;
         }
 
@@ -196,7 +218,7 @@ const InstanceForm = ({
         const networkTypeFieldExists =
           inputParametersObj["cloud_provider"] &&
           offering?.productTierType !==
-            productTierTypes.OMNISTRATE_MULTI_TENANCY &&
+          productTierTypes.OMNISTRATE_MULTI_TENANCY &&
           offering?.supportsPublicNetwork;
 
         if (!data.network_type) {
@@ -345,7 +367,13 @@ const InstanceForm = ({
     offering?.productTierURLKey,
     offering?.resourceParameters,
     subscriptionsObj[values.subscriptionId]?.productTierId ===
-      values.servicePlanId && values.subscriptionId
+    values.servicePlanId && values.subscriptionId
+  );
+
+  const requiresValidPaymentConfig = getOfferingPaymentConfigRequiredStatus(
+    serviceOfferings,
+    values.serviceId,
+    values.servicePlanId
   );
 
   // Sets the Default Values for the Request Parameters
@@ -400,6 +428,8 @@ const InstanceForm = ({
             return values.cloudProvider === "gcp";
           } else if (instance.result_params?.aws_account_id) {
             return values.cloudProvider === "aws";
+          } else if (instance.result_params?.azure_subscription_id) {
+            return values.cloudProvider === "azure";
           }
         })
         .filter((instance) => ["READY", "RUNNING"].includes(instance.status))
@@ -407,7 +437,9 @@ const InstanceForm = ({
           ...instance,
           label: instance.result_params?.gcp_project_id
             ? `${instance.id} (Project ID - ${instance.result_params?.gcp_project_id})`
-            : `${instance.id} (Account ID - ${instance.result_params?.aws_account_id})`,
+            : instance.result_params?.aws_account_id
+              ? `${instance.id} (Account ID - ${instance.result_params?.aws_account_id})`
+              : `${instance.id} (Subscription ID - ${instance.result_params?.azure_subscription_id})`,
         })),
     [instances, values.cloudProvider]
   );
@@ -425,7 +457,9 @@ const InstanceForm = ({
       resourceSchema,
       formMode,
       customAvailabilityZones,
-      isFetchingCustomAvailabilityZones
+      isFetchingCustomAvailabilityZones,
+      isPaymentConfigured,
+      nonCloudAccountInstances
     );
   }, [
     formMode,
@@ -433,6 +467,8 @@ const InstanceForm = ({
     resourceSchema,
     customAvailabilityZones,
     subscriptions,
+    isPaymentConfigured,
+    nonCloudAccountInstances,
   ]);
 
   const networkConfigurationFields = useMemo(() => {
@@ -493,6 +529,9 @@ const InstanceForm = ({
     ]
   );
 
+  const disableInstanceCreation =
+    requiresValidPaymentConfig && !isPaymentConfigured;
+
   if (isFetchingServiceOfferings) {
     return <LoadingSpinner />;
   }
@@ -514,8 +553,9 @@ const InstanceForm = ({
             })}
           </div>
         </CardWithTitle>
+
         {isFetchingResourceSchema ||
-        !networkConfigurationFields.length ? null : (
+          !networkConfigurationFields.length ? null : (
           <CardWithTitle title="Network Configuration">
             <div className="space-y-6">
               {networkConfigurationFields.map((field, index) => {
@@ -588,22 +628,30 @@ const InstanceForm = ({
             >
               Cancel
             </Button>
-
-            <Button
-              data-testid="submit-button"
-              variant="contained"
-              disabled={
-                createInstanceMutation.isLoading ||
-                updateResourceInstanceMutation.isLoading
-              }
-              type="submit"
+            <Tooltip
+              title="Valid payment method configuration required"
+              placement="top"
+              isVisible={disableInstanceCreation}
             >
-              {formMode === "create" ? "Create" : "Update"}
-              {(createInstanceMutation.isLoading ||
-                updateResourceInstanceMutation.isLoading) && (
-                <LoadingSpinnerSmall />
-              )}
-            </Button>
+              <span>
+                <Button
+                  data-testid="submit-button"
+                  variant="contained"
+                  disabled={
+                    createInstanceMutation.isLoading ||
+                    updateResourceInstanceMutation.isLoading ||
+                    disableInstanceCreation
+                  }
+                  type="submit"
+                >
+                  {formMode === "create" ? "Create" : "Update"}
+                  {(createInstanceMutation.isLoading ||
+                    updateResourceInstanceMutation.isLoading) && (
+                      <LoadingSpinnerSmall />
+                    )}
+                </Button>
+              </span>
+            </Tooltip>
           </div>
         </div>
       </div>

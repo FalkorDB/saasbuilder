@@ -21,10 +21,7 @@ import InstancesTableHeader from "./components/InstancesTableHeader";
 import FullScreenDrawer from "../components/FullScreenDrawer/FullScreenDrawer";
 import useSnackbar from "src/hooks/useSnackbar";
 import formatDateUTC from "src/utils/formatDateUTC";
-import {
-  ResourceInstance,
-  ResourceInstanceNetworkTopology,
-} from "src/types/resourceInstance";
+import { ResourceInstance, ResourceInstanceNetworkTopology } from "src/types/resourceInstance";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 
 import { deleteResourceInstance } from "src/api/resourceInstance";
@@ -51,9 +48,10 @@ import LoadIndicatorIdle from "src/components/Icons/LoadIndicator/LoadIndicatorI
 import LoadIndicatorNormal from "src/components/Icons/LoadIndicator/LoadIndicatorNormal";
 import LoadIndicatorHigh from "src/components/Icons/LoadIndicator/LoadIndicatorHigh";
 import StatusCell from "./components/StatusCell";
-import { getResourceInstanceDetailsStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceDetailsStatus";
 import useBillingDetails from "../billing/hooks/useBillingDetails";
 import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
+import InstanceLicenseStatusChip from "src/components/InstanceLicenseStatusChip/InstanceLicenseStatusChip";
+import useBillingStatus from "../billing/hooks/useBillingStatus";
 
 const columnHelper = createColumnHelper<ResourceInstance>();
 type Overlay =
@@ -69,30 +67,27 @@ type Overlay =
 const InstancesPage = () => {
   const snackbar = useSnackbar();
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
-  const [overlayType, setOverlayType] = useState<Overlay>(
-    "create-instance-form"
-  );
+  const [overlayType, setOverlayType] = useState<Overlay>("create-instance-form");
   const [isOverlayOpen, setIsOverlayOpen] = useState<boolean>(false);
   const [createInstanceModalData, setCreateInstanceModalData] = useState<{
     instanceId?: string;
     isCustomDNS?: boolean;
   }>({});
-  const { data: billingConfig, isLoading: isLoadingPaymentConfiguration } =
-    useBillingDetails();
+
+  const billingStatusQuery = useBillingStatus();
+
+  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled);
+
+  const { data: billingConfig, isLoading: isLoadingPaymentConfiguration } = useBillingDetails(isBillingEnabled);
   const isPaymentConfigured = Boolean(billingConfig?.paymentConfigured);
 
   const [statusFilters, setStatusFilters] = useState(getInitialFilterState());
 
-  const {
-    subscriptionsObj,
-    serviceOfferingsObj,
-    isFetchingSubscriptions,
-    isFetchingServiceOfferings,
-  } = useGlobalData();
+  const { subscriptionsObj, serviceOfferingsObj, isFetchingSubscriptions, isFetchingServiceOfferings } =
+    useGlobalData();
 
-  const [selectedFilters, setSelectedFilters] = useState<
-    Record<string, FilterCategorySchema>
-  >(getIntialFiltersObject());
+  const [selectedFilters, setSelectedFilters] =
+    useState<Record<string, FilterCategorySchema>>(getIntialFiltersObject());
 
   const dataTableColumns = useMemo(() => {
     return [
@@ -100,13 +95,8 @@ const InstancesPage = () => {
         id: "id",
         header: "Instance ID",
         cell: (data) => {
-          const {
-            id: instanceId,
-            subscriptionId,
-            resourceID,
-          } = data.row.original;
-          const { serviceId, productTierId } =
-            subscriptionsObj[subscriptionId as string] || {};
+          const { id: instanceId, subscriptionId, resourceID } = data.row.original;
+          const { serviceId, productTierId } = subscriptionsObj[subscriptionId as string] || {};
 
           const resourceInstanceUrlLink = getInstanceDetailsRoute({
             serviceId,
@@ -176,9 +166,7 @@ const InstancesPage = () => {
         (row) => {
           const subscription = subscriptionsObj[row.subscriptionId as string];
           const offering =
-            serviceOfferingsObj[subscription?.serviceId as string]?.[
-              subscription?.productTierId as string
-            ];
+            serviceOfferingsObj[subscription?.serviceId as string]?.[subscription?.productTierId as string];
 
           const mainResource = getMainResourceFromInstance(row, offering);
           return mainResource?.name || "-";
@@ -203,9 +191,7 @@ const InstancesPage = () => {
         header: "Lifecycle Status",
         cell: (data) => {
           const status = data.row.original.status;
-          const statusSytlesAndLabel = getResourceInstanceStatusStylesAndLabel(
-            status as string
-          );
+          const statusSytlesAndLabel = getResourceInstanceStatusStylesAndLabel(status as string);
 
           return <StatusChip status={status} {...statusSytlesAndLabel} />;
         },
@@ -218,10 +204,7 @@ const InstancesPage = () => {
           const status = row.status;
           const detailedNetworkTopology = row.detailedNetworkTopology;
           const healthStatus = getInstanceHealthStatus(
-            detailedNetworkTopology as Record<
-              string,
-              ResourceInstanceNetworkTopology
-            >,
+            detailedNetworkTopology as Record<string, ResourceInstanceNetworkTopology>,
             status as string
           );
           return healthStatus;
@@ -231,13 +214,8 @@ const InstancesPage = () => {
           header: "Health Status",
           cell: (data) => {
             const value = data.cell.getValue();
-            const {
-              id: instanceId,
-              subscriptionId,
-              resourceID,
-            } = data.row.original;
-            const { serviceId, productTierId } =
-              subscriptionsObj[subscriptionId as string] || {};
+            const { id: instanceId, subscriptionId, resourceID } = data.row.original;
+            const { serviceId, productTierId } = subscriptionsObj[subscriptionId as string] || {};
 
             const resourceInstanceUrlLink = getInstanceDetailsRoute({
               serviceId,
@@ -252,10 +230,7 @@ const InstancesPage = () => {
               <InstanceHealthStatusChip
                 computedHealthStatus={value}
                 detailedNetworkTopology={
-                  data.row.original.detailedNetworkTopology as Record<
-                    string,
-                    ResourceInstanceNetworkTopology
-                  >
+                  data.row.original.detailedNetworkTopology as Record<string, ResourceInstanceNetworkTopology>
                 }
                 viewNodesLink={resourceInstanceUrlLink}
               />
@@ -267,108 +242,72 @@ const InstancesPage = () => {
           },
         }
       ),
-      columnHelper.accessor(
-        (row) =>
-          loadStatusMap[row.instanceLoadStatus || "UNKNOWN"] || "Unknown",
-        {
-          id: "instanceLoadStatus",
-          header: "Load",
-          cell: (data) => {
-            const instanceLoadStatus =
-              loadStatusMap[
-                data.row.original.instanceLoadStatus || "UNKNOWN"
-              ] || "Unknown";
+      columnHelper.accessor((row) => loadStatusMap[row.instanceLoadStatus || "UNKNOWN"] || "Unknown", {
+        id: "instanceLoadStatus",
+        header: "Load",
+        cell: (data) => {
+          const instanceLoadStatus = loadStatusMap[data.row.original.instanceLoadStatus || "UNKNOWN"] || "Unknown";
 
-            return (
-              <Stack direction="row" alignItems="center" gap="4px">
-                {(instanceLoadStatus === "STOPPED" ||
-                  instanceLoadStatus === "N/A") && (
-                  <StatusChip status="UNKNOWN" label="Unknown" />
-                )}
-                {instanceLoadStatus === "Unknown" && <Box>-</Box>}
+          return (
+            <Stack direction="row" alignItems="center" gap="4px">
+              {(instanceLoadStatus === "STOPPED" || instanceLoadStatus === "N/A") && (
+                <StatusChip status="UNKNOWN" label="Unknown" />
+              )}
+              {instanceLoadStatus === "Unknown" && <Box>-</Box>}
 
-                {instanceLoadStatus === "Low" && (
-                  <BlackTooltip title="Idle" placement="top">
-                    <span style={{ display: "flex", alignItems: "center" }}>
-                      <LoadIndicatorIdle />
-                    </span>
-                  </BlackTooltip>
-                )}
-                {instanceLoadStatus === "Medium" && (
-                  <BlackTooltip title="Normal" placement="top">
-                    <span
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        marginBottom: "-2px",
-                      }}
-                    >
-                      <LoadIndicatorNormal />
-                    </span>
-                  </BlackTooltip>
-                )}
-                {instanceLoadStatus === "High" && (
-                  <BlackTooltip title="High" placement="top">
-                    <span
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        marginBottom: "-4px",
-                      }}
-                    >
-                      <LoadIndicatorHigh />
-                    </span>
-                  </BlackTooltip>
-                )}
-              </Stack>
-            );
-          },
-          meta: {
-            minWidth: 120,
-            disableBrowserTooltip: true,
-          },
-        }
-      ),
+              {instanceLoadStatus === "Low" && (
+                <BlackTooltip title="Idle" placement="top">
+                  <span style={{ display: "flex", alignItems: "center" }}>
+                    <LoadIndicatorIdle />
+                  </span>
+                </BlackTooltip>
+              )}
+              {instanceLoadStatus === "Medium" && (
+                <BlackTooltip title="Normal" placement="top">
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      marginBottom: "-2px",
+                    }}
+                  >
+                    <LoadIndicatorNormal />
+                  </span>
+                </BlackTooltip>
+              )}
+              {instanceLoadStatus === "High" && (
+                <BlackTooltip title="High" placement="top">
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      marginBottom: "-4px",
+                    }}
+                  >
+                    <LoadIndicatorHigh />
+                  </span>
+                </BlackTooltip>
+              )}
+            </Stack>
+          );
+        },
+        meta: {
+          minWidth: 120,
+          disableBrowserTooltip: true,
+        },
+      }),
       columnHelper.accessor("subscriptionLicense", {
         id: "subscriptionLicense",
         header: "License Status",
         cell: (data) => {
           const licenseDetails = data.cell.getValue();
-
-          const isExpired = licenseDetails?.expirationDate
-            ? new Date(licenseDetails.expirationDate).getTime() <
-              new Date().getTime()
-            : false;
-
-          const licenseStatus = isExpired ? "Expired" : "Active";
-
-          const statusSytlesAndLabel =
-            getResourceInstanceDetailsStatusStylesAndLabel(licenseStatus);
-
-          if (!licenseDetails?.expirationDate) {
-            return (
-              <Stack
-                direction="row"
-                alignItems="center"
-                gap="6px"
-                minWidth="94px"
-                justifyContent="space-between"
-              >
-                {"-"}
-              </Stack>
-            );
-          }
+          const licenseExpirationDate = licenseDetails?.expirationDate;
 
           return (
-            <Stack
-              direction="row"
-              alignItems="center"
-              gap="6px"
-              minWidth="94px"
-              justifyContent="space-between"
-            >
-              <StatusChip status={licenseStatus} {...statusSytlesAndLabel} />
-            </Stack>
+            <InstanceLicenseStatusChip
+              expirationDate={licenseExpirationDate}
+              showExpirationDateTooltip={true}
+            />
           );
         },
       }),
@@ -377,9 +316,7 @@ const InstancesPage = () => {
         id: "created_at",
         header: "Created On",
         cell: (data) => {
-          return data.row.original.created_at
-            ? formatDateUTC(data.row.original.created_at)
-            : "-";
+          return data.row.original.created_at ? formatDateUTC(data.row.original.created_at) : "-";
         },
         meta: {
           minWidth: 225,
@@ -429,9 +366,7 @@ const InstancesPage = () => {
         id: "last_modified_at",
         header: "Last Modified",
         cell: (data) => {
-          return data.row.original.last_modified_at
-            ? formatDateUTC(data.row.original.last_modified_at)
-            : "-";
+          return data.row.original.last_modified_at ? formatDateUTC(data.row.original.last_modified_at) : "-";
         },
         meta: {
           minWidth: 225,
@@ -458,8 +393,7 @@ const InstancesPage = () => {
   );
 
   const filteredInstances = useMemo(
-    () =>
-      getFilteredInstances(nonBYOAInstances, selectedFilters, subscriptionsObj),
+    () => getFilteredInstances(nonBYOAInstances, selectedFilters, subscriptionsObj),
     [nonBYOAInstances, selectedFilters, subscriptionsObj]
   );
   const failedInstances = useMemo(() => {
@@ -467,18 +401,13 @@ const InstancesPage = () => {
   }, [filteredInstances]);
 
   const overloadedInstances = useMemo(() => {
-    return filteredInstances.filter(
-      (instance) => instance.instanceLoadStatus === "POD_OVERLOAD"
-    );
+    return filteredInstances.filter((instance) => instance.instanceLoadStatus === "POD_OVERLOAD");
   }, [filteredInstances]);
 
   const unhealthyInstances = useMemo(() => {
     return filteredInstances.filter((instance) => {
       const instanceHealthStatus = getInstanceHealthStatus(
-        instance.detailedNetworkTopology as Record<
-          string,
-          ResourceInstanceNetworkTopology
-        >,
+        instance.detailedNetworkTopology as Record<string, ResourceInstanceNetworkTopology>,
 
         instance.status as string
       );
@@ -501,13 +430,7 @@ const InstancesPage = () => {
       instances = unhealthyInstances;
     }
     return instances;
-  }, [
-    failedInstances,
-    overloadedInstances,
-    unhealthyInstances,
-    statusFilters,
-    nonBYOAInstances,
-  ]);
+  }, [failedInstances, overloadedInstances, unhealthyInstances, statusFilters, nonBYOAInstances]);
 
   const selectedInstance = useMemo(() => {
     return nonBYOAInstances.find((instance) => instance.id === selectedRows[0]);
@@ -526,10 +449,7 @@ const InstancesPage = () => {
 
   // Resource of the Selected Instance
   const selectedResource = useMemo(() => {
-    return getMainResourceFromInstance(
-      selectedInstance,
-      selectedInstanceOffering
-    );
+    return getMainResourceFromInstance(selectedInstance, selectedInstanceOffering);
   }, [selectedInstance, selectedInstanceOffering]);
 
   const selectedInstanceData = useMemo(() => {
@@ -545,12 +465,7 @@ const InstancesPage = () => {
       resourceKey: selectedResource?.urlKey as string,
       subscriptionId: selectedInstanceSubscription?.id,
     };
-  }, [
-    selectedInstance,
-    selectedInstanceOffering,
-    selectedInstanceSubscription,
-    selectedResource,
-  ]);
+  }, [selectedInstance, selectedInstanceOffering, selectedInstanceSubscription, selectedResource]);
 
   const deleteInstanceMutation = useMutation(
     () => {
@@ -602,20 +517,13 @@ const InstancesPage = () => {
             statusFilters: statusFilters,
             setStatusFilters: setStatusFilters,
           }}
-          isLoading={
-            isLoadingInstances ||
-            isFetchingSubscriptions ||
-            isFetchingServiceOfferings
-          }
+          isLoading={isLoadingInstances || isFetchingSubscriptions || isFetchingServiceOfferings}
           selectedRows={selectedRows}
           onRowSelectionChange={setSelectedRows}
           selectionMode="single"
           getRowClassName={(rowData) => {
             const healthStatus = getInstanceHealthStatus(
-              rowData.detailedNetworkTopology as Record<
-                string,
-                ResourceInstanceNetworkTopology
-              >,
+              rowData.detailedNetworkTopology as Record<string, ResourceInstanceNetworkTopology>,
               rowData.status
             );
             return healthStatus;
@@ -625,8 +533,7 @@ const InstancesPage = () => {
             id: "instance-status",
             header: "",
             cell: ({ row }) => {
-              const upcomingUpgrade =
-                row.original.maintenanceTasks?.upgrade_paths?.[0];
+              const upcomingUpgrade = row.original.maintenanceTasks?.upgrade_paths?.[0];
               return (
                 <div className="flex items-center justify-center">
                   <StatusCell upcomingUpgrade={upcomingUpgrade} />
@@ -645,27 +552,16 @@ const InstancesPage = () => {
       </div>
 
       <FullScreenDrawer
-        title={
-          overlayType === "create-instance-form"
-            ? "Create Deployment Instance"
-            : "Modify Deployment Instance"
-        }
+        title={overlayType === "create-instance-form" ? "Create Deployment Instance" : "Modify Deployment Instance"}
         description={
-          overlayType === "create-instance-form"
-            ? "Create new Deployment Instance"
-            : "Modify Deployment Instance"
+          overlayType === "create-instance-form" ? "Create new Deployment Instance" : "Modify Deployment Instance"
         }
-        open={
-          isOverlayOpen &&
-          ["create-instance-form", "modify-instance-form"].includes(overlayType)
-        }
+        open={isOverlayOpen && ["create-instance-form", "modify-instance-form"].includes(overlayType)}
         closeDrawer={() => setIsOverlayOpen(false)}
         RenderUI={
           <InstanceForm
             instances={instances}
-            formMode={
-              overlayType === "create-instance-form" ? "create" : "modify"
-            }
+            formMode={overlayType === "create-instance-form" ? "create" : "modify"}
             selectedInstance={selectedInstance}
             refetchInstances={refetchInstances}
             setCreateInstanceModalData={setCreateInstanceModalData}
@@ -680,8 +576,7 @@ const InstancesPage = () => {
         open={isOverlayOpen && overlayType === "delete-dialog"}
         handleClose={() => setIsOverlayOpen(false)}
         onConfirm={async () => {
-          if (!selectedInstance)
-            return snackbar.showError("No instance selected");
+          if (!selectedInstance) return snackbar.showError("No instance selected");
           if (!selectedInstanceOffering) {
             return snackbar.showError("Offering not found");
           }
@@ -700,15 +595,8 @@ const InstancesPage = () => {
       />
 
       <CapacityDialog
-        open={
-          isOverlayOpen &&
-          ["add-capacity-dialog", "remove-capacity-dialog"].includes(
-            overlayType
-          )
-        }
-        currentCapacityAction={
-          overlayType === "add-capacity-dialog" ? "add" : "remove"
-        }
+        open={isOverlayOpen && ["add-capacity-dialog", "remove-capacity-dialog"].includes(overlayType)}
+        currentCapacityAction={overlayType === "add-capacity-dialog" ? "add" : "remove"}
         contextType="access"
         handleClose={() => setIsOverlayOpen(false)}
         autoscaling={{
@@ -721,9 +609,7 @@ const InstancesPage = () => {
       />
 
       <GenerateTokenDialog
-        dashboardEndpoint={
-          selectedInstance?.kubernetesDashboardEndpoint?.dashboardEndpoint
-        }
+        dashboardEndpoint={selectedInstance?.kubernetesDashboardEndpoint?.dashboardEndpoint}
         open={isOverlayOpen && overlayType === "generate-token-dialog"}
         onClose={() => setIsOverlayOpen(false)}
         selectedInstanceId={selectedInstance?.id}
@@ -733,9 +619,7 @@ const InstancesPage = () => {
       <AccessSideRestoreInstance
         open={isOverlayOpen && overlayType === "restore-dialog"}
         handleClose={() => setIsOverlayOpen(false)}
-        earliestRestoreTime={
-          selectedInstance?.backupStatus?.earliestRestoreTime
-        }
+        earliestRestoreTime={selectedInstance?.backupStatus?.earliestRestoreTime}
         service={selectedInstanceOffering}
         setSelectionModel={setSelectedRows}
         fetchResourceInstances={refetchInstances}

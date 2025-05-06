@@ -22,6 +22,7 @@ import Select from "src/components/FormElementsv2/Select/Select";
 import MenuItem from "src/components/FormElementsv2/MenuItem/MenuItem";
 import _ from "lodash";
 import JobCompleted from "src/components/JobResource/JobCompleted";
+import DataUnavailableMessage from "../DataUnavailableMessage";
 
 const initialCpuUsage = {
   current: "",
@@ -686,6 +687,16 @@ function Metrics(props) {
   useEffect(() => {
     initialiseCustomMetricsData();
   }, [initialiseCustomMetricsData]);
+
+  if (instanceStatus === "DISCONNECTED") {
+    return (
+      <DataUnavailableMessage
+        title="Metrics Unavailable"
+        description="Please connect the cloud account to view metrics"
+      />
+    );
+  }
+
   if (instanceStatus !== "COMPLETE" && selectedNode?.isJob !== true) {
     if (
       !metricsSocketEndpoint ||
@@ -870,28 +881,46 @@ function Metrics(props) {
         <>
           <Box display="flex" alignItems="stretch" gap={"12px"} mt={2.5}>
             <MetricCard
+              dataTestId="cpu-usage-card"
               title="CPU Usage"
               value={cpuUsageData.current}
               unit="%"
             />
             {productTierType !== "OMNISTRATE_MULTI_TENANCY" && (
-              <MetricCard title="Load average" value={loadAverage.current} />
+              <MetricCard
+                dataTestId="load-average-card"
+                title="Load average"
+                value={loadAverage.current}
+              />
             )}
             {selectedNode?.storageSize && (
               <MetricCard
+                dataTestId="storage-card"
                 title="Storage"
                 value={selectedNode?.storageSize}
                 unit="GiB"
               />
             )}
-            <MetricCard title="Total RAM" value={totalMemoryGiB} unit="GiB" />
-            <MetricCard title="Used RAM" value={memoryUsageGiB} unit="GiB" />
             <MetricCard
+              dataTestId="total-ram-card"
+              title="Total RAM"
+              value={totalMemoryGiB}
+              unit="GiB"
+            />
+            <MetricCard
+              dataTestId="used-ram-card"
+              title="Used RAM"
+              value={memoryUsageGiB}
+              unit="GiB"
+            />
+            <MetricCard
+              dataTestId="ram-usage-card"
               title="RAM Usage (%)"
               value={memoryUsagePercent}
               unit="%"
             />
             <MetricCard
+              dataTestId="system-uptime-card"
               title="System Uptime"
               value={systemUptimeHours}
               unit="hrs"

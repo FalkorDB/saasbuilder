@@ -1,11 +1,5 @@
 const ResourcesIcon = (props) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={65}
-    height={64}
-    fill="none"
-    {...props}
-  >
+  <svg xmlns="http://www.w3.org/2000/svg" width={65} height={64} fill="none" {...props}>
     <path
       fill="#FFA903"
       d="M19.667 20.5a11.5 11.5 0 1 0 11.5 11.5 11.513 11.513 0 0 0-11.5-11.5Zm-1 2.054v8.77l-8.136 3.253a9.471 9.471 0 0 1 8.136-12.023Zm1 18.946a9.505 9.505 0 0 1-8.395-5.065l8.278-3.311 7.418 4.945a9.483 9.483 0 0 1-7.301 3.431Zm8.41-5.096-7.41-4.94v-8.91a9.487 9.487 0 0 1 7.41 13.85Z"

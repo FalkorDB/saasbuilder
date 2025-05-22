@@ -1,7 +1,18 @@
 import Link from "next/link";
+import SubscriptionMenu from "app/(dashboard)/components/SubscriptionMenu/SubscriptionMenu";
+
 import { Field } from "src/components/DynamicForm/types";
-import { productTierTypes } from "src/constants/servicePlan";
 import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
+import { productTierTypes } from "src/constants/servicePlan";
+import { AvailabilityZone } from "src/types/availabilityZone";
+import { CloudProvider, FormMode } from "src/types/common/enums";
+import { CustomNetwork } from "src/types/customNetwork";
+import { ResourceInstance } from "src/types/resourceInstance";
+import { APIEntity, ServiceOffering } from "src/types/serviceOffering";
+import { Subscription } from "src/types/subscription";
+
+import CloudProviderRadio from "../../components/CloudProviderRadio/CloudProviderRadio";
+import SubscriptionPlanRadio from "../../components/SubscriptionPlanRadio/SubscriptionPlanRadio";
 import {
   getCustomNetworksMenuItems,
   getRegionMenuItems,
@@ -9,18 +20,10 @@ import {
   getServiceMenuItems,
   getValidSubscriptionForInstanceCreation,
 } from "../utils";
-import CloudProviderRadio from "../../components/CloudProviderRadio/CloudProviderRadio";
-import SubscriptionPlanRadio from "../../components/SubscriptionPlanRadio/SubscriptionPlanRadio";
-import { Subscription } from "src/types/subscription";
-import { CustomNetwork } from "src/types/customNetwork";
-import { AvailabilityZone } from "src/types/availabilityZone";
-import { CloudProvider, FormMode } from "src/types/common/enums";
-import { APIEntity, ServiceOffering } from "src/types/serviceOffering";
-import SubscriptionMenu from "app/(dashboard)/components/SubscriptionMenu/SubscriptionMenu";
+
 import AccountConfigDescription from "./AccountConfigDescription";
 import { fromProvider } from "cloud-regions-country-flags";
 import CustomNetworkDescription from "./CustomNetworkDescription";
-import { ResourceInstance } from "src/types/resourceInstance";
 
 export const getStandardInformationFields = (
   servicesObj,
@@ -66,25 +69,14 @@ export const getStandardInformationFields = (
   });
 
   const { values, setFieldValue, setFieldTouched } = formData;
-  const {
-    serviceId,
-    servicePlanId,
-    resourceId,
-    cloudProvider,
-    region,
-    requestParams,
-  } = values;
+  const { serviceId, servicePlanId, resourceId, cloudProvider, region, requestParams } = values;
 
   const serviceMenuItems = getServiceMenuItems(serviceOfferings);
   const offering = serviceOfferingsObj[serviceId]?.[servicePlanId];
 
-  const subscriptionMenuItems = subscriptions.filter(
-    (sub) => sub.productTierId === servicePlanId
-  );
+  const subscriptionMenuItems = subscriptions.filter((sub) => sub.productTierId === servicePlanId);
 
-  const resourceMenuItems = getResourceMenuItems(
-    serviceOfferingsObj[serviceId]?.[servicePlanId]
-  );
+  const resourceMenuItems = getResourceMenuItems(serviceOfferingsObj[serviceId]?.[servicePlanId]);
 
   resourceMenuItems.sort((a, b) => {
     const order = [
@@ -109,8 +101,7 @@ export const getStandardInformationFields = (
 
   const cloudProviderFieldExists = inputParametersObj["cloud_provider"];
   const regionFieldExists = inputParametersObj["region"];
-  const customAvailabilityZoneFieldExists =
-    inputParametersObj["custom_availability_zone"];
+  const customAvailabilityZoneFieldExists = inputParametersObj["custom_availability_zone"];
 
   const fields: Field[] = [
     {
@@ -210,20 +201,13 @@ export const getStandardInformationFields = (
             setFieldValue("requestParams", {});
 
             const filteredSubscriptions = subscriptions.filter(
-              (sub) =>
-                sub.productTierId === servicePlanId &&
-                ["root", "editor"].includes(sub.roleType)
+              (sub) => sub.productTierId === servicePlanId && ["root", "editor"].includes(sub.roleType)
             );
-            const rootSubscription = filteredSubscriptions.find(
-              (sub) => sub.roleType === "root"
-            );
+            const rootSubscription = filteredSubscriptions.find((sub) => sub.roleType === "root");
 
             setFieldValue(
               "subscriptionId",
-              subscriptionId ||
-                rootSubscription?.id ||
-                filteredSubscriptions[0]?.id ||
-                ""
+              subscriptionId || rootSubscription?.id || filteredSubscriptions[0]?.id || ""
             );
 
             setFieldTouched("subscriptionId", false);
@@ -258,10 +242,7 @@ export const getStandardInformationFields = (
               // We filter the cloud accounts based on the selected subscription
               // So we need to reset the selected cloud account
               if (values.requestParams?.cloud_provider_account_config_id) {
-                setFieldValue(
-                  "requestParams.cloud_provider_account_config_id",
-                  ""
-                );
+                setFieldValue("requestParams.cloud_provider_account_config_id", "");
               }
             },
           }}
@@ -285,9 +266,7 @@ export const getStandardInformationFields = (
           ? "Select a subscription plan"
           : "No resources available",
       menuItems: resourceMenuItems,
-      previewValue: resourceMenuItems.find(
-        (item) => item.value === values.resourceId
-      )?.label,
+      previewValue: resourceMenuItems.find((item) => item.value === values.resourceId)?.label,
       disabled: formMode !== "create",
       onChange: () => {
         setFieldValue("requestParams", {});
@@ -345,10 +324,7 @@ export const getStandardInformationFields = (
         : !cloudProvider
           ? "Select a cloud provider"
           : "No regions available",
-      menuItems: getRegionMenuItems(
-        serviceOfferingsObj[serviceId]?.[servicePlanId],
-        cloudProvider
-      ),
+      menuItems: getRegionMenuItems(serviceOfferingsObj[serviceId]?.[servicePlanId], cloudProvider),
       disabled: formMode !== "create",
       previewValue:
         values.region && values.cloudProvider
@@ -363,8 +339,7 @@ export const getStandardInformationFields = (
     fields.push({
       dataTestId: "custom-availability-zone-select",
       label: "Custom Availability Zone",
-      subLabel:
-        "Select a specific availability zone for deploying your instance",
+      subLabel: "Select a specific availability zone for deploying your instance",
       name: "requestParams.custom_availability_zone",
       value: requestParams.custom_availability_zone || "",
       type: "select",
@@ -374,9 +349,7 @@ export const getStandardInformationFields = (
       })),
       isLoading: isFetchingCustomAvailabilityZones,
       required: true,
-      emptyMenuText: region
-        ? "No availability zones"
-        : "Please select a region first",
+      emptyMenuText: region ? "No availability zones" : "Please select a region first",
       disabled: formMode !== "create",
       previewValue: requestParams.custom_availability_zone,
     });
@@ -396,27 +369,19 @@ export const getNetworkConfigurationFields = (
   const fields: Field[] = [];
   const { serviceId, servicePlanId } = values;
   const offering = serviceOfferingsObj[serviceId]?.[servicePlanId];
-  const isMultiTenancy =
-    offering?.productTierType === productTierTypes.OMNISTRATE_MULTI_TENANCY;
+  const isMultiTenancy = offering?.productTierType === productTierTypes.OMNISTRATE_MULTI_TENANCY;
 
-  const inputParametersObj = (resourceSchema?.inputParameters || []).reduce(
-    (acc, param) => {
-      acc[param.key] = param;
-      return acc;
-    },
-    {}
-  );
+  const inputParametersObj = (resourceSchema?.inputParameters || []).reduce((acc, param) => {
+    acc[param.key] = param;
+    return acc;
+  }, {});
 
   const cloudProviderFieldExists = inputParametersObj["cloud_provider"];
   const customNetworkFieldExists = inputParametersObj["custom_network_id"];
-  const cloudProviderNativeNetworkIdFieldExists =
-    inputParametersObj["cloud_provider_native_network_id"];
+  const cloudProviderNativeNetworkIdFieldExists = inputParametersObj["cloud_provider_native_network_id"];
   const customDNSFieldExists = inputParametersObj["custom_dns_configuration"];
 
-  const networkTypeFieldExists =
-    cloudProviderFieldExists &&
-    !isMultiTenancy &&
-    offering?.supportsPublicNetwork;
+  const networkTypeFieldExists = cloudProviderFieldExists && !isMultiTenancy && offering?.supportsPublicNetwork;
 
   if (networkTypeFieldExists) {
     fields.push({
@@ -468,9 +433,7 @@ export const getNetworkConfigurationFields = (
       ),
       emptyMenuText: "No customer networks available",
       isLoading: isFetchingCustomNetworks,
-      previewValue: customNetworks.find(
-        (network) => network.id === values.requestParams.custom_network_id
-      )?.name,
+      previewValue: customNetworks.find((network) => network.id === values.requestParams.custom_network_id)?.name,
     });
   }
 
@@ -487,8 +450,7 @@ export const getNetworkConfigurationFields = (
       subLabel: (
         <>
           {param.description && <br />}
-          If you&apos;d like to deploy within your VPC, enter its ID. Please
-          ensure your VPC meets the{" "}
+          If you&apos;d like to deploy within your VPC, enter its ID. Please ensure your VPC meets the{" "}
           <Link
             style={{
               textDecoration: "underline",
@@ -566,10 +528,7 @@ export const getDeploymentConfigurationFields = (
         previewValue: values.requestParams[param.key] ? "********" : "",
         disabled: formMode !== "create" && param.custom && !param.modifiable,
       });
-    } else if (
-      param.dependentResourceID &&
-      param.key !== "cloud_provider_account_config_id"
-    ) {
+    } else if (param.dependentResourceID && param.key !== "cloud_provider_account_config_id") {
       const dependentResourceId = param.dependentResourceID;
       const options = resourceIdInstancesHashMap[dependentResourceId]
         ? resourceIdInstancesHashMap[dependentResourceId]
@@ -604,20 +563,17 @@ export const getDeploymentConfigurationFields = (
             dataTestId: `${param.key}-true-radio`,
             label: "True",
             value: "true",
-            disabled:
-              formMode !== "create" && param.custom && !param.modifiable,
+            disabled: formMode !== "create" && param.custom && !param.modifiable,
           },
           {
             dataTestId: `${param.key}-false-radio`,
             label: "False",
             value: "false",
-            disabled:
-              formMode !== "create" && param.custom && !param.modifiable,
+            disabled: formMode !== "create" && param.custom && !param.modifiable,
           },
         ],
         required: formMode !== "modify" && param.required,
-        previewValue:
-          values.requestParams[param.key] === "true" ? "true" : "false",
+        previewValue: values.requestParams[param.key] === "true" ? "true" : "false",
         disabled: formMode !== "create" && param.custom && !param.modifiable,
       });
     } else if (param.options !== undefined && param.isList === true) {
@@ -686,9 +642,7 @@ export const getDeploymentConfigurationFields = (
           })),
         required: formMode !== "modify" && param.required,
         disabled: formMode !== "create",
-        previewValue: cloudAccountInstances.find(
-          (config) => config.id === values.requestParams[param.key]
-        )?.label,
+        previewValue: cloudAccountInstances.find((config) => config.id === values.requestParams[param.key])?.label,
         emptyMenuText: "No cloud accounts available",
       });
     } else {
@@ -696,10 +650,7 @@ export const getDeploymentConfigurationFields = (
         return;
       }
 
-      if (
-        param.type?.toLowerCase() === "float64" ||
-        param.type?.toLowerCase() === "number"
-      ) {
+      if (param.type?.toLowerCase() === "float64" || param.type?.toLowerCase() === "number") {
         fields.push({
           dataTestId: `${param.key}-input`,
           label: param.displayName || param.key,

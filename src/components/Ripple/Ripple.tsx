@@ -1,4 +1,5 @@
 import { Box } from "@mui/material";
+
 import { hexToRgb } from "src/utils/hexToRgb";
 
 const RippleCircle = (props) => {

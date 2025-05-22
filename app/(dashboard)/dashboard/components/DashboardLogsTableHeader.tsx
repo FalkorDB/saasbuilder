@@ -1,9 +1,8 @@
 import { ArrowOutward } from "@mui/icons-material";
 
+import { getEventsRoute } from "src/utils/routes";
 import Button from "components/Button/Button";
 import DataGridHeaderTitle from "components/Headers/DataGridHeaderTitle";
-
-import { getEventsRoute } from "src/utils/routes";
 
 const DashboardLogsTableHeader = () => {
   return (
@@ -20,7 +19,7 @@ const DashboardLogsTableHeader = () => {
         target="_blank"
         endIcon={<ArrowOutward />}
       >
-        View all events
+        View all audit logs
       </Button>
     </div>
   );

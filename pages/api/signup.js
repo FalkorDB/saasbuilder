@@ -1,11 +1,8 @@
 import { customerUserSignUp } from "src/server/api/customer-user";
-import {
-  passwordRegex,
-  passwordText as passwordRegexFailText,
-} from "src/utils/passwordRegex";
-import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
-import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
+import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
+import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
+import { passwordRegex, passwordText as passwordRegexFailText } from "src/utils/passwordRegex";
 
 export default async function handleSignup(nextRequest, nextResponse) {
   if (nextRequest.method === "POST") {
@@ -21,9 +18,7 @@ export default async function handleSignup(nextRequest, nextResponse) {
       const { password } = requestBody;
       if (password && typeof password === "string") {
         if (!password.match(passwordRegex)) {
-          return nextResponse
-            .status(400)
-            .send({ message: passwordRegexFailText });
+          return nextResponse.status(400).send({ message: passwordRegexFailText });
         }
       }
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>

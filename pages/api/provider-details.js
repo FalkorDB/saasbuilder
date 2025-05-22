@@ -1,9 +1,6 @@
 import { getProviderOrgDetails } from "src/server/api/customer-user";
 
-export default async function handleGetProviderDetails(
-  nextRequest,
-  nextResponse
-) {
+export default async function handleGetProviderDetails(nextRequest, nextResponse) {
   if (nextRequest.method === "GET") {
     try {
       const response = await getProviderOrgDetails();

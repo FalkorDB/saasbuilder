@@ -1,40 +1,25 @@
 "use client";
 
-import { useFormik } from "formik";
-import { Box, Stack } from "@mui/material";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Box, Stack } from "@mui/material";
+import { useMutation } from "@tanstack/react-query";
 import { createColumnHelper } from "@tanstack/react-table";
+import { useFormik } from "formik";
 
-import Tooltip from "components/Tooltip/Tooltip";
-import DataTable from "components/DataTable/DataTable";
-import StatusChip from "components/StatusChip/StatusChip";
-import DataGridText from "components/DataGrid/DataGridText";
-import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithLogo";
-import ViewInstructionsIcon from "components/Icons/AccountConfig/ViewInstrcutionsIcon";
-import CloudProviderAccountOrgIdModal from "components/CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
-import DeleteAccountConfigConfirmationDialog from "components/DeleteAccountConfigConfirmationDialog/DeleteAccountConfigConfirmationDialog";
-
-import PageTitle from "../components/Layout/PageTitle";
-import useInstances from "../instances/hooks/useInstances";
-import CloudAccountForm from "./components/CloudAccountForm";
-import PageContainer from "../components/Layout/PageContainer";
-import CloudAccountsIcon from "../components/Icons/CloudAccountsIcon";
-import CloudAccountsTableHeader from "./components/CloudAccountsTableHeader";
-import FullScreenDrawer from "../components/FullScreenDrawer/FullScreenDrawer";
-
-import useSnackbar from "src/hooks/useSnackbar";
-import formatDateUTC from "src/utils/formatDateUTC";
-import { ResourceInstance } from "src/types/resourceInstance";
-import { useGlobalData } from "src/providers/GlobalDataProvider";
 import {
   deleteResourceInstance,
   getResourceInstanceDetails,
   // getTerraformKit,
 } from "src/api/resourceInstance";
+import ConnectAccountConfigDialog from "src/components/AccountConfigDialog/ConnectAccountConfigDialog";
+import DisconnectAccountConfigDialog from "src/components/AccountConfigDialog/DisconnectAccountConfigDialog";
+import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
-import { getCloudAccountsRoute } from "src/utils/routes";
+import useSnackbar from "src/hooks/useSnackbar";
+import { useGlobalData } from "src/providers/GlobalDataProvider";
+import { CloudProvider } from "src/types/common/enums";
+import { ResourceInstance } from "src/types/resourceInstance";
 import { isCloudAccountInstance } from "src/utils/access/byoaResource";
 import {
   getAzureBootstrapShellCommand,
@@ -42,12 +27,27 @@ import {
   getGcpBootstrapShellCommand,
   getGcpShellScriptOffboardCommand,
 } from "src/utils/accountConfig/accountConfig";
-import DisconnectAccountConfigDialog from "src/components/AccountConfigDialog/DisconnectAccountConfigDialog";
-import ConnectAccountConfigDialog from "src/components/AccountConfigDialog/ConnectAccountConfigDialog";
+import formatDateUTC from "src/utils/formatDateUTC";
+import { getCloudAccountsRoute } from "src/utils/routes";
+import CloudProviderAccountOrgIdModal from "components/CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
+import DataGridText from "components/DataGrid/DataGridText";
+import DataTable from "components/DataTable/DataTable";
+import DeleteAccountConfigConfirmationDialog from "components/DeleteAccountConfigConfirmationDialog/DeleteAccountConfigConfirmationDialog";
+import ViewInstructionsIcon from "components/Icons/AccountConfig/ViewInstrcutionsIcon";
+import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithLogo";
+import StatusChip from "components/StatusChip/StatusChip";
+import Tooltip from "components/Tooltip/Tooltip";
+
 import useBillingDetails from "../billing/hooks/useBillingDetails";
-import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
-import { CloudProvider } from "src/types/common/enums";
 import useBillingStatus from "../billing/hooks/useBillingStatus";
+import FullScreenDrawer from "../components/FullScreenDrawer/FullScreenDrawer";
+import CloudAccountsIcon from "../components/Icons/CloudAccountsIcon";
+import PageContainer from "../components/Layout/PageContainer";
+import PageTitle from "../components/Layout/PageTitle";
+import useInstances from "../instances/hooks/useInstances";
+
+import CloudAccountForm from "./components/CloudAccountForm";
+import CloudAccountsTableHeader from "./components/CloudAccountsTableHeader";
 
 const columnHelper = createColumnHelper<ResourceInstance>();
 
@@ -71,28 +71,24 @@ const CloudAccountsPage = () => {
   const [initialFormValues, setInitialFormValues] = useState<any>();
   const [searchText, setSearchText] = useState("");
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
-  const [overlayType, setOverlayType] = useState<Overlay>(
-    "create-instance-form"
-  );
+  const [overlayType, setOverlayType] = useState<Overlay>("create-instance-form");
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const [isAccountCreation, setIsAccountCreation] = useState(false);
   const [clickedInstance, setClickedInstance] = useState<ResourceInstance>();
 
   const gcpBootstrapShellCommand = useMemo(() => {
     const result_params: any = clickedInstance?.result_params;
-    if (result_params?.cloud_provider_account_config_id) {
-      return getGcpBootstrapShellCommand(
-        result_params?.cloud_provider_account_config_id
-      );
+    if (result_params?.gcp_bootstrap_shell_script) {
+      return result_params?.gcp_bootstrap_shell_script;
+    } else if (result_params?.cloud_provider_account_config_id) {
+      return getGcpBootstrapShellCommand(result_params?.cloud_provider_account_config_id);
     }
   }, [clickedInstance]);
 
   const azureBootstrapShellCommand = useMemo(() => {
     const result_params: any = clickedInstance?.result_params;
     if (result_params?.cloud_provider_account_config_id) {
-      return getAzureBootstrapShellCommand(
-        result_params?.cloud_provider_account_config_id
-      );
+      return getAzureBootstrapShellCommand(result_params?.cloud_provider_account_config_id);
     }
   }, [clickedInstance]);
 
@@ -146,25 +142,17 @@ const CloudAccountsPage = () => {
   }, [serviceId, servicePlanId, subscriptionId]);
 
   const byoaInstances = useMemo(() => {
-    const res = instances.filter((instance) =>
-      isCloudAccountInstance(instance)
-    );
+    const res = instances.filter((instance) => isCloudAccountInstance(instance));
 
     if (searchText) {
       return res.filter(
         (instance) =>
           // @ts-ignore
-          instance.result_params?.gcp_project_id
-            ?.toLowerCase()
-            .includes(searchText.toLowerCase()) ||
+          instance.result_params?.gcp_project_id?.toLowerCase().includes(searchText.toLowerCase()) ||
           // @ts-ignore
-          instance.result_params?.aws_account_id
-            ?.toLowerCase()
-            .includes(searchText.toLowerCase()) ||
+          instance.result_params?.aws_account_id?.toLowerCase().includes(searchText.toLowerCase()) ||
           // @ts-ignore
-          instance.result_params?.azure_subscription_id
-            ?.toLowerCase()
-            .includes(searchText.toLowerCase())
+          instance.result_params?.azure_subscription_id?.toLowerCase().includes(searchText.toLowerCase())
       );
     }
 
@@ -216,9 +204,7 @@ const CloudAccountsPage = () => {
         header: "Lifecycle Status",
         cell: (data) => {
           const status = data.row.original.status;
-          const statusSytlesAndLabel = getResourceInstanceStatusStylesAndLabel(
-            status as string
-          );
+          const statusSytlesAndLabel = getResourceInstanceStatusStylesAndLabel(status as string);
           const showInstructions = [
             "VERIFYING",
             "PENDING",
@@ -229,30 +215,17 @@ const CloudAccountsPage = () => {
             "FAILED",
           ].includes(status as string);
 
-          const showDisconnectInstructions = [
-            "PENDING_DETACHING",
-            "DETACHING",
-            "DISCONNECTING",
-          ].includes(status as string);
-
-          const showConnectInstructions = ["CONNECTING", "ATTACHING"].includes(
+          const showDisconnectInstructions = ["PENDING_DETACHING", "DETACHING", "DISCONNECTING"].includes(
             status as string
           );
 
+          const showConnectInstructions = ["CONNECTING", "ATTACHING"].includes(status as string);
+
           return (
-            <Stack
-              direction="row"
-              alignItems="center"
-              gap="6px"
-              width="104px"
-              justifyContent="space-between"
-            >
+            <Stack direction="row" alignItems="center" gap="6px" width="104px" justifyContent="space-between">
               <StatusChip status={status} {...statusSytlesAndLabel} />
               {showInstructions && (
-                <Tooltip
-                  title="View account configuration instructions"
-                  placement="top"
-                >
+                <Tooltip title="View account configuration instructions" placement="top">
                   <Box
                     sx={{
                       cursor: "pointer",
@@ -321,15 +294,8 @@ const CloudAccountsPage = () => {
           id: "serviceName",
           header: "Service Name",
           cell: (data) => {
-            const { serviceLogoURL, serviceName } =
-              subscriptionsObj[data.row.original.subscriptionId as string] ||
-              {};
-            return (
-              <ServiceNameWithLogo
-                serviceName={serviceName}
-                serviceLogoURL={serviceLogoURL}
-              />
-            );
+            const { serviceLogoURL, serviceName } = subscriptionsObj[data.row.original.subscriptionId as string] || {};
+            return <ServiceNameWithLogo serviceName={serviceName} serviceLogoURL={serviceLogoURL} />;
           },
           meta: {
             minWidth: 230,
@@ -357,8 +323,7 @@ const CloudAccountsPage = () => {
           // @ts-ignore
           else if (result_params?.gcp_project_id) cloudProvider = "gcp";
           // @ts-ignore
-          else if (result_params?.azure_subscription_id)
-            cloudProvider = "azure";
+          else if (result_params?.azure_subscription_id) cloudProvider = "azure";
           return cloudProvider;
         },
         {
@@ -372,12 +337,9 @@ const CloudAccountsPage = () => {
             // @ts-ignore
             else if (result_params?.gcp_project_id) cloudProvider = "gcp";
             // @ts-ignore
-            else if (result_params?.azure_subscription_id)
-              cloudProvider = "azure";
+            else if (result_params?.azure_subscription_id) cloudProvider = "azure";
 
-            return cloudProvider
-              ? cloudProviderLongLogoMap[cloudProvider]
-              : "-";
+            return cloudProvider ? cloudProviderLongLogoMap[cloudProvider] : "-";
           },
         }
       ),
@@ -395,9 +357,7 @@ const CloudAccountsPage = () => {
         id: "created_at",
         header: "Created On",
         cell: (data) => {
-          return data.row.original.created_at
-            ? formatDateUTC(data.row.original.created_at)
-            : "-";
+          return data.row.original.created_at ? formatDateUTC(data.row.original.created_at) : "-";
         },
         meta: {
           minWidth: 225,
@@ -423,9 +383,7 @@ const CloudAccountsPage = () => {
         gcpProjectNumber: result_params?.gcp_project_number,
       };
       if (result_params?.cloud_provider_account_config_id) {
-        details.gcpOffboardCommand = getGcpShellScriptOffboardCommand(
-          result_params?.cloud_provider_account_config_id
-        );
+        details.gcpOffboardCommand = getGcpShellScriptOffboardCommand(result_params?.cloud_provider_account_config_id);
       }
     } else if (result_params?.azure_subscription_id) {
       details = {
@@ -465,8 +423,7 @@ const CloudAccountsPage = () => {
         serviceProviderId: selectedInstanceOffering?.serviceProviderId,
         serviceKey: selectedInstanceOffering?.serviceURLKey,
         serviceAPIVersion: selectedInstanceOffering?.serviceAPIVersion,
-        serviceEnvironmentKey:
-          selectedInstanceOffering?.serviceEnvironmentURLKey,
+        serviceEnvironmentKey: selectedInstanceOffering?.serviceEnvironmentURLKey,
         serviceModelKey: selectedInstanceOffering?.serviceModelURLKey,
         productTierKey: selectedInstanceOffering?.productTierURLKey,
         resourceKey: selectedResource?.urlKey,
@@ -617,11 +574,7 @@ const CloudAccountsPage = () => {
       <FullScreenDrawer
         title="Cloud Account"
         description="Create a new cloud account"
-        open={
-          isOverlayOpen &&
-          (overlayType === "create-instance-form" ||
-            overlayType === "view-instance-form")
-        }
+        open={isOverlayOpen && (overlayType === "create-instance-form" || overlayType === "view-instance-form")}
         closeDrawer={() => {
           setIsOverlayOpen(false);
           setClickedInstance(undefined);
@@ -691,9 +644,7 @@ const CloudAccountsPage = () => {
         }}
         accountConfigId={clickedInstance?.id}
         selectedAccountConfig={clickedInstance}
-        cloudFormationTemplateUrl={
-          clickedInstanceOffering?.assets?.cloudFormationURL
-        }
+        cloudFormationTemplateUrl={clickedInstanceOffering?.assets?.cloudFormationURL}
         isAccountCreation={isAccountCreation}
         gcpBootstrapShellCommand={gcpBootstrapShellCommand}
         azureBootstrapShellCommand={azureBootstrapShellCommand}

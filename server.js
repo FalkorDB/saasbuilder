@@ -16,7 +16,6 @@ app.prepare().then(async () => {
   const { areProviderCredentialsVerified, envVariablesStatus } =
     await verifyEnvironmentVariables();
   console.log("Environment variables status", envVariablesStatus);
-
   expressApp.set("view engine", "ejs");
   expressApp.set("views", path.join(__dirname, "src/server/views"));
   expressApp.use(express.static(path.join(__dirname, "public")));
@@ -31,7 +30,7 @@ app.prepare().then(async () => {
         });
       }
       await handle(request, response);
-    } catch (error) {
+    } catch {
       response.render("pages/error");
     }
   });

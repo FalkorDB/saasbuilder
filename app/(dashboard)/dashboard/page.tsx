@@ -1,30 +1,31 @@
 "use client";
 
-import PageTitle from "../components/Layout/PageTitle";
+import { useGlobalData } from "src/providers/GlobalDataProvider";
+
+import useAuditLogs from "../audit-logs/hooks/useAuditLogs";
+import EventsTable from "../components/EventsTable/EventsTable";
 import DashboardIcon from "../components/Icons/DashboardIcon";
 import PageContainer from "../components/Layout/PageContainer";
-import ClusterLocations from "./components/ClusterLocations";
-
+import PageTitle from "../components/Layout/PageTitle";
 import useInstances from "../instances/hooks/useInstances";
+
+import ClusterLocations from "./components/ClusterLocations";
 import DashboardLogsTableHeader from "./components/DashboardLogsTableHeader";
-import EventsTable from "../components/EventsTable/EventsTable";
-import useAuditLogs from "../events/hooks/useAuditLogs";
-import { useGlobalData } from "src/providers/GlobalDataProvider";
-// import ChartCard from "./components/ChartCard";
-// import LifecycleStatusChart from "./charts/LifecycleStatusChart";
-// import DeploymentsByLoad from "./charts/DeploymentsByLoadChart";
-// import CloudProvidersChart from "./charts/CloudProvidersChart";
+import LifecycleStatusChart from "./charts/LifecycleStatusChart";
+import ChartCard from "./components/ChartCard";
+import DeploymentsByLoadChart from "./charts/DeploymentsByLoadChart";
+import HealthStatusChart from "./charts/HealthStatusChart";
+import DeploymentsByAgeChart from "./charts/DeploymentsByAgeChart";
+import LoadingSpinner from "src/components/LoadingSpinner/LoadingSpinner";
 
 const DashboardPage = () => {
-  const { data: instances = [], isLoading: isLoadingInstances } =
-    useInstances();
+  const { data: instances = [], isLoading: isLoadingInstances } = useInstances();
   const { isFetchingSubscriptions } = useGlobalData();
 
-  const { data: dashboardLogs, isFetching: isFetchingDashboardLogs } =
-    useAuditLogs({
-      pageSize: 5,
-      eventSourceTypes: "Customer",
-    });
+  const { data: dashboardLogs, isFetching: isFetchingDashboardLogs } = useAuditLogs({
+    pageSize: 5,
+    eventSourceTypes: "Customer",
+  });
 
   return (
     <PageContainer>
@@ -32,10 +33,7 @@ const DashboardPage = () => {
         Dashboard
       </PageTitle>
 
-      <ClusterLocations
-        resourceInstances={instances}
-        isFetchingInstances={isLoadingInstances}
-      />
+      <ClusterLocations resourceInstances={instances} isFetchingInstances={isLoadingInstances} />
 
       <div className="mt-8">
         <EventsTable
@@ -65,23 +63,28 @@ const DashboardPage = () => {
         />
       </div>
 
-      {/* <div className="mt-8 grid lg:grid-cols-3 gap-6">
-        <ChartCard title="Lifecycle Status Breakdown" className="lg:col-span-2">
-          <LifecycleStatusChart instances={instances} />
+      <div className="mt-8 grid lg:grid-cols-3 gap-6">
+        <ChartCard title="Deployments by Lifecycle Stage">
+          {isLoadingInstances ? <LoadingSpinner /> : <LifecycleStatusChart instances={instances} />}
         </ChartCard>
 
-        <ChartCard title="Health Status Breakdown">Hello World!</ChartCard>
+        <ChartCard title="Deployment Health Status">
+          {isLoadingInstances ? <LoadingSpinner /> : <HealthStatusChart instances={instances} />}
+        </ChartCard>
+        <ChartCard title="Deployments by System Load">
+          {isLoadingInstances ? <LoadingSpinner /> : <DeploymentsByLoadChart instances={instances} />}
+        </ChartCard>
       </div>
 
-      <div className="mt-8 grid lg:grid-cols-3 gap-6">
-        <ChartCard title="Deployments By Load">
-          <DeploymentsByLoad instances={instances} />
+      <div className="mt-8">
+        <ChartCard title="Deployments by Month – Last 12 Months" className="lg:col-span-2">
+          {isLoadingInstances ? <LoadingSpinner /> : <DeploymentsByAgeChart instances={instances} />}
         </ChartCard>
 
-        <ChartCard title="Deployments By Cloud">
+        {/* <ChartCard title="Deployments By Cloud">
           <CloudProvidersChart instances={instances} />
-        </ChartCard>
-      </div> */}
+        </ChartCard> */}
+      </div>
     </PageContainer>
   );
 };

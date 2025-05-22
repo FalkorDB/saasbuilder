@@ -1,23 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import useAuditLogs from "./hooks/useAuditLogs";
-import PageTitle from "../components/Layout/PageTitle";
+
+import { DateRange } from "src/components/DateRangePicker/DateTimeRangePickerStatic";
+import { useGlobalData } from "src/providers/GlobalDataProvider";
+import { EventType } from "src/types/event";
+import { initialRangeState } from "components/DateRangePicker/DateTimeRangePickerStatic";
+
+import EventsTable from "../components/EventsTable/EventsTable";
 import AuditLogsIcon from "../components/Icons/AuditLogsIcon";
 import PageContainer from "../components/Layout/PageContainer";
+import PageTitle from "../components/Layout/PageTitle";
+
 import EventsTableHeader from "./components/EventsTableHeader";
-
-import { useGlobalData } from "src/providers/GlobalDataProvider";
-
-import { initialRangeState } from "components/DateRangePicker/DateTimeRangePickerStatic";
-import { DateRange } from "src/components/DateRangePicker/DateTimeRangePickerStatic";
-import EventsTable from "../components/EventsTable/EventsTable";
-import { EventType } from "src/types/event";
+import useAuditLogs from "./hooks/useAuditLogs";
 
 const EventsPage = () => {
   const [pageIndex, setPageIndex] = useState(0);
-  const [selectedDateRange, setSelectedDateRange] =
-    useState<DateRange>(initialRangeState);
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRange>(initialRangeState);
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
   const [selectedEventTypes, setSelectedEventTypes] = useState<EventType[]>([]);
 
@@ -33,9 +33,7 @@ const EventsPage = () => {
   } = useAuditLogs({
     startDate: selectedDateRange.startDate ?? undefined,
     endDate: selectedDateRange.endDate ?? undefined,
-    eventSourceTypes: selectedEventTypes?.length
-      ? selectedEventTypes
-      : ["Customer", "Infra", "Maintenance"],
+    eventSourceTypes: selectedEventTypes?.length ? selectedEventTypes : ["Customer", "Infra", "Maintenance"],
     serviceID: selectedServiceId,
   });
 
@@ -46,7 +44,7 @@ const EventsPage = () => {
   return (
     <PageContainer>
       <PageTitle icon={AuditLogsIcon} className="mb-6">
-        Events
+        Audit Logs
       </PageTitle>
 
       <div>

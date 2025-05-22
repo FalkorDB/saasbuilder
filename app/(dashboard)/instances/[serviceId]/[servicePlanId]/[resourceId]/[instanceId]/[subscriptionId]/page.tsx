@@ -32,6 +32,7 @@ import Metrics from "components/ResourceInstance/Metrics/Metrics";
 import NodesTable from "components/ResourceInstance/NodesTable/NodesTable";
 import ResourceInstanceDetails from "components/ResourceInstance/ResourceInstanceDetails/ResourceInstanceDetails";
 import ResourceInstanceOverview from "components/ResourceInstance/ResourceInstanceOverview/ResourceInstanceOverview";
+import ResourceImportExportRDB from "components/ResourceInstance/ImportExportRDB/ResourceImportExportRDB";
 import { DisplayText } from "components/Typography/Typography";
 
 import { checkCustomDNSEndpoint, getTabs } from "./utils";
@@ -242,10 +243,10 @@ const InstanceDetailsPage = ({
       >
         <Tabs value={currentTab} sx={{ marginTop: "20px" }}>
           {Object.entries(tabs).map(([key, value]) => {
-          const isDisabled = disabledTabs?.includes(key);
+            const isDisabled = disabledTabs?.includes(key);
             return (
               <Tab
-              data-testid={`${value?.replace(" ", "-").toLowerCase()}-tab`}
+                data-testid={`${value?.replace(" ", "-").toLowerCase()}-tab`}
                 key={key}
                 label={value}
                 value={value}
@@ -283,7 +284,7 @@ const InstanceDetailsPage = ({
             })
           }
         >
-          <ConnectIcon color="white" style={{ marginRight: "8px" }} />
+          <ConnectIcon color="white" disabled={resourceInstanceData.status !== "RUNNING"} style={{ marginRight: "8px" }} />
           Connect
         </Button>
       </Box>
@@ -411,6 +412,12 @@ const InstanceDetailsPage = ({
           refetchInstance={resourceInstanceQuery.refetch}
         />
       )}
+      {
+        currentTab === tabs.importExportRDB && (
+          <ResourceImportExportRDB 
+            instanceId={instanceId}
+          />
+        )}
     </PageContainer>
   );
 };

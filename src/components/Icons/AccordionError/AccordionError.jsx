@@ -1,12 +1,6 @@
 const AccordionErrorIcon = (props) => {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={16}
-      height={17}
-      fill="none"
-      {...props}
-    >
+    <svg xmlns="http://www.w3.org/2000/svg" width={16} height={17} fill="none" {...props}>
       <g clipPath="url(#a)">
         <path
           stroke="#D92D20"

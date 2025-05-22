@@ -1,5 +1,6 @@
-import { jwtDecode } from "jwt-decode";
 import { NextResponse } from "next/server";
+import { jwtDecode } from "jwt-decode";
+
 import { baseURL } from "src/axios";
 import { PAGE_TITLE_MAP } from "src/constants/pageTitleMap";
 import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
@@ -10,11 +11,7 @@ export async function middleware(request) {
   const authToken = request.cookies.get("token");
   const path = request.nextUrl.pathname;
 
-  if (
-    path.startsWith("/signup") ||
-    path.startsWith("/reset-password") ||
-    path.startsWith("/change-password")
-  ) {
+  if (path.startsWith("/signup") || path.startsWith("/reset-password") || path.startsWith("/change-password")) {
     if (environmentType === "PROD") return;
   }
 
@@ -48,10 +45,7 @@ export async function middleware(request) {
     }
 
     console.log(request.nextUrl.pathname);
-    if (
-      request.nextUrl.pathname.startsWith("/signin") ||
-      request.nextUrl.pathname.startsWith("/redirect")
-    ) {
+    if (request.nextUrl.pathname.startsWith("/signin") || request.nextUrl.pathname.startsWith("/redirect")) {
       let destination = request.nextUrl.searchParams.get("destination");
 
       if (!destination || !PAGE_TITLE_MAP[destination]) {

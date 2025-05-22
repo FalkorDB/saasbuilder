@@ -25,10 +25,12 @@ export default async function handleAuth(nextRequest, nextResponse) {
 
     if (authRequestPayload) {
       try {
-        const response =
-          await customerSignInWithIdentityProvider(authRequestPayload);
+        const response = await customerSignInWithIdentityProvider(authRequestPayload);
         const jwtToken = response.data.jwtToken;
-        nextResponse.setHeader("Set-Cookie", `token=${jwtToken}; Path=/; Domain=${process.env.NEXT_PUBLIC_SAAS_BUILDER_DOMAIN}`);
+        nextResponse.setHeader(
+          "Set-Cookie",
+          `token=${jwtToken}; Path=/; Domain=${process.env.NEXT_PUBLIC_SAAS_BUILDER_DOMAIN}`
+        );
         nextResponse.setHeader("Access-Control-Expose-Headers", "Set-Cookie");
         nextResponse.redirect(307, "/signin");
       } catch (err) {

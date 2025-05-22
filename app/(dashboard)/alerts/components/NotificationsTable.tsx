@@ -1,15 +1,17 @@
-import { createColumnHelper } from "@tanstack/react-table";
 import { useMemo } from "react";
-import DataTable from "src/components/DataTable/DataTable";
-import NotificationsTableHeader from "./NotificationsTableHeader";
-import { useGlobalData } from "src/providers/GlobalDataProvider";
-import ServiceNameWithLogo from "src/components/ServiceNameWithLogo/ServiceNameWithLogo";
-import EventTypeChip from "src/components/EventsTable/EventTypeChip";
-import { EventType } from "src/types/event";
-import EventMessageChip from "src/components/EventsTable/EventMessageChip";
+import { createColumnHelper } from "@tanstack/react-table";
 import useInstances from "app/(dashboard)/instances/hooks/useInstances";
+
+import DataTable from "src/components/DataTable/DataTable";
+import EventMessageChip from "src/components/EventsTable/EventMessageChip";
+import EventTypeChip from "src/components/EventsTable/EventTypeChip";
+import ServiceNameWithLogo from "src/components/ServiceNameWithLogo/ServiceNameWithLogo";
+import { useGlobalData } from "src/providers/GlobalDataProvider";
+import { EventType } from "src/types/event";
 import { ResourceInstance } from "src/types/resourceInstance";
 import formatDateUTC from "src/utils/formatDateUTC";
+
+import NotificationsTableHeader from "./NotificationsTableHeader";
 
 const columnHelper = createColumnHelper<
   ResourceInstance & {
@@ -73,17 +75,10 @@ const NotificationsTable = () => {
           id: "serviceName",
           header: "Service Name",
           cell: (data) => {
-            const { serviceLogoURL, serviceName } =
-              subscriptionsObj[data.row.original.subscriptionId as string] ||
-              {};
+            const { serviceLogoURL, serviceName } = subscriptionsObj[data.row.original.subscriptionId as string] || {};
             if (!serviceName) return "-";
 
-            return (
-              <ServiceNameWithLogo
-                serviceName={serviceName}
-                serviceLogoURL={serviceLogoURL}
-              />
-            );
+            return <ServiceNameWithLogo serviceName={serviceName} serviceLogoURL={serviceLogoURL} />;
           },
           meta: {
             minWidth: 230,
@@ -93,13 +88,8 @@ const NotificationsTable = () => {
       columnHelper.accessor(
         (row) => {
           const subscription = subscriptionsObj[row.subscriptionId as string];
-          const offering =
-            serviceOfferingsObj[subscription?.serviceId]?.[
-              subscription?.productTierId
-            ];
-          const resource = offering?.resourceParameters?.find(
-            (resource) => resource.resourceId === row.resourceID
-          );
+          const offering = serviceOfferingsObj[subscription?.serviceId]?.[subscription?.productTierId];
+          const resource = offering?.resourceParameters?.find((resource) => resource.resourceId === row.resourceID);
           return resource?.name || "-";
         },
         {
@@ -121,11 +111,7 @@ const NotificationsTable = () => {
         id: "message",
         header: "Message",
         cell: (data) => {
-          return data.row.original.message ? (
-            <EventMessageChip message={data.row.original.message} />
-          ) : (
-            "-"
-          );
+          return data.row.original.message ? <EventMessageChip message={data.row.original.message} /> : "-";
         },
         meta: {
           flex: 1.5,
@@ -133,10 +119,7 @@ const NotificationsTable = () => {
       }),
       columnHelper.accessor(
         (row) => {
-          return (
-            subscriptionsObj[row.subscriptionId as string]?.productTierName ||
-            "-"
-          );
+          return subscriptionsObj[row.subscriptionId as string]?.productTierName || "-";
         },
         {
           id: "servicePlanName",
@@ -150,7 +133,7 @@ const NotificationsTable = () => {
     <DataTable
       columns={dataTableColumns}
       rows={rows}
-      noRowsText="No notifications"
+      noRowsText="No alerts"
       HeaderComponent={NotificationsTableHeader}
       headerProps={{
         refetchNotifications: refetchInstances,

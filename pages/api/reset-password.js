@@ -1,16 +1,15 @@
+import axios from "src/axios";
 import { customerUserResetPassword } from "src/server/api/customer-user";
-import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
 import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
-import axios from "src/axios";
+import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
 
 export default async function handleResetPassword(nextRequest, nextResponse) {
   if (nextRequest.method === "POST") {
     try {
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader =
-        nextRequest.get?.call("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP || "";
       const requestBody = nextRequest.body || {};
@@ -34,10 +33,7 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
     } catch (error) {
       const defaultErrorMessage = "Something went wrong. Please retry";
 
-      if (
-        error.name === "ProviderAuthError" ||
-        error?.response?.status === undefined
-      ) {
+      if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
         return nextResponse.status(500).send({
           message: defaultErrorMessage,
         });

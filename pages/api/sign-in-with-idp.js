@@ -1,6 +1,4 @@
-const {
-  customerSignInWithIdentityProvider,
-} = require("src/server/api/customer-user");
+const { customerSignInWithIdentityProvider } = require("src/server/api/customer-user");
 const { getEnvironmentType } = require("src/server/utils/getEnvironmentType");
 import { getSaaSDomainURL } from "src/server/utils/getSaaSDomainURL";
 
@@ -18,8 +16,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
 
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader =
-        nextRequest.get?.call("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP;
 
@@ -33,10 +30,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       console.log("IDP Error", error);
       const defaultErrorMessage = "Someting went wrong. Please retry";
 
-      if (
-        error.name === "ProviderAuthError" ||
-        error?.response?.status === undefined
-      ) {
+      if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
         nextResponse.status(500).send({
           message: defaultErrorMessage,
         });

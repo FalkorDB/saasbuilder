@@ -1,11 +1,52 @@
 "use client";
 
-import { Box, Stack } from "@mui/material";
 import { useMemo, useState } from "react";
+import { Box, Stack } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { createColumnHelper } from "@tanstack/react-table";
-import useInstances from "./hooks/useInstances";
+
+import { deleteResourceInstance } from "src/api/resourceInstance";
+import LoadIndicatorHigh from "src/components/Icons/LoadIndicator/LoadIndicatorHigh";
+import LoadIndicatorIdle from "src/components/Icons/LoadIndicator/LoadIndicatorIdle";
+import LoadIndicatorNormal from "src/components/Icons/LoadIndicator/LoadIndicatorNormal";
+// import { getInitialFilterState } from "src/components/InstanceFilters/InstanceFilters";
+import InstanceHealthStatusChip, {
+  getInstanceHealthStatus,
+} from "src/components/InstanceHealthStatusChip/InstanceHealthStatusChip";
+import InstanceLicenseStatusChip from "src/components/InstanceLicenseStatusChip/InstanceLicenseStatusChip";
+import { BlackTooltip } from "src/components/Tooltip/Tooltip";
+import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
+import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
+import useSnackbar from "src/hooks/useSnackbar";
+import { useGlobalData } from "src/providers/GlobalDataProvider";
+import { ResourceInstance, ResourceInstanceNetworkTopology } from "src/types/resourceInstance";
+import { isCloudAccountInstance } from "src/utils/access/byoaResource";
+import formatDateUTC from "src/utils/formatDateUTC";
+import { getInstanceDetailsRoute } from "src/utils/routes";
+import CapacityDialog from "components/CapacityDialog/CapacityDialog";
+import DataGridText from "components/DataGrid/DataGridText";
+import DataTable from "components/DataTable/DataTable";
+import GenerateTokenDialog from "components/GenerateToken/GenerateTokenDialog";
+import GridCellExpand from "components/GridCellExpand/GridCellExpand";
+import RegionIcon from "components/Region/RegionIcon";
+import CreateInstanceModal from "components/ResourceInstance/CreateInstanceModal/CreateInstanceModal";
+import AccessSideRestoreInstance from "components/RestoreInstance/AccessSideRestoreInstance";
+import StatusChip from "components/StatusChip/StatusChip";
+import TextConfirmationDialog from "components/TextConfirmationDialog/TextConfirmationDialog";
+
+import useBillingDetails from "../billing/hooks/useBillingDetails";
+import useBillingStatus from "../billing/hooks/useBillingStatus";
+import FullScreenDrawer from "../components/FullScreenDrawer/FullScreenDrawer";
+// import InstancesIcon from "../components/Icons/InstancesIcon";
+import PageContainer from "../components/Layout/PageContainer";
+
+// import PageTitle from "../components/Layout/PageTitle";
 import InstanceForm from "./components/InstanceForm";
+import InstancesOverview from "./components/InstancesOverview";
+import InstancesTableHeader from "./components/InstancesTableHeader";
+import StatusCell from "./components/StatusCell";
+import useInstances from "./hooks/useInstances";
+import { loadStatusMap } from "./constants";
 import {
   FilterCategorySchema,
   getFilteredInstances,
@@ -14,44 +55,6 @@ import {
   getMainResourceFromInstance,
   getRowBorderStyles,
 } from "./utils";
-import PageTitle from "../components/Layout/PageTitle";
-import InstancesIcon from "../components/Icons/InstancesIcon";
-import PageContainer from "../components/Layout/PageContainer";
-import InstancesTableHeader from "./components/InstancesTableHeader";
-import FullScreenDrawer from "../components/FullScreenDrawer/FullScreenDrawer";
-import useSnackbar from "src/hooks/useSnackbar";
-import formatDateUTC from "src/utils/formatDateUTC";
-import { ResourceInstance, ResourceInstanceNetworkTopology } from "src/types/resourceInstance";
-import { useGlobalData } from "src/providers/GlobalDataProvider";
-
-import { deleteResourceInstance } from "src/api/resourceInstance";
-import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
-import RegionIcon from "components/Region/RegionIcon";
-import DataTable from "components/DataTable/DataTable";
-import StatusChip from "components/StatusChip/StatusChip";
-import DataGridText from "components/DataGrid/DataGridText";
-import GridCellExpand from "components/GridCellExpand/GridCellExpand";
-import CapacityDialog from "components/CapacityDialog/CapacityDialog";
-import GenerateTokenDialog from "components/GenerateToken/GenerateTokenDialog";
-import AccessSideRestoreInstance from "components/RestoreInstance/AccessSideRestoreInstance";
-import TextConfirmationDialog from "components/TextConfirmationDialog/TextConfirmationDialog";
-import CreateInstanceModal from "components/ResourceInstance/CreateInstanceModal/CreateInstanceModal";
-import { getInitialFilterState } from "src/components/InstanceFilters/InstanceFilters";
-import InstanceHealthStatusChip, {
-  getInstanceHealthStatus,
-} from "src/components/InstanceHealthStatusChip/InstanceHealthStatusChip";
-import { getInstanceDetailsRoute } from "src/utils/routes";
-import { loadStatusMap } from "./constants";
-import { isCloudAccountInstance } from "src/utils/access/byoaResource";
-import { BlackTooltip } from "src/components/Tooltip/Tooltip";
-import LoadIndicatorIdle from "src/components/Icons/LoadIndicator/LoadIndicatorIdle";
-import LoadIndicatorNormal from "src/components/Icons/LoadIndicator/LoadIndicatorNormal";
-import LoadIndicatorHigh from "src/components/Icons/LoadIndicator/LoadIndicatorHigh";
-import StatusCell from "./components/StatusCell";
-import useBillingDetails from "../billing/hooks/useBillingDetails";
-import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
-import InstanceLicenseStatusChip from "src/components/InstanceLicenseStatusChip/InstanceLicenseStatusChip";
-import useBillingStatus from "../billing/hooks/useBillingStatus";
 
 const columnHelper = createColumnHelper<ResourceInstance>();
 type Overlay =
@@ -81,7 +84,7 @@ const InstancesPage = () => {
   const { data: billingConfig, isLoading: isLoadingPaymentConfiguration } = useBillingDetails(isBillingEnabled);
   const isPaymentConfigured = Boolean(billingConfig?.paymentConfigured);
 
-  const [statusFilters, setStatusFilters] = useState(getInitialFilterState());
+  // const [statusFilters, setStatusFilters] = useState(getInitialFilterState());
 
   const { subscriptionsObj, serviceOfferingsObj, isFetchingSubscriptions, isFetchingServiceOfferings } =
     useGlobalData();
@@ -303,12 +306,7 @@ const InstancesPage = () => {
           const licenseDetails = data.cell.getValue();
           const licenseExpirationDate = licenseDetails?.expirationDate;
 
-          return (
-            <InstanceLicenseStatusChip
-              expirationDate={licenseExpirationDate}
-              showExpirationDateTooltip={true}
-            />
-          );
+          return <InstanceLicenseStatusChip expirationDate={licenseExpirationDate} showExpirationDateTooltip={true} />;
         },
       }),
 
@@ -342,12 +340,7 @@ const InstancesPage = () => {
           return (
             <GridCellExpand
               value={data.row.original.region || "Global"}
-              startIcon={
-                <RegionIcon
-                  region={data.row.original.region}
-                  provider={data.row.original.cloud_provider}
-                />
-              }
+              startIcon={<RegionIcon region={data.row.original.region} provider={data.row.original.cloud_provider} />}
             />
           );
         },
@@ -397,15 +390,18 @@ const InstancesPage = () => {
     [nonBYOAInstances, selectedFilters, subscriptionsObj]
   );
   const failedInstances = useMemo(() => {
-    return filteredInstances.filter((instance) => instance.status === "FAILED");
-  }, [filteredInstances]);
+    return nonBYOAInstances?.filter((instance) => instance.status === "FAILED");
+  }, [nonBYOAInstances]);
 
   const overloadedInstances = useMemo(() => {
-    return filteredInstances.filter((instance) => instance.instanceLoadStatus === "POD_OVERLOAD");
-  }, [filteredInstances]);
+    return nonBYOAInstances?.filter((instance) =>
+      //@ts-ignore
+      ["POD_OVERLOAD", "LOAD_OVERLOADED"].includes(instance.instanceLoadStatus)
+    );
+  }, [nonBYOAInstances]);
 
   const unhealthyInstances = useMemo(() => {
-    return filteredInstances.filter((instance) => {
+    return nonBYOAInstances?.filter((instance) => {
       const instanceHealthStatus = getInstanceHealthStatus(
         instance.detailedNetworkTopology as Record<string, ResourceInstanceNetworkTopology>,
 
@@ -415,22 +411,22 @@ const InstancesPage = () => {
 
       return false;
     });
-  }, [filteredInstances]);
+  }, [nonBYOAInstances]);
 
-  const statusFilteredInstances = useMemo(() => {
-    let instances = filteredInstances;
-    if (statusFilters.failed) {
-      instances = failedInstances;
-    }
-    if (statusFilters.overloaded) {
-      instances = overloadedInstances;
-    }
+  // const statusFilteredInstances = useMemo(() => {
+  //   let instances = filteredInstances;
+  //   if (statusFilters.failed) {
+  //     instances = failedInstances;
+  //   }
+  //   if (statusFilters.overloaded) {
+  //     instances = overloadedInstances;
+  //   }
 
-    if (statusFilters.unhealthy) {
-      instances = unhealthyInstances;
-    }
-    return instances;
-  }, [failedInstances, overloadedInstances, unhealthyInstances, statusFilters, nonBYOAInstances]);
+  //   if (statusFilters.unhealthy) {
+  //     instances = unhealthyInstances;
+  //   }
+  //   return instances;
+  // }, [failedInstances, overloadedInstances, unhealthyInstances, statusFilters, nonBYOAInstances]);
 
   const selectedInstance = useMemo(() => {
     return nonBYOAInstances.find((instance) => instance.id === selectedRows[0]);
@@ -481,25 +477,95 @@ const InstancesPage = () => {
     }
   );
 
-  const instancesFilterCount = {
-    failed: failedInstances.length,
-    overloaded: overloadedInstances.length,
-    unhealthy: unhealthyInstances.length,
-  };
+  // const instancesFilterCount = {
+  //   failed: failedInstances.length,
+  //   overloaded: overloadedInstances.length,
+  //   unhealthy: unhealthyInstances.length,
+  // };
+
+  const instancesCountSummary = useMemo(
+    () => [
+      {
+        title: "Failed Deployments",
+        count: failedInstances?.length,
+        handleClick: () => {
+          setSelectedFilters((prev) => {
+            return {
+              ...getIntialFiltersObject(),
+              lifecycleStatus: {
+                ...prev["lifecycleStatus"],
+                options: [
+                  {
+                    value: "FAILED",
+                    label: "Failed",
+                  },
+                ],
+              },
+            };
+          });
+        },
+      },
+      {
+        title: "Unhealthy Deployments",
+        count: unhealthyInstances?.length,
+
+        handleClick: () => {
+          setSelectedFilters((prev) => {
+            return {
+              ...getIntialFiltersObject(),
+              healthStatus: {
+                ...prev["healthStatus"],
+                options: [
+                  {
+                    value: "UNHEALTHY",
+                    label: "Unhealthy",
+                  },
+                ],
+              },
+            };
+          });
+        },
+      },
+      {
+        title: "Overload Deployments",
+        count: overloadedInstances?.length,
+
+        handleClick: () => {
+          setSelectedFilters((prev) => {
+            return {
+              ...getIntialFiltersObject(),
+              load: {
+                ...prev["load"],
+                options: [
+                  {
+                    value: "High",
+                    label: "High",
+                  },
+                ],
+              },
+            };
+          });
+        },
+      },
+    ],
+    [failedInstances, overloadedInstances, unhealthyInstances]
+  );
 
   return (
     <PageContainer>
-      <PageTitle icon={InstancesIcon} className="mb-6">
+      {/* <PageTitle icon={InstancesIcon} className="mb-6">
         Deployment Instances
-      </PageTitle>
-      <div>
+      </PageTitle> */}
+
+      <InstancesOverview summary={instancesCountSummary} />
+      <div className="mt-8">
         <DataTable
           columns={dataTableColumns}
-          rows={statusFilteredInstances}
+          rows={filteredInstances}
           noRowsText="No instances"
           HeaderComponent={InstancesTableHeader}
           headerProps={{
-            count: statusFilteredInstances.length,
+            count: filteredInstances.length,
             selectedInstance,
             setSelectedRows,
             setOverlayType,
@@ -513,9 +579,9 @@ const InstancesPage = () => {
             setSelectedFilters,
             isLoadingInstances,
             isLoadingPaymentConfiguration,
-            instancesFilterCount: instancesFilterCount,
-            statusFilters: statusFilters,
-            setStatusFilters: setStatusFilters,
+            // instancesFilterCount: instancesFilterCount,
+            // statusFilters: statusFilters,
+            // setStatusFilters: setStatusFilters,
           }}
           isLoading={isLoadingInstances || isFetchingSubscriptions || isFetchingServiceOfferings}
           selectedRows={selectedRows}

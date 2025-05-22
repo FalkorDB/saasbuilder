@@ -1,14 +1,14 @@
-import { Box, ButtonBase, styled } from "@mui/material";
-import MuiInputAdornment from "@mui/material/InputAdornment";
-import MuiTextField from "@mui/material/TextField";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { forwardRef, useState } from "react";
-import clipboard from "clipboardy";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import SearchIcon from "@mui/icons-material/Search";
-import IconButton from "@mui/material/IconButton";
+import { Box, ButtonBase, IconButton, styled } from "@mui/material";
+import MuiInputAdornment from "@mui/material/InputAdornment";
+import MuiTextField from "@mui/material/TextField";
+import clipboard from "clipboardy";
+
 import Tooltip from "src/components/Tooltip/Tooltip";
 
 const CopyButton = (props) => {
@@ -125,10 +125,7 @@ const TextField = forwardRef(function StyledTextFieldRef(props, ref) {
   if (type === "password") {
     endAdornment = (
       <InputAdornment position="end">
-        <IconButton
-          showPassword={showPassword}
-          setShowPassword={setShowPassword}
-        >
+        <IconButton showPassword={showPassword} setShowPassword={setShowPassword}>
           {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
         </IconButton>
       </InputAdornment>

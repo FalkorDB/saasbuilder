@@ -1,39 +1,42 @@
 "use client";
 
-import Link from "next/link";
-import { RiArrowGoBackFill } from "react-icons/ri";
 import { useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { Stack, Collapse, Box } from "@mui/material";
-import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import Button from "components/Button/Button";
-import Logs from "components/ResourceInstance/Logs/Logs";
-import Backup from "components/ResourceInstance/Backup/Backup";
-import { DisplayText } from "components/Typography/Typography";
-import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
-import AuditLogs from "components/ResourceInstance/AuditLogs/AuditLogs";
-import NodesTable from "components/ResourceInstance/NodesTable/NodesTable";
-import SubscriptionNotFoundUI from "components/Access/SubscriptionNotFoundUI";
-import Connectivity from "components/ResourceInstance/Connectivity/Connectivity";
-import ResourceInstanceDetails from "components/ResourceInstance/ResourceInstanceDetails/ResourceInstanceDetails";
-import ResourceInstanceOverview from "components/ResourceInstance/ResourceInstanceOverview/ResourceInstanceOverview";
-import { NetworkType } from "src/types/common/enums";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import { Collapse, Stack, Box } from "@mui/material";
+import PageContainer from "app/(dashboard)/components/Layout/PageContainer";
+import { RiArrowGoBackFill } from "react-icons/ri";
+import { useDispatch, useSelector } from "react-redux";
+
+import ResourceCustomDNS from "src/components/ResourceInstance/Connectivity/ResourceCustomDNS";
+import { Tab, Tabs } from "src/components/Tab/Tab";
 import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
 import useResourceInstance from "src/hooks/useResourceInstance";
-import { useGlobalData } from "src/providers/GlobalDataProvider";
 import useServiceOfferingResourceSchema from "src/hooks/useServiceOfferingResourceSchema";
+import { useGlobalData } from "src/providers/GlobalDataProvider";
 import {
   selectInstanceDetailsSummaryVisibility,
   toggleInstanceDetailsSummaryVisibility,
 } from "src/slices/genericSlice";
+import { NetworkType } from "src/types/common/enums";
+import SubscriptionNotFoundUI from "components/Access/SubscriptionNotFoundUI";
+import Button from "components/Button/Button";
+import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
+import AuditLogs from "components/ResourceInstance/AuditLogs/AuditLogs";
+import Backup from "components/ResourceInstance/Backup/Backup";
+import Connectivity from "components/ResourceInstance/Connectivity/Connectivity";
+import Logs from "components/ResourceInstance/Logs/Logs";
+import NodesTable from "components/ResourceInstance/NodesTable/NodesTable";
+import ResourceInstanceDetails from "components/ResourceInstance/ResourceInstanceDetails/ResourceInstanceDetails";
+import ResourceInstanceOverview from "components/ResourceInstance/ResourceInstanceOverview/ResourceInstanceOverview";
+import ResourceImportExportRDB from "components/ResourceInstance/ImportExportRDB/ResourceImportExportRDB";
+import { DisplayText } from "components/Typography/Typography";
+
 import { checkCustomDNSEndpoint, getTabs } from "./utils";
-import PageContainer from "app/(dashboard)/components/Layout/PageContainer";
-import ResourceCustomDNS from "src/components/ResourceInstance/Connectivity/ResourceCustomDNS";
-import { useSearchParams } from "next/navigation";
-import { Tab, Tabs } from "src/components/Tab/Tab";
-import ConnectIcon from "src/components/Icons/Connect/Connect";
 import { connectToInstance } from "src/api/resourceInstance";
+import ConnectIcon from "src/components/Icons/Connect/Connect";
 
 export type CurrentTab =
   | "Instance Details"
@@ -58,8 +61,7 @@ const InstanceDetailsPage = ({
     subscriptionId: string;
   };
 }) => {
-  const { serviceId, servicePlanId, resourceId, instanceId, subscriptionId } =
-    params;
+  const { serviceId, servicePlanId, resourceId, instanceId, subscriptionId } = params;
   const searchParams = useSearchParams();
   const view = searchParams?.get("view");
 
@@ -79,20 +81,14 @@ const InstanceDetailsPage = ({
   const insightsVisible = useSelector(selectInstanceDetailsSummaryVisibility);
   const dispatch = useDispatch();
 
-  const {
-    subscriptionsObj,
-    serviceOfferingsObj,
-    isFetchingServiceOfferings,
-    isFetchingSubscriptions,
-  } = useGlobalData();
+  const { subscriptionsObj, serviceOfferingsObj, isFetchingServiceOfferings, isFetchingSubscriptions } =
+    useGlobalData();
 
   const offering = serviceOfferingsObj[serviceId]?.[servicePlanId];
   const subscription = subscriptionsObj[subscriptionId];
 
   const { resourceName, resourceKey, resourceType } = useMemo(() => {
-    const resource = offering?.resourceParameters.find(
-      (resource) => resource.resourceId === resourceId
-    );
+    const resource = offering?.resourceParameters.find((resource) => resource.resourceId === resourceId);
 
     return {
       resourceName: resource?.name,
@@ -101,10 +97,7 @@ const InstanceDetailsPage = ({
     };
   }, [offering, resourceId]);
 
-  const isCliManagedResource = useMemo(
-    () => CLI_MANAGED_RESOURCES.includes(resourceType as string),
-    [resourceType]
-  );
+  const isCliManagedResource = useMemo(() => CLI_MANAGED_RESOURCES.includes(resourceType as string), [resourceType]);
 
   const resourceInstanceQuery = useResourceInstance(
     offering?.serviceProviderId,
@@ -121,27 +114,19 @@ const InstanceDetailsPage = ({
 
   const { data: resourceInstanceData } = resourceInstanceQuery;
 
-  const resourceSchemaQuery = useServiceOfferingResourceSchema(
-    serviceId,
-    resourceId,
-    instanceId
-  );
+  const resourceSchemaQuery = useServiceOfferingResourceSchema(serviceId, resourceId, instanceId);
 
   const tabs = useMemo(
     () =>
       getTabs(
-        true,// resourceInstanceData?.isMetricsEnabled,
+        true, // resourceInstanceData?.isMetricsEnabled,
         resourceInstanceData?.isLogsEnabled,
         resourceInstanceData?.active,
         isResourceBYOA,
         isCliManagedResource,
         resourceType,
         resourceInstanceData?.backupStatus?.backupPeriodInHours,
-        checkCustomDNSEndpoint(
-          resourceInstanceData
-            ? resourceInstanceData?.connectivity?.globalEndpoints
-            : {}
-        )
+        checkCustomDNSEndpoint(resourceInstanceData ? resourceInstanceData?.connectivity?.globalEndpoints : {})
       ),
     [resourceInstanceData, isCliManagedResource, resourceType]
   );
@@ -151,11 +136,7 @@ const InstanceDetailsPage = ({
     [resourceInstanceData, tabs]
   );
 
-  if (
-    !isFetchingServiceOfferings &&
-    !isFetchingSubscriptions &&
-    (!subscription || !offering)
-  ) {
+  if (!isFetchingServiceOfferings && !isFetchingSubscriptions && (!subscription || !offering)) {
     return (
       <PageContainer>
         <SubscriptionNotFoundUI isOfferingFound={!!offering} />
@@ -163,11 +144,7 @@ const InstanceDetailsPage = ({
     );
   }
 
-  if (
-    isFetchingServiceOfferings ||
-    isFetchingSubscriptions ||
-    resourceInstanceQuery.isLoading
-  ) {
+  if (isFetchingServiceOfferings || isFetchingSubscriptions || resourceInstanceQuery.isLoading) {
     return (
       <PageContainer>
         <LoadingSpinner />
@@ -214,13 +191,8 @@ const InstanceDetailsPage = ({
       cloudProvider = resourceInstanceData?.resultParameters?.cloud_provider;
     }
   }
-  const componentName = Object.entries(
-    resourceInstanceData.detailedNetworkTopology
-  ).filter(([_, v]) => {
-    return (
-      (v as any).clusterEndpoint &&
-      !(v as any).resourceName.startsWith("Omnistrate")
-    );
+  const componentName = Object.entries(resourceInstanceData.detailedNetworkTopology).filter(([_, v]) => {
+    return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
   })[0][0];
 
   const url = window.location.href;
@@ -229,18 +201,10 @@ const InstanceDetailsPage = ({
     <PageContainer>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
         <Link href="/instances">
-          <Button startIcon={<RiArrowGoBackFill />}>
-            Back to list of Deployment Instances
-          </Button>
+          <Button startIcon={<RiArrowGoBackFill />}>Back to list of Deployment Instances</Button>
         </Link>
         <Button
-          endIcon={
-            insightsVisible ? (
-              <KeyboardArrowUpIcon />
-            ) : (
-              <KeyboardArrowDownIcon />
-            )
-          }
+          endIcon={insightsVisible ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
           onClick={() => dispatch(toggleInstanceDetailsSummaryVisibility())}
         >
           {insightsVisible ? "Hide Summary" : "Show Summary"}
@@ -259,26 +223,19 @@ const InstanceDetailsPage = ({
           modifiedAt={resourceInstanceData.modifiedAt}
           isCliManagedResource={isCliManagedResource}
           subscriptionOwner={subscription.subscriptionOwnerName}
-          detailedNetworkTopology={
-            resourceInstanceData.detailedNetworkTopology || {}
-          }
+          detailedNetworkTopology={resourceInstanceData.detailedNetworkTopology || {}}
           onViewNodesClick={() => {
             setCurrentTab("Nodes");
           }}
         />
       </Collapse>
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        width="100%"
-        display="flex"
-      >
+      <Box flexDirection="row" justifyContent="space-between" width="100%" display="flex">
         <Tabs value={currentTab} sx={{ marginTop: "20px" }}>
           {Object.entries(tabs).map(([key, value]) => {
-          const isDisabled = disabledTabs?.includes(key);
+            const isDisabled = disabledTabs?.includes(key);
             return (
               <Tab
-              data-testid={`${value?.replace(" ", "-").toLowerCase()}-tab`}
+                data-testid={`${value?.replace(" ", "-").toLowerCase()}-tab`}
                 key={key}
                 label={value}
                 value={value}
@@ -299,24 +256,19 @@ const InstanceDetailsPage = ({
           disabled={resourceInstanceData.status !== "RUNNING"}
           onClick={() =>
             connectToInstance({
-              host: (
-                resourceInstanceData.detailedNetworkTopology[
-                componentName
-                ] as any
-              )?.clusterEndpoint,
-              port: (
-                resourceInstanceData.detailedNetworkTopology[
-                componentName
-                ] as any
-              ).clusterPorts?.[0],
-              username: (resourceInstanceData.resultParameters as any)
-                ?.falkordbUser,
+              host: (resourceInstanceData.detailedNetworkTopology[componentName] as any)?.clusterEndpoint,
+              port: (resourceInstanceData.detailedNetworkTopology[componentName] as any).clusterPorts?.[0],
+              username: (resourceInstanceData.resultParameters as any)?.falkordbUser,
               region: resourceInstanceData.region,
               tls: (resourceInstanceData.resultParameters as any)?.enableTLS,
             })
           }
         >
-          <ConnectIcon color="white" style={{ marginRight: "8px" }} />
+          <ConnectIcon
+            color="white"
+            disabled={resourceInstanceData.status !== "RUNNING"}
+            style={{ marginRight: "8px" }}
+          />
           Connect
         </Button>
       </Box>
@@ -326,12 +278,8 @@ const InstanceDetailsPage = ({
           createdAt={resourceInstanceData.createdAt}
           modifiedAt={resourceInstanceData.modifiedAt}
           resultParameters={resourceInstanceData.resultParameters}
-          isLoading={
-            resourceSchemaQuery.isLoading || resourceInstanceQuery.isLoading
-          }
-          resultParametersSchema={
-            resourceSchemaQuery?.data?.DESCRIBE?.outputParameters
-          }
+          isLoading={resourceSchemaQuery.isLoading || resourceInstanceQuery.isLoading}
+          resultParametersSchema={resourceSchemaQuery?.data?.DESCRIBE?.outputParameters}
           serviceOffering={offering}
           subscriptionId={subscriptionId}
           customNetworkDetails={resourceInstanceData.customNetworkDetails}
@@ -353,23 +301,15 @@ const InstanceDetailsPage = ({
           clusterEndpoint={resourceInstanceData.connectivity.clusterEndpoint}
           nodeEndpoints={resourceInstanceData.connectivity.nodeEndpoints}
           ports={resourceInstanceData.connectivity.ports}
-          availabilityZones={
-            resourceInstanceData.connectivity.availabilityZones
-          }
-          publiclyAccessible={
-            resourceInstanceData.connectivity.publiclyAccessible
-          }
-          privateNetworkCIDR={
-            resourceInstanceData.connectivity.privateNetworkCIDR
-          }
+          availabilityZones={resourceInstanceData.connectivity.availabilityZones}
+          publiclyAccessible={resourceInstanceData.connectivity.publiclyAccessible}
+          privateNetworkCIDR={resourceInstanceData.connectivity.privateNetworkCIDR}
           privateNetworkId={resourceInstanceData.connectivity.privateNetworkId}
           globalEndpoints={resourceInstanceData.connectivity.globalEndpoints}
           nodes={resourceInstanceData.nodes}
           queryData={queryData}
           refetchInstance={resourceInstanceQuery.refetch}
-          additionalEndpoints={
-            resourceInstanceData.connectivity.additionalEndpoints
-          }
+          additionalEndpoints={resourceInstanceData.connectivity.additionalEndpoints}
         />
       )}
       {currentTab === tabs.nodes && (
@@ -410,16 +350,17 @@ const InstanceDetailsPage = ({
           }}
           alignItems="center"
         >
-          {
-            url.includes("falkordb.cloud") ? (
-              <iframe width="100%" style={{
-                'minHeight': '700px'
-              }} src={process.env.NEXT_PUBLIC_GRAFANA_URL + "/d/" + instanceId + "?orgId=" + subscription.id} />
-            ) : (
-              <DisplayText>
-                You must be on FalkorDB Cloud to view metrics.
-              </DisplayText>
-            )}
+          {url.includes("falkordb.cloud") ? (
+            <iframe
+              width="100%"
+              style={{
+                minHeight: "700px",
+              }}
+              src={process.env.NEXT_PUBLIC_GRAFANA_URL + "/d/" + instanceId + "?orgId=" + subscription.id}
+            />
+          ) : (
+            <DisplayText>You must be on FalkorDB Cloud to view metrics.</DisplayText>
+          )}
         </Stack>
       )}
       {currentTab === tabs.logs && (
@@ -433,9 +374,7 @@ const InstanceDetailsPage = ({
         />
       )}
 
-      {currentTab === tabs.auditLogs && (
-        <AuditLogs instanceId={instanceId} subscriptionId={subscriptionId} />
-      )}
+      {currentTab === tabs.auditLogs && <AuditLogs instanceId={instanceId} subscriptionId={subscriptionId} />}
       {currentTab === tabs.backups && (
         <Backup
           // @ts-ignore
@@ -458,6 +397,7 @@ const InstanceDetailsPage = ({
           refetchInstance={resourceInstanceQuery.refetch}
         />
       )}
+      {currentTab === tabs.importExportRDB && <ResourceImportExportRDB instanceId={instanceId} />}
     </PageContainer>
   );
 };

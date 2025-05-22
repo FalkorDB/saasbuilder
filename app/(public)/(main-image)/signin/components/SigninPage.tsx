@@ -1,43 +1,43 @@
 "use client";
 
-import * as Yup from "yup";
-import Link from "next/link";
-import Cookies from "js-cookie";
-import { useFormik } from "formik";
-import ReCAPTCHA from "react-google-recaptcha";
-import { useRouter } from "next-nprogress-bar";
-import { useSearchParams } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "next-nprogress-bar";
 import { Box, Stack, Typography } from "@mui/material";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { useMutation } from "@tanstack/react-query";
+import { useFormik } from "formik";
+import Cookies from "js-cookie";
+import ReCAPTCHA from "react-google-recaptcha";
+import * as Yup from "yup";
 
-import { Text } from "components/Typography/Typography";
-import DisplayHeading from "components/NonDashboardComponents/DisplayHeading";
-import TextField from "components/NonDashboardComponents/FormElementsV2/TextField";
-import FieldLabel from "components/NonDashboardComponents/FormElementsV2/FieldLabel";
-import SubmitButton from "components/NonDashboardComponents/FormElementsV2/SubmitButton";
-import PasswordField from "components/NonDashboardComponents/FormElementsV2/PasswordField";
-import FieldContainer from "components/NonDashboardComponents/FormElementsV2/FieldContainer";
-
-import axios from "src/axios";
-import useSnackbar from "src/hooks/useSnackbar";
 import { customerUserSignin } from "src/api/customer-user";
+import axios from "src/axios";
+import Logo from "src/components/NonDashboardComponents/Logo";
+import { ENVIRONMENT_TYPES } from "src/constants/environmentTypes";
 import { PAGE_TITLE_MAP } from "src/constants/pageTitleMap";
 import useEnvironmentType from "src/hooks/useEnvironmentType";
-import { ENVIRONMENT_TYPES } from "src/constants/environmentTypes";
-
-import GoogleLogin from "./GoogleLogin";
-import GithubLogin from "./GitHubLogin";
-import { IDENTITY_PROVIDER_STATUS_TYPES } from "../constants";
-import Logo from "src/components/NonDashboardComponents/Logo";
+import useSnackbar from "src/hooks/useSnackbar";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
+import { domainsMatch } from "src/utils/compareEmailAndUrlDomains";
 import { getInstancesRoute } from "src/utils/routes";
+import DisplayHeading from "components/NonDashboardComponents/DisplayHeading";
+import FieldContainer from "components/NonDashboardComponents/FormElementsV2/FieldContainer";
+import FieldLabel from "components/NonDashboardComponents/FormElementsV2/FieldLabel";
+import PasswordField from "components/NonDashboardComponents/FormElementsV2/PasswordField";
+import SubmitButton from "components/NonDashboardComponents/FormElementsV2/SubmitButton";
+import TextField from "components/NonDashboardComponents/FormElementsV2/TextField";
+import { Text } from "components/Typography/Typography";
+
+import { IDENTITY_PROVIDER_STATUS_TYPES } from "../constants";
+
+import AccessDeniedAlertDialog from "./AccessDeniedAlertDialog";
+import GithubLogin from "./GitHubLogin";
+import GoogleLogin from "./GoogleLogin";
 
 const createSigninValidationSchema = Yup.object({
-  email: Yup.string()
-    .email("Invalid email address")
-    .required("Email is required"),
+  email: Yup.string().email("Invalid email address").required("Email is required"),
   password: Yup.string().required("Password is required"),
 });
 
@@ -52,7 +52,7 @@ const SigninPage = (props) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const environmentType = useEnvironmentType();
-  const { orgName, orgLogoURL } = useProviderOrgDetails();
+  const { orgName, orgLogoURL, orgURL } = useProviderOrgDetails();
   const redirect_reason = searchParams?.get("redirect_reason");
   const destination = searchParams?.get("destination");
 
@@ -61,14 +61,13 @@ const SigninPage = (props) => {
   const reCaptchaRef = useRef<any>(null);
   const snackbar = useSnackbar();
 
+  const [showAccessDenied, setShowAccessDenied] = useState(false);
+
   useEffect(() => {
     if (redirect_reason === "idp_auth_error") {
       snackbar.showError("Something went wrong. Please retry");
 
-      if (destination)
-        router.replace(
-          `/signin?destination=${encodeURIComponent(destination)}`
-        );
+      if (destination) router.replace(`/signin?destination=${encodeURIComponent(destination)}`);
       else router.replace("/signin");
     }
     /*eslint-disable-next-line react-hooks/exhaustive-deps*/
@@ -117,11 +116,17 @@ const SigninPage = (props) => {
       onError: (error: any) => {
         if (error.response.data && error.response.data.message) {
           const errorMessage = error.response.data.message;
-          snackbar.showError(errorMessage);
+          if (
+            errorMessage === "Failed to sign in. Either the credentials are incorrect or the user does not exist" &&
+            environmentType === ENVIRONMENT_TYPES.PROD &&
+            domainsMatch(formik.values.email, orgURL)
+          ) {
+            setShowAccessDenied(true);
+          } else {
+            snackbar.showError(errorMessage);
+          }
         } else {
-          snackbar.showError(
-            "Failed to sign in. Either the credentials are incorrect or the user does not exist"
-          );
+          snackbar.showError("Failed to sign in. Either the credentials are incorrect or the user does not exist");
         }
       },
     }
@@ -186,11 +191,7 @@ const SigninPage = (props) => {
     <>
       <Box textAlign="center">
         {orgLogoURL ? (
-          <Logo
-            src={orgLogoURL}
-            alt={orgName}
-            style={{ width: "120px", height: "auto", maxHeight: "unset" }}
-          />
+          <Logo src={orgLogoURL} alt={orgName} style={{ width: "120px", height: "auto", maxHeight: "unset" }} />
         ) : (
           ""
         )}
@@ -277,12 +278,7 @@ const SigninPage = (props) => {
         </Stack>
       </Stack>
       {shouldHideSignupLink && (
-        <Stack
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          mt="22px"
-        >
+        <Stack display="flex" justifyContent="center" alignItems="center" mt="22px">
           <Text>Log in with your Omnistrate account credentials</Text>
         </Stack>
       )}
@@ -309,8 +305,8 @@ const SigninPage = (props) => {
               <GoogleOAuthProvider
                 // @ts-ignore
                 clientId={googleIDPClientID}
-                onScriptLoadError={() => { }}
-                onScriptLoadSuccess={() => { }}
+                onScriptLoadError={() => {}}
+                onScriptLoadSuccess={() => {}}
               >
                 <GoogleLogin
                   disabled={isGoogleLoginDisabled}
@@ -331,20 +327,15 @@ const SigninPage = (props) => {
         </>
       )}
       {!shouldHideSignupLink && (
-        <Typography
-          mt="22px"
-          fontWeight="500"
-          fontSize="14px"
-          lineHeight="22px"
-          color="#A0AEC0"
-          textAlign="center"
-        >
+        <Typography mt="22px" fontWeight="500" fontSize="14px" lineHeight="22px" color="#A0AEC0" textAlign="center">
           You&apos;re new in here?{" "}
           <Link href="/signup" style={{ color: "#27A376" }}>
             Create Account
           </Link>
         </Typography>
       )}
+
+      <AccessDeniedAlertDialog open={showAccessDenied} handleClose={() => setShowAccessDenied(false)} />
     </>
   );
 };

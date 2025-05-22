@@ -1,10 +1,7 @@
 const path = require("path");
 const dotenv = require("dotenv");
 dotenv.config({
-  path: path.resolve(
-    process.cwd(),
-    process.env.NODE_ENV === "production" ? ".env.production" : ".env.local"
-  ),
+  path: path.resolve(process.cwd(), process.env.NODE_ENV === "production" ? ".env.production" : ".env.local"),
 });
 const { startMailServiceCron } = require("./src/server/mail-service/mail-cron");
 const verifyEnvironmentVariables = require("./src/server/utils/verifyEnvironmentVariables");

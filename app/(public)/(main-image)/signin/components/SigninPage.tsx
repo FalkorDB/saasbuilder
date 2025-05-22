@@ -305,8 +305,8 @@ const SigninPage = (props) => {
               <GoogleOAuthProvider
                 // @ts-ignore
                 clientId={googleIDPClientID}
-                onScriptLoadError={() => { }}
-                onScriptLoadSuccess={() => { }}
+                onScriptLoadError={() => {}}
+                onScriptLoadSuccess={() => {}}
               >
                 <GoogleLogin
                   disabled={isGoogleLoginDisabled}

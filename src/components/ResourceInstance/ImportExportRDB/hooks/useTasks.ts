@@ -15,17 +15,17 @@ export type TaskBase = {
   updatedAt: string;
   payload?: {
     destination?: {
-      expiresIn?: number
-    }
-  }
+      expiresIn?: number;
+    };
+  };
   output?: {
     readUrl?: string;
-  }
-  error?: string
+  };
+  error?: string;
 };
 
 export type TasksResponse = {
-  data: TaskBase[],
+  data: TaskBase[];
   page: number;
   pageSize: number;
   total: number;
@@ -37,21 +37,17 @@ function useTasks(
 ) {
   const { instanceId } = queryParams;
 
-  const query: UseQueryResult<TaskBase[]> = useQuery<
-    AxiosResponse<{ data: TaskBase[] }>,
-    unknown,
-    TaskBase[]
-  >(
+  const query: UseQueryResult<TaskBase[]> = useQuery<AxiosResponse<{ data: TaskBase[] }>, unknown, TaskBase[]>(
     ["instanceRestore", instanceId],
     () => {
-      return getInstanceTasks(instanceId)
+      return getInstanceTasks(instanceId);
     },
     {
       refetchOnWindowFocus: false,
       retry: false,
       refetchOnMount: true,
       refetchInterval: 30000,
-      onError: () => { },
+      onError: () => {},
       select: (response) => {
         return response?.data?.data || [];
       },

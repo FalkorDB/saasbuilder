@@ -3,7 +3,12 @@ import { CircularProgress, menuClasses } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import useBillingStatus from "app/(dashboard)/billing/hooks/useBillingStatus";
 
-import { restartResourceInstance, startResourceInstance, stopResourceInstance, connectToInstance } from "src/api/resourceInstance";
+import {
+  restartResourceInstance,
+  startResourceInstance,
+  stopResourceInstance,
+  connectToInstance,
+} from "src/api/resourceInstance";
 import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
 // import InstanceFilters from "src/components/InstanceFilters/InstanceFilters";
 import Tooltip from "src/components/Tooltip/Tooltip";
@@ -257,22 +262,14 @@ const InstancesTableHeader = ({
       other.push({
         label: "Connect",
         isLoading: connectInstanceMutation.isLoading,
-        isDisabled:
-          !selectedInstance || (status !== "RUNNING" && status !== "FAILED"),
+        isDisabled: !selectedInstance || (status !== "RUNNING" && status !== "FAILED"),
         onClick: () => {
-          const resourceKey = Object.entries(
-            selectedInstance.detailedNetworkTopology
-          ).filter(([_, v]) => {
-            return (
-              (v as any).clusterEndpoint &&
-              !(v as any).resourceName.startsWith("Omnistrate")
-            );
+          const resourceKey = Object.entries(selectedInstance.detailedNetworkTopology).filter(([_, v]) => {
+            return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
           })[0][0];
           connectInstanceMutation.mutate({
-            host: selectedInstance.detailedNetworkTopology?.[resourceKey]
-              ?.clusterEndpoint,
-            port: selectedInstance.detailedNetworkTopology?.[resourceKey]
-              ?.clusterPorts?.[0],
+            host: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterEndpoint,
+            port: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterPorts?.[0],
             region: selectedInstance.region,
             username: selectedInstance.result_params.falkordbUser,
             tls: selectedInstance.result_params.enableTLS,

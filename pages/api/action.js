@@ -77,8 +77,7 @@ export default async function handleAction(nextRequest, nextResponse) {
       } catch (error) {
         console.error("Action Route error", error);
         const errorCode = error?.response?.status || 500;
-        const errorMessage =
-          error?.response?.data?.message || defaultErrorMessage;
+        const errorMessage = error?.response?.data?.message || defaultErrorMessage;
         return nextResponse.status(errorCode).send({
           message: errorMessage,
         });

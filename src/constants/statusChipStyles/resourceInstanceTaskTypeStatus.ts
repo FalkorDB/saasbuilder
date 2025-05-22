@@ -1,8 +1,8 @@
 import { Category, chipCategoryColors, ColorObject, defaultChipStyles } from "./index";
 
 export const resourceInstanceStatusMap: Record<string, { category: Category; label: string }> = {
-  "SingleShardRDBExport": { category: 'pending', label: 'Export' },
-  "MultiShardRDBExport": { category: 'pending', label: 'Export' }
+  SingleShardRDBExport: { category: "pending", label: "Export" },
+  MultiShardRDBExport: { category: "pending", label: "Export" },
 };
 
 export const getResourceInstanceTaskTypeStatusStylesAndLabel = (status: string): ColorObject & { label?: string } => {

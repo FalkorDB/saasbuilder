@@ -1,7 +1,6 @@
 import { useMemo } from "react";
-import { Box, Link, Stack, Tooltip } from "@mui/material";
+import { Box, Link, Tooltip } from "@mui/material";
 
-import Card from "src/components/Card/Card";
 import { Text } from "src/components/Typography/Typography";
 import StatusChip from "src/components/StatusChip/StatusChip";
 import { getResourceInstanceTaskStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceTaskStatus";
@@ -10,40 +9,32 @@ import formatDateLocal from "src/utils/formatDateLocal";
 import DataGrid from "src/components/DataGrid/DataGrid";
 import useTasks, { TaskBase } from "src/components/ResourceInstance/ImportExportRDB/hooks/useTasks";
 import TasksTableHeader from "src/components/ResourceInstance/ImportExportRDB/components/TasksTableHeader";
-import DownloadCLIIcon from "src/components/Icons/DownloadCLI/DownloadCLIIcon";
 import { useMutation } from "@tanstack/react-query";
 import useSnackbar from "src/hooks/useSnackbar";
 import { postInstanceExportRdb } from "src/api/falkordb";
 
-
 function ResourceImportExportRDB(props) {
   const snackbar = useSnackbar();
-  const {
-    instanceId
-  } = props;
+  const { instanceId } = props;
 
   const tasksQuery = useTasks({
     instanceId,
   });
   const { data: tasksData = [], isLoading, isRefetching, refetch } = tasksQuery;
 
-  const exportMutation = useMutation<unknown, unknown, { username: string, password: string }, unknown>(
+  const exportMutation = useMutation<unknown, unknown, { username: string; password: string }, unknown>(
     async (vars) => {
-      await postInstanceExportRdb(
-        instanceId,
-        vars.username,
-        vars.password,
-      )
+      await postInstanceExportRdb(instanceId, vars.username, vars.password);
     },
     {
       onSuccess() {
         snackbar.showSuccess(`Export task submitted successfully`);
       },
       onError(error) {
-        snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`)
+        snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
       },
     }
-  )
+  );
 
   const columns = useMemo(
     () => [
@@ -73,11 +64,10 @@ function ResourceImportExportRDB(props) {
           const statusStylesAndMap = getResourceInstanceTaskStatusStylesAndLabel(status);
           if (status === "failed") {
             return (
-              <Tooltip
-                title={params.row.error}>
+              <Tooltip title={params.row.error}>
                 <StatusChip status={status} {...statusStylesAndMap} />
               </Tooltip>
-            )
+            );
           }
           return <StatusChip status={status} {...statusStylesAndMap} />;
         },
@@ -88,36 +78,36 @@ function ResourceImportExportRDB(props) {
         headerName: "Created On",
         flex: 1,
         minWidth: 170,
-        valueGetter: (params: { row: TaskBase }) =>
-          formatDateLocal(params.row.createdAt),
+        valueGetter: (params: { row: TaskBase }) => formatDateLocal(params.row.createdAt),
       },
       {
         field: "updatedAt",
         headerName: "Updated On",
         flex: 1,
         minWidth: 170,
-        valueGetter: (params: { row: TaskBase }) =>
-          formatDateLocal(params.row.updatedAt),
+        valueGetter: (params: { row: TaskBase }) => formatDateLocal(params.row.updatedAt),
       },
       {
         field: "url",
         headerName: "URL",
         flex: 0.7,
-        valueGetter: (params: { row: TaskBase }) => (params.row.output?.readUrl),
+        valueGetter: (params: { row: TaskBase }) => params.row.output?.readUrl,
         renderCell: (params: { row: TaskBase; value?: string }) => {
           if (params.value) {
             // check if it expired
             if (
-              params.row.payload?.destination?.expiresIn
-              && new Date(params.row.updatedAt).getTime() + params.row.payload.destination.expiresIn < Date.now()
+              params.row.payload?.destination?.expiresIn &&
+              new Date(params.row.updatedAt).getTime() + params.row.payload.destination.expiresIn < Date.now()
             ) {
-              return <Text>Expired</Text>
+              return <Text>Expired</Text>;
             }
-            return <Link target="_blank" href={params.value}>
-              Download
-            </Link>
+            return (
+              <Link target="_blank" href={params.value}>
+                Download
+              </Link>
+            );
           }
-          return <Text> </Text>
+          return <Text> </Text>;
         },
         minWidth: 150,
       },

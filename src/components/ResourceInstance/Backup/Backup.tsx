@@ -158,16 +158,14 @@ const Backup: FC<{
         headerName: "Created On",
         flex: 1,
         minWidth: 170,
-        valueGetter: (params: { row: SnapshotBase }) =>
-          formatDateLocal(params.row.createdTime),
+        valueGetter: (params: { row: SnapshotBase }) => formatDateLocal(params.row.createdTime),
       },
       {
         field: "completeTime",
         headerName: "Completion Time",
         flex: 1,
         minWidth: 170,
-        valueGetter: (params: { row: SnapshotBase }) =>
-          formatDateLocal(params.row.completeTime),
+        valueGetter: (params: { row: SnapshotBase }) => formatDateLocal(params.row.completeTime),
       },
       {
         field: "progress",

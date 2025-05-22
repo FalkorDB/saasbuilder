@@ -79,25 +79,15 @@ export const getStandardInformationFields = (
   const resourceMenuItems = getResourceMenuItems(serviceOfferingsObj[serviceId]?.[servicePlanId]);
 
   resourceMenuItems.sort((a, b) => {
-    const order = [
-      "Standalone",
-      "Single-Zone",
-      "Multi-Zone",
-      "Cluster-Single-Zone",
-      "Cluster-Multi-Zone",
-      "Grafana",
-    ];
+    const order = ["Standalone", "Single-Zone", "Multi-Zone", "Cluster-Single-Zone", "Cluster-Multi-Zone", "Grafana"];
 
     return order.indexOf(a.label) - order.indexOf(b.label);
   });
 
-  const inputParametersObj = (resourceSchema?.inputParameters || []).reduce(
-    (acc: any, param: any) => {
-      acc[param.key] = param;
-      return acc;
-    },
-    {}
-  );
+  const inputParametersObj = (resourceSchema?.inputParameters || []).reduce((acc: any, param: any) => {
+    acc[param.key] = param;
+    return acc;
+  }, {});
 
   const cloudProviderFieldExists = inputParametersObj["cloud_provider"];
   const regionFieldExists = inputParametersObj["region"];
@@ -160,9 +150,7 @@ export const getStandardInformationFields = (
       required: true,
       customComponent: (
         <SubscriptionPlanRadio
-          servicePlans={Object.values(
-            serviceOfferingsObj[serviceId] || {}
-          ).sort((a: any, b: any) => {
+          servicePlans={Object.values(serviceOfferingsObj[serviceId] || {}).sort((a: any, b: any) => {
             const order = {
               "FalkorDB Free": 0,
               "FalkorDB Startup": 1,
@@ -172,9 +160,7 @@ export const getStandardInformationFields = (
 
             return order[a.productTierName] - order[b.productTierName];
           })}
-          serviceSubscriptions={subscriptions.filter(
-            (subscription) => subscription.serviceId === serviceId
-          )}
+          serviceSubscriptions={subscriptions.filter((subscription) => subscription.serviceId === serviceId)}
           name="servicePlanId"
           formData={formData}
           disabled={formMode !== "create"}
@@ -593,7 +579,7 @@ export const getDeploymentConfigurationFields = (
         disabled: formMode !== "create" && param.custom && !param.modifiable,
       });
     } else if (param.options !== undefined && param.isList === false) {
-      console.log({param})
+      console.log({ param });
       fields.push({
         dataTestId: `${param.key}-select`,
         label: param.displayName || param.key,

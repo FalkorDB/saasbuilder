@@ -1,6 +1,5 @@
 import { FC, useState } from "react";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import { DialogTitle, Dialog, Stack, DialogContent, DialogContentText, DialogActions, Box } from "@mui/material";
+import { Stack, DialogContent, Box } from "@mui/material";
 import { UseMutationResult } from "@tanstack/react-query";
 
 import Button from "src/components/Button/Button";
@@ -8,7 +7,10 @@ import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgres
 import DataGridHeaderTitle from "src/components/Headers/DataGridHeaderTitle";
 import RefreshWithToolTip from "src/components/RefreshWithTooltip/RefreshWithToolTip";
 import ExportIcon from "src/components/Icons/Export/ExportIcon";
-import InformationDialogTopCenter, { DialogFooter, DialogHeader } from "src/components/Dialog/InformationDialogTopCenter";
+import InformationDialogTopCenter, {
+  DialogFooter,
+  DialogHeader,
+} from "src/components/Dialog/InformationDialogTopCenter";
 import { Text } from "src/components/Typography/Typography";
 import TextField from "src/components/FormElementsv2/TextField/TextField";
 import { PasswordField } from "src/components/FormElementsv2/PasswordField/PasswordField";
@@ -19,15 +21,10 @@ type TasksTableHeaderProps = {
   count: number;
   refetch: () => void;
   isRefetching: boolean;
-  exportMutation: UseMutationResult<void, Error, { username: string, password: string }, unknown>;
+  exportMutation: UseMutationResult<void, Error, { username: string; password: string }, unknown>;
 };
 
-const TasksTableHeader: FC<TasksTableHeaderProps> = ({
-  count,
-  refetch,
-  isRefetching,
-  exportMutation,
-}) => {
+const TasksTableHeader: FC<TasksTableHeaderProps> = ({ count, refetch, isRefetching, exportMutation }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -70,31 +67,32 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({
         handleClose={() => setOpen(false)}
         open={open}
         PaperProps={{
-          component: 'form',
+          component: "form",
           onSubmit: async (event: React.FormEvent<HTMLFormElement>) => {
             event.preventDefault();
             const formData = new FormData(event.currentTarget);
             const formJson = Object.fromEntries((formData as any).entries());
             await exportMutation.mutateAsync({
               username: formJson.username,
-              password: formJson.password
-            })
-            refetch()
-            setOpen(false)
+              password: formJson.password,
+            });
+            refetch();
+            setOpen(false);
           },
         }}
       >
         <DialogHeader>
           <Box>
             <Text size="large" weight="bold">
-              Enter the instance's username and password
+              Enter the instance&apos;s username and password
             </Text>
           </Box>
         </DialogHeader>
         <DialogContent>
           <Box>
-
-            <Text size="small" weight="regular" color="344054">To export your RDB, you must enter again the username and password with read/write access to your FalkorDB Instance
+            <Text size="small" weight="regular" color="344054">
+              To export your RDB, you must enter again the username and password with read/write access to your FalkorDB
+              Instance
             </Text>
             <FieldContainer>
               <FieldLabel required>Username</FieldLabel>
@@ -103,7 +101,7 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({
                 required
                 id="username"
                 name="username"
-                placeholder='falkordb'
+                placeholder="falkordb"
                 fullWidth
                 sx={{ mt: 0 }}
               />
@@ -114,7 +112,7 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({
                 required
                 id="password"
                 name="password"
-                placeholder='your password'
+                placeholder="your password"
                 fullWidth
                 sx={{ mt: 0 }}
               />
@@ -122,10 +120,14 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({
           </Box>
         </DialogContent>
         <DialogFooter>
-          <Button variant="outlined" onClick={() => setOpen(false)} disabled={exportMutation.isLoading}>Cancel</Button>
-          <Button variant="contained" type="submit" disabled={exportMutation.isLoading}>Export</Button>
+          <Button variant="outlined" onClick={() => setOpen(false)} disabled={exportMutation.isLoading}>
+            Cancel
+          </Button>
+          <Button variant="contained" type="submit" disabled={exportMutation.isLoading}>
+            Export
+          </Button>
         </DialogFooter>
-      </InformationDialogTopCenter >
+      </InformationDialogTopCenter>
     </>
   );
 };

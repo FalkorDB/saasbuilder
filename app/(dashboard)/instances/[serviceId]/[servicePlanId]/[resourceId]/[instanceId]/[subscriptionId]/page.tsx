@@ -28,7 +28,6 @@ import AuditLogs from "components/ResourceInstance/AuditLogs/AuditLogs";
 import Backup from "components/ResourceInstance/Backup/Backup";
 import Connectivity from "components/ResourceInstance/Connectivity/Connectivity";
 import Logs from "components/ResourceInstance/Logs/Logs";
-import Metrics from "components/ResourceInstance/Metrics/Metrics";
 import NodesTable from "components/ResourceInstance/NodesTable/NodesTable";
 import ResourceInstanceDetails from "components/ResourceInstance/ResourceInstanceDetails/ResourceInstanceDetails";
 import ResourceInstanceOverview from "components/ResourceInstance/ResourceInstanceOverview/ResourceInstanceOverview";
@@ -120,7 +119,7 @@ const InstanceDetailsPage = ({
   const tabs = useMemo(
     () =>
       getTabs(
-        true,// resourceInstanceData?.isMetricsEnabled,
+        true, // resourceInstanceData?.isMetricsEnabled,
         resourceInstanceData?.isLogsEnabled,
         resourceInstanceData?.active,
         isResourceBYOA,
@@ -192,13 +191,8 @@ const InstanceDetailsPage = ({
       cloudProvider = resourceInstanceData?.resultParameters?.cloud_provider;
     }
   }
-  const componentName = Object.entries(
-    resourceInstanceData.detailedNetworkTopology
-  ).filter(([_, v]) => {
-    return (
-      (v as any).clusterEndpoint &&
-      !(v as any).resourceName.startsWith("Omnistrate")
-    );
+  const componentName = Object.entries(resourceInstanceData.detailedNetworkTopology).filter(([_, v]) => {
+    return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
   })[0][0];
 
   const url = window.location.href;
@@ -235,12 +229,7 @@ const InstanceDetailsPage = ({
           }}
         />
       </Collapse>
-      <Box
-        flexDirection="row"
-        justifyContent="space-between"
-        width="100%"
-        display="flex"
-      >
+      <Box flexDirection="row" justifyContent="space-between" width="100%" display="flex">
         <Tabs value={currentTab} sx={{ marginTop: "20px" }}>
           {Object.entries(tabs).map(([key, value]) => {
             const isDisabled = disabledTabs?.includes(key);
@@ -267,24 +256,19 @@ const InstanceDetailsPage = ({
           disabled={resourceInstanceData.status !== "RUNNING"}
           onClick={() =>
             connectToInstance({
-              host: (
-                resourceInstanceData.detailedNetworkTopology[
-                componentName
-                ] as any
-              )?.clusterEndpoint,
-              port: (
-                resourceInstanceData.detailedNetworkTopology[
-                componentName
-                ] as any
-              ).clusterPorts?.[0],
-              username: (resourceInstanceData.resultParameters as any)
-                ?.falkordbUser,
+              host: (resourceInstanceData.detailedNetworkTopology[componentName] as any)?.clusterEndpoint,
+              port: (resourceInstanceData.detailedNetworkTopology[componentName] as any).clusterPorts?.[0],
+              username: (resourceInstanceData.resultParameters as any)?.falkordbUser,
               region: resourceInstanceData.region,
               tls: (resourceInstanceData.resultParameters as any)?.enableTLS,
             })
           }
         >
-          <ConnectIcon color="white" disabled={resourceInstanceData.status !== "RUNNING"} style={{ marginRight: "8px" }} />
+          <ConnectIcon
+            color="white"
+            disabled={resourceInstanceData.status !== "RUNNING"}
+            style={{ marginRight: "8px" }}
+          />
           Connect
         </Button>
       </Box>
@@ -366,16 +350,17 @@ const InstanceDetailsPage = ({
           }}
           alignItems="center"
         >
-          {
-            url.includes("falkordb.cloud") ? (
-              <iframe width="100%" style={{
-                'minHeight': '700px'
-              }} src={process.env.NEXT_PUBLIC_GRAFANA_URL + "/d/" + instanceId + "?orgId=" + subscription.id} />
-            ) : (
-              <DisplayText>
-                You must be on FalkorDB Cloud to view metrics.
-              </DisplayText>
-            )}
+          {url.includes("falkordb.cloud") ? (
+            <iframe
+              width="100%"
+              style={{
+                minHeight: "700px",
+              }}
+              src={process.env.NEXT_PUBLIC_GRAFANA_URL + "/d/" + instanceId + "?orgId=" + subscription.id}
+            />
+          ) : (
+            <DisplayText>You must be on FalkorDB Cloud to view metrics.</DisplayText>
+          )}
         </Stack>
       )}
       {currentTab === tabs.logs && (
@@ -412,12 +397,7 @@ const InstanceDetailsPage = ({
           refetchInstance={resourceInstanceQuery.refetch}
         />
       )}
-      {
-        currentTab === tabs.importExportRDB && (
-          <ResourceImportExportRDB 
-            instanceId={instanceId}
-          />
-        )}
+      {currentTab === tabs.importExportRDB && <ResourceImportExportRDB instanceId={instanceId} />}
     </PageContainer>
   );
 };

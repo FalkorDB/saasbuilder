@@ -55,16 +55,11 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       });
       console.error("Error in signin", error);
 
-      if (
-        error.name === "ProviderAuthError" ||
-        error?.response?.status === undefined
-      ) {
+      if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
         return nextResponse.status(500).send({
           message: defaultErrorMessage,
         });
-      } else if (
-        error.response?.data?.message === "wrong user email or password"
-      ) {
+      } else if (error.response?.data?.message === "wrong user email or password") {
         return nextResponse.status(400).send({
           message: defaultErrorMessage,
         });

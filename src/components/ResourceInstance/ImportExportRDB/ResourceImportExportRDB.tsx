@@ -15,7 +15,7 @@ import { postInstanceExportRdb } from "src/api/falkordb";
 
 function ResourceImportExportRDB(props) {
   const snackbar = useSnackbar();
-  const { instanceId } = props;
+  const { instanceId, status } = props;
 
   const tasksQuery = useTasks({
     instanceId,
@@ -131,6 +131,7 @@ function ResourceImportExportRDB(props) {
               refetch,
               isRefetching,
               exportMutation,
+              status
             },
           }}
           getRowClassName={(params: { row: TaskBase }) => `${params.row.status}`}

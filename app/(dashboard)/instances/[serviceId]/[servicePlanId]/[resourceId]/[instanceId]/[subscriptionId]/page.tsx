@@ -397,7 +397,7 @@ const InstanceDetailsPage = ({
           refetchInstance={resourceInstanceQuery.refetch}
         />
       )}
-      {currentTab === tabs.importExportRDB && <ResourceImportExportRDB instanceId={instanceId} />}
+      {currentTab === tabs.importExportRDB && <ResourceImportExportRDB instanceId={instanceId} status={resourceInstanceData.status} />}
     </PageContainer>
   );
 };

@@ -16,15 +16,17 @@ import TextField from "src/components/FormElementsv2/TextField/TextField";
 import { PasswordField } from "src/components/FormElementsv2/PasswordField/PasswordField";
 import FieldContainer from "src/components/FormElements/FieldContainer/FieldContainer";
 import FieldLabel from "src/components/FormElements/FieldLabel/FieldLabel";
+import Tooltip from "src/components/Tooltip/Tooltip";
 
 type TasksTableHeaderProps = {
   count: number;
   refetch: () => void;
   isRefetching: boolean;
   exportMutation: UseMutationResult<void, Error, { username: string; password: string }, unknown>;
+  status: string;
 };
 
-const TasksTableHeader: FC<TasksTableHeaderProps> = ({ count, refetch, isRefetching, exportMutation }) => {
+const TasksTableHeader: FC<TasksTableHeaderProps> = ({ count, refetch, isRefetching, exportMutation, status }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -47,19 +49,23 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({ count, refetch, isRefetch
         />
         <Stack direction="row" alignItems="center" gap="12px" justifyContent="flex-end" flexGrow={1} flexWrap={"wrap"}>
           <RefreshWithToolTip refetch={refetch} disabled={isRefetching} />
-          <Button
-            variant="outlined"
-            sx={{
-              height: "40px !important",
-              padding: "10px 14px !important",
-            }}
-            startIcon={<ExportIcon disabled={isRefetching || exportMutation.isLoading} />}
-            disabled={isRefetching || exportMutation.isLoading}
-            onClick={() => setOpen(true)}
-          >
-            Export RDB
-            {exportMutation.isLoading && <LoadingSpinnerSmall sx={{ color: "#7F56D9", marginLeft: "12px" }} />}
-          </Button>
+          <Tooltip placement="top" visible={status !== "RUNNING"} title='The instance must be running to export the RDB'>
+            <span>
+              <Button
+                variant="outlined"
+                sx={{
+                  height: "40px !important",
+                  padding: "10px 14px !important",
+                }}
+                startIcon={<ExportIcon disabled={status != "RUNNING" || isRefetching || exportMutation.isLoading} />}
+                disabled={status != "RUNNING" || isRefetching || exportMutation.isLoading}
+                onClick={() => setOpen(true)}
+              >
+                Export RDB
+                {exportMutation.isLoading && <LoadingSpinnerSmall sx={{ color: "#7F56D9", marginLeft: "12px" }} />}
+              </Button>
+            </span>
+          </Tooltip>
         </Stack>
       </Stack>
 

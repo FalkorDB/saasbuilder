@@ -60,11 +60,13 @@ export const postInstanceImportRdbConfirmUpload = (instanceId: string, taskId: s
   );
 };
 
-export const uploadFile = (url: string, file: ArrayBuffer, config = {}) => {
+export const uploadFile = (url: string, file: ArrayBuffer, config: any = {}) => {
   return axios.put(url, file, {
+    ...config,
     headers: {
-      "Content-Type": 'application/octet-stream'
-    }
+      ...config?.headers,
+      "Content-Type": 'application/octet-stream',
+    },
   })
 }
 

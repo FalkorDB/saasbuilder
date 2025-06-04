@@ -20,6 +20,7 @@ export type TaskBase = {
   };
   output?: {
     readUrl?: string;
+    numberOfKeys?: number;
   };
   error?: string;
 };
@@ -47,7 +48,7 @@ function useTasks(
       retry: false,
       refetchOnMount: true,
       refetchInterval: 30000,
-      onError: () => {},
+      onError: () => { },
       select: (response) => {
         return response?.data?.data || [];
       },

@@ -32,3 +32,41 @@ export const postInstanceExportRdb = (instanceId: string, username: string, pass
     }
   );
 };
+
+export const postInstanceImportRdbRequestURL = (instanceId: string, username: string, password: string, config = {}) => {
+  return axiosInstance.post<any, { taskId: string, uploadUrl: string }>(
+    `/db-importer/import/request-url`,
+    {
+      instanceId,
+      username,
+      password,
+    },
+    {
+      ...config,
+    }
+  );
+};
+
+export const postInstanceImportRdbConfirmUpload = (instanceId: string, taskId: string, config = {}) => {
+  return axiosInstance.post<any, { taskId: string, uploadUrl: string }>(
+    `/db-importer/import/confirm-upload`,
+    {
+      instanceId,
+      taskId,
+    },
+    {
+      ...config,
+    }
+  );
+};
+
+export const uploadFile = (url: string, file: ArrayBuffer, config: any = {}) => {
+  return axios.put(url, file, {
+    ...config,
+    headers: {
+      ...config?.headers,
+      "Content-Type": 'application/octet-stream',
+    },
+  })
+}
+

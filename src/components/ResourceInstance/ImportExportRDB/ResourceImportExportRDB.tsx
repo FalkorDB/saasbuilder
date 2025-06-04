@@ -11,7 +11,7 @@ import useTasks, { TaskBase } from "src/components/ResourceInstance/ImportExport
 import TasksTableHeader from "src/components/ResourceInstance/ImportExportRDB/components/TasksTableHeader";
 import { useMutation } from "@tanstack/react-query";
 import useSnackbar from "src/hooks/useSnackbar";
-import { postInstanceExportRdb } from "src/api/falkordb";
+import { postInstanceExportRdb, postInstanceImportRdbConfirmUpload, postInstanceImportRdbRequestURL, uploadFile } from "src/api/falkordb";
 
 function ResourceImportExportRDB(props) {
   const snackbar = useSnackbar();
@@ -29,6 +29,24 @@ function ResourceImportExportRDB(props) {
     {
       onSuccess() {
         snackbar.showSuccess(`Export task submitted successfully`);
+      },
+      onError(error) {
+        snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
+      },
+    }
+  );
+
+  const importMutation = useMutation<unknown, unknown, { username: string; password: string, file: ArrayBuffer }, unknown>(
+    async (vars) => {
+      const { taskId, uploadUrl } = await postInstanceImportRdbRequestURL(instanceId, vars.username, vars.password);
+
+      await uploadFile(uploadUrl, vars.file)
+
+      await postInstanceImportRdbConfirmUpload(instanceId, taskId)
+    },
+    {
+      onSuccess() {
+        snackbar.showSuccess(`Import task submitted successfully`);
       },
       onError(error) {
         snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
@@ -88,11 +106,24 @@ function ResourceImportExportRDB(props) {
         valueGetter: (params: { row: TaskBase }) => formatDateLocal(params.row.updatedAt),
       },
       {
-        field: "url",
-        headerName: "URL",
+        field: "output",
+        headerName: "Output",
         flex: 0.7,
         valueGetter: (params: { row: TaskBase }) => params.row.output?.readUrl,
         renderCell: (params: { row: TaskBase; value?: string }) => {
+          if (params.row.status !== 'completed') {
+            return <Text> </Text>
+          }
+          if (params.row.type === 'RDBImport') {
+            const numberOfKeys = params.row.output?.numberOfKeys ?? 0;
+            if (numberOfKeys > 1)
+              return <Text>{numberOfKeys} keys imported</Text>;
+            else if (numberOfKeys === 1)
+              return <Text>1 key imported</Text>;
+            else if (!numberOfKeys)
+              return <Text>No keys imported</Text>;
+          }
+
           if (params.value) {
             // check if it expired
             if (
@@ -131,6 +162,7 @@ function ResourceImportExportRDB(props) {
               refetch,
               isRefetching,
               exportMutation,
+              importMutation,
               status
             },
           }}

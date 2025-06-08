@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
 import Cookies from "js-cookie";
 
 const axiosInstance = axios.create({
@@ -34,7 +34,7 @@ export const postInstanceExportRdb = (instanceId: string, username: string, pass
 };
 
 export const postInstanceImportRdbRequestURL = (instanceId: string, username: string, password: string, config = {}) => {
-  return axiosInstance.post<any, { taskId: string, uploadUrl: string }>(
+  return axiosInstance.post<any, AxiosResponse<{ taskId: string, uploadUrl: string }>>(
     `/db-importer/import/request-url`,
     {
       instanceId,
@@ -44,7 +44,7 @@ export const postInstanceImportRdbRequestURL = (instanceId: string, username: st
     {
       ...config,
     }
-  );
+  ).then(res => res.data);
 };
 
 export const postInstanceImportRdbConfirmUpload = (instanceId: string, taskId: string, config = {}) => {
@@ -61,7 +61,7 @@ export const postInstanceImportRdbConfirmUpload = (instanceId: string, taskId: s
 };
 
 export const uploadFile = (url: string, file: ArrayBuffer, config: any = {}) => {
-  return axios.put(url, file, {
+  return axios.create().put(url, file, {
     ...config,
     headers: {
       ...config?.headers,

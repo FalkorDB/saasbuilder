@@ -122,17 +122,17 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({ count, refetch, isRefetch
                 snackbar.showError(`Please select a valid RDB file`);
                 return;
               }
-              return await importMutation.mutateAsync({
+              await importMutation.mutateAsync({
                 username: formJson.username,
                 password: formJson.password,
                 file: await file.arrayBuffer(),
               })
+            } else {
+              await exportMutation.mutateAsync({
+                username: formJson.username,
+                password: formJson.password,
+              });
             }
-
-            await exportMutation.mutateAsync({
-              username: formJson.username,
-              password: formJson.password,
-            });
             refetch();
             setDialog({ open: false });
             setFile(undefined)

@@ -91,7 +91,7 @@ const UsageOverview: FC<UsageOverviewProps> = (props) => {
     return services;
   }, [subscriptions, servicePlansGroupedByServiceId]);
 
-  const serviceOptions = [{ serviceName: "All Services", serviceId: "" }, ...rootSubscriptionServices];
+  const serviceOptions = [{ serviceName: "All Products", serviceId: "" }, ...rootSubscriptionServices];
 
   let servicePlanOptions = [{ label: "All Subscription Plans", value: "" }];
   if (selectedServiceId) {
@@ -103,20 +103,20 @@ const UsageOverview: FC<UsageOverviewProps> = (props) => {
 
   return (
     <div
-      className="mt-[20px] border border-[#E9EAEB] rounded-[12px] bg-[#FFF]"
+      className="mt-5 border border-[#E9EAEB] rounded-3 bg-[#FFF]"
       style={{ boxShadow: "0px 1px 2px 0px #0A0D120D" }}
     >
-      <div className="py-[20px] px-[24px]">
+      <div className="py-5 px-6">
         <div className="flex flex-row items-center justify-between gap-4">
           <div>
             <Text size="large" weight="semibold" color="#181D27">
               Cost and usage graph{" "}
             </Text>
             <Text size="xsmall" weight="medium" color="#414651">
-              Memory, storage, and CPU usage by service or subscription plan.{" "}
+              Memory, storage, and CPU usage by Product or subscription plan.{" "}
             </Text>
           </div>
-          <div className="flex items-center gap-[12px] items-center">
+          <div className="flex items-center gap-3">
             <DateTimePickerPopover
               dateRange={dateRange}
               setDateRange={setDateRange}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import CloudProviderRadio from "app/(dashboard)/components/CloudProviderRadio/CloudProviderRadio";
 import SubscriptionMenu from "app/(dashboard)/components/SubscriptionMenu/SubscriptionMenu";
 import SubscriptionPlanRadio from "app/(dashboard)/components/SubscriptionPlanRadio/SubscriptionPlanRadio";
@@ -9,8 +9,10 @@ import { getServiceMenuItems } from "app/(dashboard)/instances/utils";
 import { useFormik } from "formik";
 import { useSelector } from "react-redux";
 
-import { createResourceInstance, getResourceInstanceDetails } from "src/api/resourceInstance";
+import { $api } from "src/api/query";
+import { getResourceInstanceDetails } from "src/api/resourceInstance";
 import { CLOUD_PROVIDERS, cloudProviderLongLogoMap } from "src/constants/cloudProviders";
+import useEnvironmentType from "src/hooks/useEnvironmentType";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { selectUserrootData } from "src/slices/userDataSlice";
@@ -40,8 +42,8 @@ const CloudAccountForm = ({
   setOverlayType,
   setClickedInstance,
   instances,
-  isPaymentConfigured,
 }) => {
+  const environmentType = useEnvironmentType();
   const queryClient = useQueryClient();
   const snackbar = useSnackbar();
   const selectUser = useSelector(selectUserrootData);
@@ -52,7 +54,7 @@ const CloudAccountForm = ({
     serviceOfferingsObj,
     subscriptions,
     subscriptionsObj,
-    isLoadingSubscriptions,
+    isSubscriptionsPending,
   } = useGlobalData();
 
   const allInstances: ResourceInstance[] = instances;
@@ -65,20 +67,6 @@ const CloudAccountForm = ({
     } else {
       subscriptionInstanceCountHash[instance.subscriptionId as string] = 1;
     }
-  });
-
-  //key-> subscriptionID value-> boolean that indicates if the subscription has reached its quota limit
-  const subscriptionQuotaLimitHash: Record<string, boolean> = {};
-  subscriptions.forEach((subscription) => {
-    const { serviceId, productTierId } = subscription;
-    const offering = serviceOfferingsObj[serviceId]?.[productTierId];
-    const quotaLimit = offering?.maxNumberOfInstances;
-    const instanceCount = subscriptionInstanceCountHash[subscription.id] || 0;
-    let hasReachedInstanceQuotaLimit = false;
-    if (quotaLimit) {
-      hasReachedInstanceQuotaLimit = instanceCount >= quotaLimit;
-    }
-    subscriptionQuotaLimitHash[subscription.id] = hasReachedInstanceQuotaLimit;
   });
 
   const byoaServiceOfferings = useMemo(() => {
@@ -100,95 +88,109 @@ const CloudAccountForm = ({
     return subscriptions.filter((sub) => byoaServiceOfferingsObj[sub.serviceId]?.[sub.productTierId]);
   }, [subscriptions, byoaServiceOfferingsObj]);
 
-  const createCloudAccountMutation = useMutation(createResourceInstance, {
-    onSuccess: async (response: any) => {
-      const values = formData.values;
-      const instanceId = response.data.id;
-      const { serviceId, servicePlanId } = values;
-      const offering = byoaServiceOfferingsObj[serviceId]?.[servicePlanId];
-      const selectedResource = offering?.resourceParameters.find((resource) =>
-        resource.resourceId.startsWith("r-injectedaccountconfig")
-      );
+  const createCloudAccountMutation = $api.useMutation(
+    "post",
+    "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}",
+    {
+      onSuccess: async (response) => {
+        const values = formData.values;
+        const instanceId = response.id;
+        const { serviceId, servicePlanId } = values;
+        const offering = byoaServiceOfferingsObj[serviceId]?.[servicePlanId];
+        const selectedResource = offering?.resourceParameters.find((resource) =>
+          resource.resourceId.startsWith("r-injectedaccountconfig")
+        );
 
-      const resourceInstanceResponse = await getResourceInstanceDetails(
-        offering?.serviceProviderId,
-        offering?.serviceURLKey,
-        offering?.serviceAPIVersion,
-        offering?.serviceEnvironmentURLKey,
-        offering?.serviceModelURLKey,
-        offering?.productTierURLKey,
-        selectedResource?.urlKey,
-        instanceId,
-        values.subscriptionId
-      );
+        const resourceInstanceResponse = await getResourceInstanceDetails(
+          offering?.serviceProviderId,
+          offering?.serviceURLKey,
+          offering?.serviceAPIVersion,
+          offering?.serviceEnvironmentURLKey,
+          offering?.serviceModelURLKey,
+          offering?.productTierURLKey,
+          selectedResource?.urlKey,
+          instanceId,
+          values.subscriptionId
+        );
 
-      const resourceInstance = resourceInstanceResponse.data;
+        const resourceInstance = resourceInstanceResponse.data;
 
-      // Sometimes, we don't get the result_params in the response
-      // So, we need to update the query data manually
-      queryClient.setQueryData(["instances"], (oldData: any) => {
-        const result_params = {
-          // @ts-ignore
-          ...resourceInstance.result_params,
-          cloud_provider: values.cloudProvider,
-          account_configuration_method: values.accountConfigurationMethod,
-        };
-
-        if (values.cloudProvider === "aws") {
-          result_params.aws_account_id = values.awsAccountId;
-          result_params.aws_bootstrap_role_arn = getAwsBootstrapArn(values.awsAccountId);
-        } else if (values.cloudProvider === "gcp") {
-          result_params.gcp_project_id = values.gcpProjectId;
-          result_params.gcp_project_number = values.gcpProjectNumber;
-          result_params.gcp_service_account_email = getGcpServiceEmail(
-            values.gcpProjectId,
-            selectUser?.orgId.toLowerCase()
-          );
-        } else if (values.cloudProvider === "azure") {
-          result_params.azure_subscription_id = values.azureSubscriptionId;
-          result_params.azure_tenant_id = values.azureTenantId;
-        }
-
-        return {
-          ...oldData,
-          data: {
-            resourceInstances: [
-              ...(oldData?.data?.resourceInstances || []),
-              {
-                ...(resourceInstance || {}),
-                result_params: result_params,
+        // Sometimes, we don't get the result_params in the response
+        // So, we need to update the query data manually
+        queryClient.setQueryData(
+          [
+            "get",
+            "/2022-09-01-00/resource-instance",
+            {
+              params: {
+                query: {
+                  environmentType,
+                },
               },
-            ],
-          },
-        };
-      });
+            },
+          ],
+          (oldData: any) => {
+            const result_params = {
+              // @ts-ignore
+              ...resourceInstance.result_params,
+              cloud_provider: values.cloudProvider,
+              account_configuration_method: values.accountConfigurationMethod,
+            };
 
-      setIsAccountCreation(true);
-      setClickedInstance({
-        ...resourceInstance,
-        result_params: {
-          ...(resourceInstance.result_params || {}),
-          account_configuration_method: values.accountConfigurationMethod,
-          cloud_provider: values.cloudProvider,
-          ...(values.cloudProvider === CLOUD_PROVIDERS.aws
-            ? {
-                aws_account_id: values.awsAccountId,
-              }
-            : values.cloudProvider === CLOUD_PROVIDERS.gcp
+            if (values.cloudProvider === "aws") {
+              result_params.aws_account_id = values.awsAccountId;
+              result_params.aws_bootstrap_role_arn = getAwsBootstrapArn(values.awsAccountId);
+            } else if (values.cloudProvider === "gcp") {
+              result_params.gcp_project_id = values.gcpProjectId;
+              result_params.gcp_project_number = values.gcpProjectNumber;
+              result_params.gcp_service_account_email = getGcpServiceEmail(
+                values.gcpProjectId,
+                selectUser?.orgId.toLowerCase()
+              );
+            } else if (values.cloudProvider === "azure") {
+              result_params.azure_subscription_id = values.azureSubscriptionId;
+              result_params.azure_tenant_id = values.azureTenantId;
+            }
+
+            return {
+              resourceInstances: [
+                ...(oldData?.resourceInstances || []),
+                {
+                  ...(resourceInstance || {}),
+                  result_params: result_params,
+                },
+              ],
+            };
+          }
+        );
+
+        setIsAccountCreation(true);
+        setClickedInstance({
+          ...resourceInstance,
+          result_params: {
+            ...(resourceInstance.result_params || {}),
+            account_configuration_method: values.accountConfigurationMethod,
+            cloud_provider: values.cloudProvider,
+            ...(values.cloudProvider === CLOUD_PROVIDERS.aws
               ? {
-                  gcp_project_id: values.gcpProjectId,
-                  gcp_project_number: values.gcpProjectNumber,
+                  aws_account_id: values.awsAccountId,
                 }
-              : {
-                  azure_subscription_id: values.azureSubscriptionId,
-                  azure_tenant_id: values.azureTenantId,
-                }),
-        },
-      });
-      setOverlayType("view-instructions-dialog");
-      snackbar.showSuccess("Cloud Account created successfully");
-    },
-  });
+              : values.cloudProvider === CLOUD_PROVIDERS.gcp
+                ? {
+                    gcp_project_id: values.gcpProjectId,
+                    gcp_project_number: values.gcpProjectNumber,
+                  }
+                : {
+                    azure_subscription_id: values.azureSubscriptionId,
+                    azure_tenant_id: values.azureTenantId,
+                  }),
+          },
+        });
+        setOverlayType("view-instructions-dialog");
+        snackbar.showSuccess("Cloud Account created successfully");
+      },
+    }
+  );
 
   const formData = useFormik({
     initialValues: getInitialValues(
@@ -197,8 +199,7 @@ const CloudAccountForm = ({
       byoaSubscriptions,
       byoaServiceOfferingsObj,
       byoaServiceOfferings,
-      allInstances,
-      isPaymentConfigured
+      allInstances
     ),
     enableReinitialize: true,
     validationSchema: CloudAccountValidationSchema,
@@ -239,20 +240,27 @@ const CloudAccountForm = ({
         return snackbar.showError("BYOA Resource not found");
       }
 
-      const data = {
-        serviceProviderId: offering.serviceProviderId,
-        serviceKey: offering.serviceURLKey,
-        serviceAPIVersion: offering.serviceAPIVersion,
-        serviceEnvironmentKey: offering.serviceEnvironmentURLKey,
-        serviceModelKey: offering.serviceModelURLKey,
-        productTierKey: offering.productTierURLKey,
-        resourceKey: resource.urlKey,
-        subscriptionId: values.subscriptionId,
-        cloud_provider: values.cloudProvider,
-        requestParams: requestParams,
-      };
+      createCloudAccountMutation.mutate({
+        params: {
+          path: {
+            serviceProviderId: offering.serviceProviderId,
+            serviceKey: offering.serviceURLKey,
+            serviceAPIVersion: offering.serviceAPIVersion,
+            serviceEnvironmentKey: offering.serviceEnvironmentURLKey,
+            serviceModelKey: offering.serviceModelURLKey,
+            productTierKey: offering.productTierURLKey,
+            resourceKey: resource.urlKey,
+          },
+          query: {
+            subscriptionId: values.subscriptionId,
+          },
+        },
 
-      createCloudAccountMutation.mutate(data);
+        body: {
+          cloud_provider: values.cloudProvider,
+          requestParams: requestParams,
+        },
+      });
     },
   });
 
@@ -277,12 +285,12 @@ const CloudAccountForm = ({
           fields: [
             {
               dataTestId: "service-name-select",
-              label: "Service Name",
-              subLabel: "Select the service you want to deploy in this cloud account",
+              label: "Product Name",
+              subLabel: "Select the Product you want to deploy in this cloud account",
               name: "serviceId",
               type: "select",
               required: true,
-              emptyMenuText: "No services available",
+              emptyMenuText: "No Products available",
               isLoading: isFetchingServiceOfferings,
               menuItems: serviceMenuItems,
               disabled: formMode !== "create",
@@ -294,12 +302,11 @@ const CloudAccountForm = ({
                 const serviceId = e.target.value;
 
                 const subscription = getValidSubscriptionForInstanceCreation(
-                  byoaServiceOfferings,
                   byoaServiceOfferingsObj,
                   byoaSubscriptions,
                   allInstances,
-                  isPaymentConfigured,
                   serviceId,
+                  "",
                   true
                 );
 
@@ -346,22 +353,22 @@ const CloudAccountForm = ({
                     setFieldValue("cloudProvider", cloudProvider);
                     setFieldValue("accountConfigurationMethod", CLOUD_PROVIDER_DEFAULT_CREATION_METHOD[cloudProvider]);
 
-                    const filteredSubscriptions = byoaSubscriptions.filter(
-                      (sub) => sub.productTierId === servicePlanId
+                    const subscription = getValidSubscriptionForInstanceCreation(
+                      byoaServiceOfferingsObj,
+                      byoaSubscriptions,
+                      allInstances,
+                      serviceId,
+                      servicePlanId,
+                      true
                     );
-                    const rootSubscription = filteredSubscriptions.find((sub) => sub.roleType === "root");
 
-                    setFieldValue(
-                      "subscriptionId",
-                      subscriptionId || rootSubscription?.id || filteredSubscriptions[0]?.id || ""
-                    );
+                    setFieldValue("subscriptionId", subscriptionId || subscription?.id || "");
 
                     // Set Field Touched to False
                     formData.setFieldTouched("subscriptionId", false);
                     formData.setFieldTouched("cloudProvider", false);
                   }}
                   serviceSubscriptions={subscriptions.filter((subscription) => subscription.serviceId === serviceId)}
-                  isPaymentConfigured={isPaymentConfigured}
                   instances={allInstances}
                   isCloudAccountForm={true}
                 />
@@ -380,17 +387,17 @@ const CloudAccountForm = ({
                   field={{
                     name: "subscriptionId",
                     value: values.subscriptionId,
-                    isLoading: isLoadingSubscriptions,
+                    isLoading: isSubscriptionsPending,
                     disabled: formMode !== "create",
                     emptyMenuText: !serviceId
-                      ? "Select a service"
+                      ? "Select a Product"
                       : !servicePlanId
                         ? "Select a subscription plan"
                         : "No subscriptions available",
                   }}
                   formData={formData}
                   subscriptions={subscriptionMenuItems}
-                  subscriptionQuotaLimitHash={subscriptionQuotaLimitHash}
+                  subscriptionInstanceCountHash={subscriptionInstanceCountHash}
                   isCloudAccountForm={true}
                 />
               ),
@@ -513,7 +520,7 @@ const CloudAccountForm = ({
       formData={formData}
       formMode="create"
       onClose={onClose}
-      isFormSubmitting={createCloudAccountMutation.isLoading}
+      isFormSubmitting={createCloudAccountMutation.isPending}
       previewCardTitle="Cloud Account Summary"
     />
   );

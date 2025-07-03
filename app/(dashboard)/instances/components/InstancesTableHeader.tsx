@@ -1,11 +1,10 @@
 import { useMemo } from "react";
 import { CircularProgress, menuClasses } from "@mui/material";
-import { useMutation } from "@tanstack/react-query";
 import useBillingStatus from "app/(dashboard)/billing/hooks/useBillingStatus";
 
-import { restartResourceInstance, startResourceInstance, stopResourceInstance, connectToInstance } from "src/api/resourceInstance";
+import { connectToInstance } from "src/api/resourceInstance";
+import { $api } from "src/api/query";
 import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
-// import InstanceFilters from "src/components/InstanceFilters/InstanceFilters";
 import Tooltip from "src/components/Tooltip/Tooltip";
 import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
 import useSnackbar from "src/hooks/useSnackbar";
@@ -27,6 +26,7 @@ import { getMainResourceFromInstance } from "../utils";
 
 import AddInstanceFilters from "./AddInstanceFilters";
 import EditInstanceFilters from "./EditInstanceFilters";
+import { useMutation } from "@tanstack/react-query";
 
 type Action = {
   dataTestId?: string;
@@ -62,29 +62,41 @@ const InstancesTableHeader = ({
 
   const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled);
 
-  const stopInstanceMutation = useMutation(stopResourceInstance, {
-    onSuccess: async () => {
-      refetchInstances();
-      setSelectedRows([]);
-      snackbar.showSuccess("Stopping deployment instance...");
-    },
-  });
+  const stopInstanceMutation = $api.useMutation(
+    "post",
+    "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}/{id}/stop",
+    {
+      onSuccess: async () => {
+        refetchInstances();
+        setSelectedRows([]);
+        snackbar.showSuccess("Stopping deployment instance...");
+      },
+    }
+  );
 
-  const startInstanceMutation = useMutation(startResourceInstance, {
-    onSuccess: async () => {
-      refetchInstances();
-      setSelectedRows([]);
-      snackbar.showSuccess("Starting deployment instance...");
-    },
-  });
+  const startInstanceMutation = $api.useMutation(
+    "post",
+    "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}/{id}/start",
+    {
+      onSuccess: async () => {
+        refetchInstances();
+        setSelectedRows([]);
+        snackbar.showSuccess("Starting deployment instance...");
+      },
+    }
+  );
 
-  const restartInstanceMutation = useMutation(restartResourceInstance, {
-    onSuccess: async () => {
-      refetchInstances();
-      setSelectedRows([]);
-      snackbar.showSuccess("Rebooting deployment instance...");
-    },
-  });
+  const restartInstanceMutation = $api.useMutation(
+    "post",
+    "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}/{id}/restart",
+    {
+      onSuccess: async () => {
+        refetchInstances();
+        setSelectedRows([]);
+        snackbar.showSuccess("Restarting deployment instance...");
+      },
+    }
+  );
 
   const connectInstanceMutation = useMutation(connectToInstance, {
     onSuccess: async () => {
@@ -110,7 +122,7 @@ const InstancesTableHeader = ({
 
     const isDeleteAllowedByRBAC = isOperationAllowedByRBAC(operationEnum.Delete, role, viewEnum.Access_Resources);
 
-    const requestData = {
+    const pathData = {
       serviceProviderId: selectedInstanceOffering?.serviceProviderId,
       serviceKey: selectedInstanceOffering?.serviceURLKey,
       serviceAPIVersion: selectedInstanceOffering?.serviceAPIVersion,
@@ -119,14 +131,13 @@ const InstancesTableHeader = ({
       productTierKey: selectedInstanceOffering?.productTierURLKey,
       resourceKey: selectedResource?.urlKey as string,
       id: selectedInstance?.id,
-      subscriptionId: selectedInstance?.subscriptionId,
     };
 
     actions.push({
       dataTestId: "stop-button",
       label: "Stop",
       actionType: "secondary",
-      isLoading: stopInstanceMutation.isLoading,
+      isLoading: stopInstanceMutation.isPending,
       isDisabled:
         !selectedInstance ||
         status !== "RUNNING" ||
@@ -136,8 +147,15 @@ const InstancesTableHeader = ({
         !isUpdateAllowedByRBAC,
       onClick: () => {
         if (!selectedInstance) return snackbar.showError("Please select an instance");
-        if (!selectedInstanceOffering) return snackbar.showError("Service Offering not found");
-        stopInstanceMutation.mutate(requestData);
+        if (!selectedInstanceOffering) return snackbar.showError("Product not found");
+        stopInstanceMutation.mutate({
+          params: {
+            path: pathData,
+            query: {
+              subscriptionId: selectedInstance?.subscriptionId,
+            },
+          },
+        });
       },
       disabledMessage: !selectedInstance
         ? "Please select an instance"
@@ -156,7 +174,7 @@ const InstancesTableHeader = ({
       dataTestId: "start-button",
       label: "Start",
       actionType: "secondary",
-      isLoading: startInstanceMutation.isLoading,
+      isLoading: startInstanceMutation.isPending,
       isDisabled:
         !selectedInstance ||
         status !== "STOPPED" ||
@@ -166,8 +184,15 @@ const InstancesTableHeader = ({
         !isUpdateAllowedByRBAC,
       onClick: () => {
         if (!selectedInstance) return snackbar.showError("Please select an instance");
-        if (!selectedInstanceOffering) return snackbar.showError("Service Offering not found");
-        startInstanceMutation.mutate(requestData);
+        if (!selectedInstanceOffering) return snackbar.showError("Product not found");
+        startInstanceMutation.mutate({
+          params: {
+            path: pathData,
+            query: {
+              subscriptionId: selectedInstance?.subscriptionId,
+            },
+          },
+        });
       },
       disabledMessage: !selectedInstance
         ? "Please select an instance"
@@ -288,15 +313,22 @@ const InstancesTableHeader = ({
       other.push({
         dataTestId: "reboot-button",
         label: "Reboot",
-        isLoading: restartInstanceMutation.isLoading,
+        isLoading: restartInstanceMutation.isPending,
         isDisabled:
           !selectedInstance ||
           (status !== "RUNNING" && status !== "FAILED" && status !== "COMPLETE") ||
           !isUpdateAllowedByRBAC,
         onClick: () => {
           if (!selectedInstance) return snackbar.showError("Please select an instance");
-          if (!selectedInstanceOffering) return snackbar.showError("Service Offering not found");
-          restartInstanceMutation.mutate(requestData);
+          if (!selectedInstanceOffering) return snackbar.showError("Product not found");
+          restartInstanceMutation.mutate({
+            params: {
+              path: pathData,
+              query: {
+                subscriptionId: selectedInstance?.subscriptionId,
+              },
+            },
+          });
         },
         disabledMessage: !selectedInstance
           ? "Please select an instance"
@@ -324,44 +356,6 @@ const InstancesTableHeader = ({
               ? "No restore points available"
               : !isUpdateAllowedByRBAC
                 ? "Unauthorized to restore instances"
-                : "",
-        });
-      }
-
-      if (selectedInstance?.autoscalingEnabled) {
-        other.push({
-          dataTestId: "add-capacity-button",
-          label: "Add Capacity",
-          isDisabled: !selectedInstance || status !== "RUNNING" || !isUpdateAllowedByRBAC,
-          onClick: () => {
-            if (!selectedInstance) return snackbar.showError("Please select an instance");
-            setOverlayType("add-capacity-dialog");
-            setIsOverlayOpen(true);
-          },
-          disabledMessage: !selectedInstance
-            ? "Please select an instance"
-            : status !== "RUNNING"
-              ? "Instance must be running to add capacity"
-              : !isUpdateAllowedByRBAC
-                ? "Unauthorized to add capacity"
-                : "",
-        });
-
-        other.push({
-          dataTestId: "remove-capacity-button",
-          label: "Remove Capacity",
-          isDisabled: !selectedInstance || status !== "RUNNING" || !isUpdateAllowedByRBAC,
-          onClick: () => {
-            if (!selectedInstance) return snackbar.showError("Please select an instance");
-            setOverlayType("remove-capacity-dialog");
-            setIsOverlayOpen(true);
-          },
-          disabledMessage: !selectedInstance
-            ? "Please select an instance"
-            : status !== "RUNNING"
-              ? "Instance must be running to remove capacity"
-              : !isUpdateAllowedByRBAC
-                ? "Unauthorized to remove capacity"
                 : "",
         });
       }

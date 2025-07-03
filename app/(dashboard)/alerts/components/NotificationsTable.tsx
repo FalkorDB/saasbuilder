@@ -34,7 +34,7 @@ const NotificationsTable = () => {
 
   const {
     data: instances = [],
-    isLoading: isLoadingInstances,
+    isPending: isInstancesPending,
     isFetching: isFetchingInstances,
     refetch: refetchInstances,
   } = useInstances();
@@ -73,7 +73,7 @@ const NotificationsTable = () => {
         },
         {
           id: "serviceName",
-          header: "Service Name",
+          header: "Product Name",
           cell: (data) => {
             const { serviceLogoURL, serviceName } = subscriptionsObj[data.row.original.subscriptionId as string] || {};
             if (!serviceName) return "-";
@@ -94,7 +94,7 @@ const NotificationsTable = () => {
         },
         {
           id: "resourceName",
-          header: "Resource Type",
+          header: "Resource Name",
         }
       ),
       columnHelper.accessor(() => "Maintenance", {
@@ -139,7 +139,7 @@ const NotificationsTable = () => {
         refetchNotifications: refetchInstances,
         isFetchingNotifications: isFetchingInstances,
       }}
-      isLoading={isLoadingInstances}
+      isLoading={isInstancesPending}
     />
   );
 };

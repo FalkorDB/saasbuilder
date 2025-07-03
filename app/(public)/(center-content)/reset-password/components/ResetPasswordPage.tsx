@@ -37,25 +37,23 @@ const ResetPasswordPage = (props) => {
   const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const resetPasswordMutation = useMutation(
-    (payload: any) => {
+  const resetPasswordMutation = useMutation({
+    mutationFn: (payload: any) => {
       setShowSuccess(false);
       return customerUserResetPassword(payload);
     },
-    {
-      onSuccess: () => {
-        /*eslint-disable-next-line no-use-before-define*/
-        formik.resetForm();
-        setShowSuccess(true);
-      },
-      onError: (error: any) => {
-        if (error.response.data && error.response.data.message) {
-          const errorMessage = error.response.data.message;
-          snackbar.showError(errorMessage);
-        }
-      },
-    }
-  );
+    onSuccess: () => {
+      /*eslint-disable-next-line no-use-before-define*/
+      formik.resetForm();
+      setShowSuccess(true);
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.message;
+      if (errorMessage) {
+        snackbar.showError(errorMessage);
+      }
+    },
+  });
 
   async function handleFormSubmit(values) {
     const data = {};
@@ -91,7 +89,7 @@ const ResetPasswordPage = (props) => {
         <Image src={Confetti} alt="Confetti" width={265} height={140} style={{ margin: "0 auto" }} />
 
         <Stack gap="16px">
-          <DisplayHeading>Check Your Email for a Password Reset Link</DisplayHeading>
+          <DisplayHeading >Check Your Email for a Password Reset Link</DisplayHeading>
           <PageDescription>
             If an account is associated with the provided email, a password reset link will be sent. Please follow the
             instructions to reset your password.
@@ -150,7 +148,7 @@ const ResetPasswordPage = (props) => {
           type="submit"
           onClick={formik.handleSubmit}
           disabled={!formik.isValid || (isReCaptchaSetup && !isScriptLoaded)}
-          loading={resetPasswordMutation.isLoading}
+          loading={resetPasswordMutation.isPending}
         >
           Submit
         </SubmitButton>

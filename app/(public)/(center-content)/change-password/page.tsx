@@ -2,11 +2,10 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Box, Stack } from "@mui/material";
-import { useMutation } from "@tanstack/react-query";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 
-import axios from "src/axios";
+import { $api } from "src/api/query";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
 import { passwordRegex, passwordText } from "src/utils/passwordRegex";
@@ -34,19 +33,12 @@ const ChangePasswordPage = () => {
   const token = searchParams?.get("token");
   const { orgLogoURL, orgName } = useProviderOrgDetails();
 
-  const changePasswordMutation = useMutation(
-    (payload) => {
-      return axios.post("/change-password", payload);
+  const changePasswordMutation = $api.useMutation("post", "/2022-09-01-00/change-password", {
+    onSuccess: () => {
+      snackbar.showSuccess("Change password successful");
+      router.push("/signin");
     },
-    {
-      onSuccess: () => {
-        /*eslint-disable-next-line no-use-before-define*/
-        formik.resetForm();
-        snackbar.showSuccess("Change password successful");
-        router.push("/signin");
-      },
-    }
-  );
+  });
 
   const formik = useFormik({
     initialValues: {
@@ -54,12 +46,19 @@ const ChangePasswordPage = () => {
       confirmPassword: "",
     },
     enableReinitialize: true,
-    onSubmit: (values) => {
-      changePasswordMutation.mutate({
-        email: decodeURIComponent(email as string),
-        token: decodeURIComponent(token as string),
-        password: values.password,
-      } as any);
+    onSubmit: async (values) => {
+      try {
+        await changePasswordMutation.mutateAsync({
+          body: {
+            email: decodeURIComponent(email as string),
+            token: decodeURIComponent(token as string),
+            password: values.password,
+          },
+        });
+        formik.resetForm();
+      } catch (error) {
+        console.error("Password change failed:", error);
+      }
     },
     validationSchema: changePasswordValidationSchema,
   });
@@ -122,7 +121,7 @@ const ChangePasswordPage = () => {
             type="submit"
             onClick={formik.handleSubmit}
             disabled={!formik.isValid}
-            loading={changePasswordMutation.isLoading}
+            loading={changePasswordMutation.isPending}
           >
             Submit
           </SubmitButton>

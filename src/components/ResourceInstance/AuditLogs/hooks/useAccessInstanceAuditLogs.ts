@@ -1,33 +1,37 @@
-import { QueryOptions, useQuery, UseQueryResult } from "@tanstack/react-query";
-import { AxiosResponse } from "axios";
-
-import { getResourceInstanceEvents } from "src/api/event";
-import { AccessEvent } from "src/types/event";
+import { $api } from "src/api/query";
 
 type QueryParams = {
-  instanceId?: string;
+  instanceId: string;
   subscriptionId?: string;
 };
 
-function useAccessInstanceAuditLogs(queryParams: QueryParams = {}, queryOptions: QueryOptions = {}) {
+const useAccessInstanceAuditLogs = (queryParams: QueryParams, queryOptions = {}) => {
   const { instanceId, subscriptionId } = queryParams;
   const enabled = Boolean(instanceId && subscriptionId);
 
-  const query: UseQueryResult<AccessEvent[]> = useQuery(
-    ["instanceLogsAccess", instanceId, subscriptionId],
-    () => getResourceInstanceEvents(instanceId, subscriptionId),
+  const query = $api.useQuery(
+    "get",
+    "/2022-09-01-00/resource-instance/{instanceId}/audit-events",
     {
-      enabled: enabled,
-      refetchOnWindowFocus: false,
-      onError: () => {},
-      select: (response: AxiosResponse) => {
-        return response.data.events || [];
+      params: {
+        path: {
+          instanceId,
+        },
+        query: {
+          subscriptionId,
+        },
       },
+    },
+    {
+      select: (data) => {
+        return data.events || [];
+      },
+      enabled,
       ...queryOptions,
     }
   );
 
   return query;
-}
+};
 
 export default useAccessInstanceAuditLogs;

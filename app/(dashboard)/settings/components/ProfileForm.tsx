@@ -1,9 +1,8 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
 import { useFormik } from "formik";
 
-import { updateProfile } from "src/api/users";
+import { $api } from "src/api/query";
 import useSnackbar from "src/hooks/useSnackbar";
 import Button from "components/Button/Button";
 import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
@@ -24,7 +23,7 @@ type ProfileFormProps = {
 const ProfileForm: React.FC<ProfileFormProps> = ({ userData, isLoadingUserData, refetchUserData }) => {
   const snackbar = useSnackbar();
 
-  const updateProfileMutation = useMutation((data) => updateProfile(userData?.id, data), {
+  const updateProfileMutation = $api.useMutation("patch", "/2022-09-01-00/user/{id}", {
     onSuccess: () => {
       refetchUserData();
       snackbar.showSuccess("Profile updated successfully");
@@ -49,7 +48,14 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ userData, isLoadingUserData, 
         }
       }
 
-      updateProfileMutation.mutate(data as any);
+      updateProfileMutation.mutate({
+        params: {
+          path: {
+            id: userData.id,
+          },
+        },
+        body: data,
+      });
     },
     validationSchema: ProfileValidationSchema,
   });
@@ -127,12 +133,12 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ userData, isLoadingUserData, 
         </div>
 
         <div className="flex items-center justify-end gap-4 mt-5">
-          <Button variant="outlined" onClick={() => formData.resetForm()} disabled={updateProfileMutation.isLoading}>
+          <Button variant="outlined" onClick={() => formData.resetForm()} disabled={updateProfileMutation.isPending}>
             Cancel
           </Button>
-          <Button type="submit" variant="contained" disabled={updateProfileMutation.isLoading}>
+          <Button type="submit" variant="contained" disabled={updateProfileMutation.isPending}>
             Save
-            {updateProfileMutation.isLoading && <LoadingSpinnerSmall />}
+            {updateProfileMutation.isPending && <LoadingSpinnerSmall />}
           </Button>
         </div>
       </Form>

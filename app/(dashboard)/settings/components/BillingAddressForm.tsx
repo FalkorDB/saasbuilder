@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { useMutation } from "@tanstack/react-query";
 import { useFormik } from "formik";
 
-import { updateProfile } from "src/api/users";
+import { $api } from "src/api/query";
 import useSnackbar from "src/hooks/useSnackbar";
 import Button from "components/Button/Button";
 import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
@@ -28,7 +27,7 @@ type BillingAddressFormProps = {
 const BillingAddressForm: React.FC<BillingAddressFormProps> = ({ userData, isLoadingUserData, refetchUserData }) => {
   const snackbar = useSnackbar();
 
-  const updateProfileMutation = useMutation((data) => updateProfile(userData?.id, data), {
+  const updateProfileMutation = $api.useMutation("patch", "/2022-09-01-00/user/{id}", {
     onSuccess: () => {
       refetchUserData();
       snackbar.showSuccess("Billing address updated successfully");
@@ -56,13 +55,20 @@ const BillingAddressForm: React.FC<BillingAddressFormProps> = ({ userData, isLoa
         }
       }
 
-      updateProfileMutation.mutate(data as any);
+      updateProfileMutation.mutate({
+        params: {
+          path: {
+            id: userData?.id,
+          },
+        },
+        body: data,
+      });
     },
     validationSchema: BillingAddressValidationSchema,
   });
 
   const { values, handleChange, handleBlur, touched, errors } = formData;
-  const isDisabled = updateProfileMutation.isLoading || isLoadingUserData || userData?.roleType !== "root";
+  const isDisabled = updateProfileMutation.isPending || isLoadingUserData || userData?.roleType !== "root";
 
   const currentCountry = useMemo(() => {
     const alpha3Code = values.address.country;
@@ -201,13 +207,13 @@ const BillingAddressForm: React.FC<BillingAddressFormProps> = ({ userData, isLoa
             onClick={() => {
               formData.resetForm();
             }}
-            disabled={updateProfileMutation.isLoading || isLoadingUserData}
+            disabled={updateProfileMutation.isPending || isLoadingUserData}
           >
             Cancel
           </Button>
-          <Button type="submit" variant="contained" disabled={updateProfileMutation.isLoading || isLoadingUserData}>
+          <Button type="submit" variant="contained" disabled={updateProfileMutation.isPending || isLoadingUserData}>
             Save
-            {updateProfileMutation.isLoading && <LoadingSpinnerSmall />}
+            {updateProfileMutation.isPending && <LoadingSpinnerSmall />}
           </Button>
         </div>
       </Form>

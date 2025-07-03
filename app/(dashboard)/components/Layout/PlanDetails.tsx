@@ -51,12 +51,17 @@ const PlanDetails = ({ startingTab }) => {
           <div className="flex items-center gap-8 justify-between flex-1">
             <div className="min-w-[200px]">
               <FieldLabel required sx={{ color: "#414651", fontWeight: "600" }}>
-                Service Name
+                Product Name
               </FieldLabel>
-              <FieldDescription sx={{ mt: 0, color: "#535862" }}>Select the service</FieldDescription>
+              <FieldDescription sx={{ mt: 0, color: "#535862" }}>Select the Product</FieldDescription>
             </div>
 
-            <Select value={selectedServiceId} onChange={(e) => setSelectedServiceId(e.target.value)} sx={{ mt: 0 }}>
+            <Select
+              value={selectedServiceId}
+              onChange={(e) => setSelectedServiceId(e.target.value)}
+              sx={{ mt: 0 }}
+              maxWidth="400px"
+            >
               {serviceMenuItems?.length ? (
                 serviceMenuItems.map((item) => (
                   <MenuItem key={item.value as string} value={item.value as string}>
@@ -65,7 +70,7 @@ const PlanDetails = ({ startingTab }) => {
                 ))
               ) : (
                 <MenuItem value="" disabled>
-                  <i>No services found</i>
+                  <i>No Product found</i>
                 </MenuItem>
               )}
             </Select>
@@ -79,7 +84,12 @@ const PlanDetails = ({ startingTab }) => {
               <FieldDescription sx={{ mt: 0, color: "#535862" }}>Select the subscription plan</FieldDescription>
             </div>
 
-            <Select value={selectedPlanId} onChange={(e) => setSelectedPlanId(e.target.value)} sx={{ mt: 0 }}>
+            <Select
+              value={selectedPlanId}
+              onChange={(e) => setSelectedPlanId(e.target.value)}
+              sx={{ mt: 0 }}
+              maxWidth="400px"
+            >
               {servicePlanMenuItems?.length ? (
                 servicePlanMenuItems.map((item) => (
                   <MenuItem key={item.value as string} value={item.value as string}>

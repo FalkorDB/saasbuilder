@@ -286,19 +286,12 @@ const InstancesTableHeader = ({
         isDisabled:
           !selectedInstance || (status !== "RUNNING" && status !== "FAILED"),
         onClick: () => {
-          const resourceKey = Object.entries(
-            selectedInstance.detailedNetworkTopology
-          ).filter(([_, v]) => {
-            return (
-              (v as any).clusterEndpoint &&
-              !(v as any).resourceName.startsWith("Omnistrate")
-            );
+          const resourceKey = Object.entries(selectedInstance.detailedNetworkTopology).filter(([_, v]) => {
+            return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
           })[0][0];
           connectInstanceMutation.mutate({
-            host: selectedInstance.detailedNetworkTopology?.[resourceKey]
-              ?.clusterEndpoint,
-            port: selectedInstance.detailedNetworkTopology?.[resourceKey]
-              ?.clusterPorts?.[0],
+            host: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterEndpoint,
+            port: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterPorts?.[0],
             region: selectedInstance.region,
             username: selectedInstance.result_params.falkordbUser,
             tls: selectedInstance.result_params.enableTLS,

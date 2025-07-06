@@ -4,7 +4,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import SearchIcon from "@mui/icons-material/Search";
-import { Box, ButtonBase, styled } from "@mui/material";
+import { Box, ButtonBase, IconButton, styled } from "@mui/material";
 import MuiInputAdornment from "@mui/material/InputAdornment";
 import MuiTextField from "@mui/material/TextField";
 import clipboard from "clipboardy";
@@ -125,10 +125,7 @@ const TextField = forwardRef(function StyledTextFieldRef(props, ref) {
   if (type === "password") {
     endAdornment = (
       <InputAdornment position="end">
-        <IconButton
-          showPassword={showPassword}
-          setShowPassword={setShowPassword}
-        >
+        <IconButton showPassword={showPassword} setShowPassword={setShowPassword}>
           {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
         </IconButton>
       </InputAdornment>

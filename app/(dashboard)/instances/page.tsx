@@ -29,7 +29,6 @@ import GridCellExpand from "components/GridCellExpand/GridCellExpand";
 import RegionIcon from "components/Region/RegionIcon";
 import CreateInstanceModal from "components/ResourceInstance/CreateInstanceModal/CreateInstanceModal";
 import AccessSideRestoreInstance from "components/RestoreInstance/AccessSideRestoreInstance";
-import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithLogo";
 import StatusChip from "components/StatusChip/StatusChip";
 import TextConfirmationDialog from "components/TextConfirmationDialog/TextConfirmationDialog";
 
@@ -328,12 +327,7 @@ const InstancesPage = () => {
           return (
             <GridCellExpand
               value={data.row.original.region || "Global"}
-              startIcon={
-                <RegionIcon
-                  region={data.row.original.region}
-                  provider={data.row.original.cloud_provider}
-                />
-              }
+              startIcon={<RegionIcon region={data.row.original.region} provider={data.row.original.cloud_provider} />}
             />
           );
         },

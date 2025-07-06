@@ -23,8 +23,7 @@ export default async function handleSignup(nextRequest, nextResponse) {
       }
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader =
-        nextRequest.get?.call("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP || "";
 
@@ -38,10 +37,7 @@ export default async function handleSignup(nextRequest, nextResponse) {
       console.error(error?.response);
       const defaultErrorMessage = "Something went wrong. Please retry";
 
-      if (
-        error.name === "ProviderAuthError" ||
-        error?.response?.status === undefined
-      ) {
+      if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
         return nextResponse.status(500).send({
           message: defaultErrorMessage,
         });

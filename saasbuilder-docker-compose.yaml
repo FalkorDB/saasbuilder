@@ -1,4 +1,4 @@
-version: '3.9'
+version: "3.9"
 x-omnistrate-integrations:
   - omnistrateLogging
   - omnistrateMetrics
@@ -6,7 +6,7 @@ services:
   frontend:
     image: sharmaamits/saasbuilder:latest
     ports:
-      - '8080:8080'
+      - "8080:8080"
     environment:
       - PROVIDER_EMAIL=$var.providerEmail
       - PROVIDER_HASHED_PASS=$var.providerPassword
@@ -131,7 +131,7 @@ services:
         modifiable: true
         required: true
         export: true
-        defaultValue: gmail     
+        defaultValue: gmail
       - key: mailSmtpService
         description: SMTP service
         name: SMTP service

@@ -235,10 +235,7 @@ const EventsTable: FC<EventsTableProps> = (props) => {
       columnHelper.accessor((row) => formatDateLocal(row.time), {
         id: "time",
         header: "Time",
-        cell: (data) =>
-          data.row.original.time
-            ? formatDateLocal(data.row.original.time)
-            : "-",
+        cell: (data) => (data.row.original.time ? formatDateLocal(data.row.original.time) : "-"),
       }),
 
       columnHelper.accessor("userName", {

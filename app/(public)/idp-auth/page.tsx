@@ -33,7 +33,11 @@ const IDPAuthPage = () => {
         const jwtToken = response.data.jwtToken;
         sessionStorage.removeItem("authState");
         if (jwtToken) {
-          Cookies.set("token", jwtToken, { sameSite: "Lax", secure: true, domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN });
+          Cookies.set("token", jwtToken, {
+            sameSite: "Lax",
+            secure: true,
+            domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+          });
           axios.defaults.headers["Authorization"] = "Bearer " + jwtToken;
 
           try {

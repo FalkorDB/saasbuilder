@@ -158,10 +158,13 @@ const InstanceForm = ({
               break;
           }
 
-          if (key === "nodeInstanceType" &&
-            (data.cloudProvider === "aws" && !data.requestParams["nodeInstanceType"].includes(".")) ||
-            (data.cloudProvider === "gcp") && !data.requestParams["nodeInstanceType"].includes("-")) {
-            snackbar.showError(`Invalid Node Instance Type`)
+          if (
+            (key === "nodeInstanceType" &&
+              data.cloudProvider === "aws" &&
+              !data.requestParams["nodeInstanceType"].includes(".")) ||
+            (data.cloudProvider === "gcp" && !data.requestParams["nodeInstanceType"].includes("-"))
+          ) {
+            snackbar.showError(`Invalid Node Instance Type`);
             isTypeError = true;
           }
         });

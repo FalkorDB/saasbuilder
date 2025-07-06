@@ -7,25 +7,6 @@ import {
 
 import axios from "../axios";
 
-export const createResourceInstance = (payload) => {
-  const queryParams: any = {};
-  if (payload.subscriptionId) {
-    queryParams.subscriptionId = payload.subscriptionId;
-  }
-
-  return axios.post(
-    `/resource-instance/${payload.serviceProviderId}/${payload.serviceKey}/${payload.serviceAPIVersion}/${payload.serviceEnvironmentKey}/${payload.serviceModelKey}/${payload.productTierKey}/${payload.resourceKey}`,
-    {
-      cloud_provider: payload.cloud_provider,
-      network_type: payload.network_type,
-      region: payload.region,
-      requestParams: payload.requestParams,
-      custom_network_id: payload.custom_network_id,
-    },
-    { params: queryParams }
-  );
-};
-
 export const updateResourceInstance = (payload) => {
   const queryParams: any = {};
   if (payload.subscriptionId) {
@@ -36,46 +17,8 @@ export const updateResourceInstance = (payload) => {
     `/resource-instance/${payload.serviceProviderId}/${payload.serviceKey}/${payload.serviceAPIVersion}/${payload.serviceEnvironmentKey}/${payload.serviceModelKey}/${payload.productTierKey}/${payload.resourceKey}/${payload.id}?subscriptionId=${payload.subscriptionId}`,
     {
       requestParams: payload.requestParams,
+      network_type: payload.network_type,
     },
-    { params: queryParams }
-  );
-};
-
-export const startResourceInstance = (payload) => {
-  const queryParams: any = {};
-  if (payload.subscriptionId) {
-    queryParams.subscriptionId = payload.subscriptionId;
-  }
-
-  return axios.post(
-    `/resource-instance/${payload.serviceProviderId}/${payload.serviceKey}/${payload.serviceAPIVersion}/${payload.serviceEnvironmentKey}/${payload.serviceModelKey}/${payload.productTierKey}/${payload.resourceKey}/${payload.id}/start`,
-    {},
-    { params: queryParams }
-  );
-};
-
-export const stopResourceInstance = (payload) => {
-  const queryParams: any = {};
-  if (payload.subscriptionId) {
-    queryParams.subscriptionId = payload.subscriptionId;
-  }
-
-  return axios.post(
-    `/resource-instance/${payload.serviceProviderId}/${payload.serviceKey}/${payload.serviceAPIVersion}/${payload.serviceEnvironmentKey}/${payload.serviceModelKey}/${payload.productTierKey}/${payload.resourceKey}/${payload.id}/stop`,
-    {},
-    { params: queryParams }
-  );
-};
-
-export const restartResourceInstance = (payload) => {
-  const queryParams: any = {};
-  if (payload.subscriptionId) {
-    queryParams.subscriptionId = payload.subscriptionId;
-  }
-
-  return axios.post(
-    `/resource-instance/${payload.serviceProviderId}/${payload.serviceKey}/${payload.serviceAPIVersion}/${payload.serviceEnvironmentKey}/${payload.serviceModelKey}/${payload.productTierKey}/${payload.resourceKey}/${payload.id}/restart`,
-    {},
     { params: queryParams }
   );
 };
@@ -156,12 +99,6 @@ export const getResourceInstanceDetails = (
     {
       params: queryParams,
     }
-  );
-};
-
-export const getDeploymentCellToken = (payload) => {
-  return axios.post(
-    `/resource-instance/${payload.instanceId}/deployment-cell-dashboard/token?subscriptionId=${payload.subscriptionId}`
   );
 };
 

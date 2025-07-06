@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
 import { createColumnHelper } from "@tanstack/react-table";
 
-import { revokeSubscriptionUser } from "src/api/users";
+import { $api } from "src/api/query";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { SubscriptionUser } from "src/types/consumptionUser";
@@ -43,7 +42,7 @@ const AccessControlPage = () => {
   const [overlayType, setOverlayType] = useState<Overlay>("delete-dialog");
   const [isOverlayOpen, setIsOverlayOpen] = useState<boolean>(false);
   const [selectedUser, setSelectedUser] = useState<SubscriptionUser | null>(null);
-  const { subscriptions, isLoadingSubscriptions } = useGlobalData();
+  const { subscriptions, isSubscriptionsPending } = useGlobalData();
 
   useEffect(() => {
     if (searchUserId) {
@@ -94,7 +93,7 @@ const AccessControlPage = () => {
         },
         {
           id: "serviceName",
-          header: "Service Name",
+          header: "Product Name",
           cell: (data) => {
             const { serviceLogoURL, serviceName } = subscriptionsObj[data.row.original.subscriptionId] || {};
             return <ServiceNameWithLogo serviceName={serviceName} serviceLogoURL={serviceLogoURL} />;
@@ -180,14 +179,18 @@ const AccessControlPage = () => {
     ];
   }, [subscriptionsObj]);
 
-  const deleteUserMutation = useMutation((payload: any) => revokeSubscriptionUser(payload.subscriptionId, payload), {
-    onSuccess: async () => {
-      // TODO Later: Set the Query Data Directly without Refetching
-      refetchUsers();
-      setIsOverlayOpen(false);
-      snackbar.showSuccess("User access removed successfully");
-    },
-  });
+  const deleteUserMutation = $api.useMutation(
+    "delete",
+    "/2022-09-01-00/resource-instance/subscription/{subscriptionId}/revoke-user-role",
+    {
+      onSuccess: async () => {
+        // TODO Later: Set the Query Data Directly without Refetching
+        refetchUsers();
+        setIsOverlayOpen(false);
+        snackbar.showSuccess("User access removed successfully");
+      },
+    }
+  );
 
   const filteredUsers = useMemo(() => {
     let res = users || [];
@@ -228,7 +231,7 @@ const AccessControlPage = () => {
             count: filteredUsers.length,
             isFetchingUsers,
           }}
-          isLoading={isFetchingUsers || isLoadingSubscriptions}
+          isLoading={isFetchingUsers || isSubscriptionsPending}
           tableStyles={{
             "& thead th:first-of-type, & tbody td:first-of-type": {
               paddingLeft: "24px",
@@ -243,16 +246,21 @@ const AccessControlPage = () => {
         onConfirm={async () => {
           if (!selectedUser) return snackbar.showError("No user selected");
 
-          const payload = {
-            email: selectedUser.email,
-            roleType: selectedUser.roleType,
-            subscriptionId: selectedUser.subscriptionId,
-          };
-          deleteUserMutation.mutate(payload);
+          deleteUserMutation.mutate({
+            params: {
+              path: {
+                subscriptionId: selectedUser.subscriptionId,
+              },
+            },
+            body: {
+              email: selectedUser.email,
+              roleType: selectedUser.roleType,
+            },
+          });
         }}
         confirmationText="remove"
         title="Remove Access"
-        isLoading={deleteUserMutation.isLoading}
+        isLoading={deleteUserMutation.isPending}
         buttonLabel="Remove Access"
         subtitle={`Are you sure you want remove the ${
           selectedUser?.roleType

@@ -44,7 +44,7 @@ export type CurrentTab =
   | "Nodes"
   | "Metrics"
   | "Logs"
-  | "Events"
+  | "Audit Logs"
   | "Backups"
   | "Custom DNS";
 
@@ -99,22 +99,26 @@ const InstanceDetailsPage = ({
 
   const isCliManagedResource = useMemo(() => CLI_MANAGED_RESOURCES.includes(resourceType as string), [resourceType]);
 
-  const resourceInstanceQuery = useResourceInstance(
-    offering?.serviceProviderId,
-    offering?.serviceURLKey,
-    offering?.serviceAPIVersion,
-    offering?.serviceEnvironmentURLKey,
-    offering?.serviceModelURLKey,
-    offering?.productTierURLKey,
-    resourceKey,
-    instanceId,
+  const resourceInstanceQuery = useResourceInstance({
+    serviceProviderId: offering?.serviceProviderId,
+    serviceKey: offering?.serviceURLKey,
+    serviceAPIVersion: offering?.serviceAPIVersion,
+    serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
+    serviceModelKey: offering?.serviceModelURLKey,
+    productTierKey: offering?.productTierURLKey,
+    resourceKey: resourceKey,
+    resourceInstanceId: instanceId,
     resourceId,
-    subscription?.id
-  );
+    subscriptionId: subscription?.id,
+  });
 
   const { data: resourceInstanceData } = resourceInstanceQuery;
 
-  const resourceSchemaQuery = useServiceOfferingResourceSchema(serviceId, resourceId, instanceId);
+  const resourceSchemaQuery = useServiceOfferingResourceSchema({
+    serviceId,
+    resourceId,
+    instanceId,
+  });
 
   const tabs = useMemo(
     () =>
@@ -125,6 +129,7 @@ const InstanceDetailsPage = ({
         isResourceBYOA,
         isCliManagedResource,
         resourceType,
+        // @ts-ignore
         resourceInstanceData?.backupStatus?.backupPeriodInHours,
         checkCustomDNSEndpoint(resourceInstanceData ? resourceInstanceData?.connectivity?.globalEndpoints : {})
       ),
@@ -144,7 +149,7 @@ const InstanceDetailsPage = ({
     );
   }
 
-  if (isFetchingServiceOfferings || isFetchingSubscriptions || resourceInstanceQuery.isLoading) {
+  if (isFetchingServiceOfferings || isFetchingSubscriptions || resourceInstanceQuery.isPending) {
     return (
       <PageContainer>
         <LoadingSpinner />
@@ -223,7 +228,7 @@ const InstanceDetailsPage = ({
           modifiedAt={resourceInstanceData.modifiedAt}
           isCliManagedResource={isCliManagedResource}
           subscriptionOwner={subscription.subscriptionOwnerName}
-          detailedNetworkTopology={resourceInstanceData.detailedNetworkTopology || {}}
+          detailedNetworkTopology={resourceInstanceData?.detailedNetworkTopology || {}}
           onViewNodesClick={() => {
             setCurrentTab("Nodes");
           }}
@@ -278,8 +283,16 @@ const InstanceDetailsPage = ({
           createdAt={resourceInstanceData.createdAt}
           modifiedAt={resourceInstanceData.modifiedAt}
           resultParameters={resourceInstanceData.resultParameters}
-          isLoading={resourceSchemaQuery.isLoading || resourceInstanceQuery.isLoading}
-          resultParametersSchema={resourceSchemaQuery?.data?.DESCRIBE?.outputParameters}
+          isLoading={resourceSchemaQuery.isPending || resourceInstanceQuery.isPending}
+          resultParametersSchema={resourceSchemaQuery?.data?.DESCRIBE?.outputParameters?.map((param) => {
+            const createInputParam = resourceSchemaQuery?.data?.CREATE?.inputParameters?.find(
+              (inputParam) => inputParam.key === param.key
+            );
+            return {
+              ...param,
+              tabIndex: createInputParam?.tabIndex,
+            };
+          })}
           serviceOffering={offering}
           subscriptionId={subscriptionId}
           customNetworkDetails={resourceInstanceData.customNetworkDetails}
@@ -319,7 +332,7 @@ const InstanceDetailsPage = ({
           nodes={resourceInstanceData.nodes}
           refetchData={resourceInstanceQuery.refetch}
           isRefetching={resourceInstanceQuery.isRefetching}
-          isLoading={resourceInstanceQuery.isLoading}
+          isLoading={resourceInstanceQuery.isPending}
           serviceOffering={offering}
           resourceKey={resourceKey}
           resourceInstanceId={instanceId}

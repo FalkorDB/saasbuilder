@@ -1,18 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { Box, CircularProgress, IconButton as MuiIconButton, Stack } from "@mui/material";
-import Ansi from "ansi-to-react";
+// import Ansi from "ansi-to-react";
 import _ from "lodash";
+import { dataTestIds } from "page-objects/instance-details-page";
 import InfiniteScroll from "react-infinite-scroller";
 import { useWebSocket } from "react-use-websocket/dist/lib/use-websocket";
 
+import SearchInput from "src/components/DataGrid/SearchInput";
+import FieldTitle from "src/components/FormElementsv2/FieldTitle/FieldTitle";
 import MenuItem from "src/components/FormElementsv2/MenuItem/MenuItem";
 import Select from "src/components/FormElementsv2/Select/Select";
 import DataGridHeaderTitle from "src/components/Headers/DataGridHeaderTitle";
 import JobCompleted from "src/components/JobResource/JobCompleted";
 import LoadingSpinner from "src/components/LoadingSpinner/LoadingSpinner";
+import Switch from "src/components/Switch/Switch";
 
 import useSnackbar from "../../../hooks/useSnackbar";
 import Card from "../../Card/Card";
@@ -20,6 +24,8 @@ import Divider from "../../Divider/Divider";
 import Tooltip from "../../Tooltip/Tooltip";
 import { Text } from "../../Typography/Typography";
 import DataUnavailableMessage from "../DataUnavailableMessage";
+
+import SyntaxHighlightedLog from "./SyntaxHighlightedLog";
 
 const logsPerPage = 50;
 
@@ -35,17 +41,15 @@ const Log = styled("pre")({
   fontSize: "12px",
   lineHeight: "16px",
   color: "#FFFFFF",
-  "&+&": {
-    marginTop: 30,
-  },
   wordBreak: "break-word",
   whiteSpace: "pre-wrap",
+  marginBlock: "0px",
 });
 
 const LogsContainer = styled(Box)(() => ({
   height: 500,
   overflowY: "auto",
-  marginTop: 24,
+  // marginTop: 24,
   borderRadius: "8px",
   backgroundColor: "#101828",
   padding: "0px 60px 24px 24px",
@@ -90,6 +94,15 @@ const IconButton = ({ direction, divRef, titleText, dataTestId }) => {
 function Logs(props) {
   const { nodes: nodesList = [], socketBaseURL, instanceStatus, resourceInstanceId } = props;
   const [logs, setLogs] = useState([]);
+  const [, setLogBuffer] = useState(""); // Buffer for partial log lines
+  const bufferTimeoutRef = useRef(null); // Add this ref
+  const [enableSyntaxHighlighting, setEnableSyntaxHighlighting] = useState(true);
+  const [searchText, setSearchText] = useState("");
+  const [
+    invertLogOrder,
+    // setInvertLogOrder
+  ] = useState(false);
+
   let firstNode = null;
 
   const nodes = _.uniqBy(nodesList, "id");
@@ -116,18 +129,46 @@ function Logs(props) {
   const startDivRef = useRef();
   const endDivRef = useRef();
 
+  // Filter logs based on search text
+  const filteredLogs = searchText ? logs.filter((log) => log.toLowerCase().includes(searchText.toLowerCase())) : logs;
+
+  // Apply log order inversion if enabled
+  const displayLogs = invertLogOrder ? [...filteredLogs].reverse() : filteredLogs;
+
   const loadMoreLogs = () => {
-    if (records === logs.length) {
+    if (records === displayLogs.length) {
       setHasMoreLogs(false);
-    } else if (records < logs.length) {
+    } else if (records < displayLogs.length) {
       setRecords((prev) => prev + logsPerPage);
     }
   };
 
   const snackbar = useSnackbar();
+
+  // Helper function to flush buffer
+  const flushBuffer = useCallback(() => {
+    setLogBuffer((currentBuffer) => {
+      if (currentBuffer.trim()) {
+        setLogs((prevLogs) => [...prevLogs, currentBuffer]);
+      }
+      return "";
+    });
+  }, []);
+
+  // Clear timeout on node change or unmount
   useEffect(() => {
     setLogs([]);
+    setLogBuffer(""); // Clear buffer on new connection
+    if (bufferTimeoutRef.current) {
+      clearTimeout(bufferTimeoutRef.current);
+    }
   }, [selectedNode]);
+
+  // Reset pagination when search changes
+  useEffect(() => {
+    setRecords(logsPerPage);
+    setHasMoreLogs(true);
+  }, [searchText]);
 
   function handleNodeChange(event) {
     const { value } = event.target;
@@ -148,7 +189,45 @@ function Logs(props) {
         setIsLogsDataLoaded(true);
       }
       const data = event.data;
-      setLogs((prevData) => [...prevData, data]);
+      // Clear existing timeout
+      if (bufferTimeoutRef.current) {
+        clearTimeout(bufferTimeoutRef.current);
+      }
+
+      // Process the incoming data with buffering
+      setLogBuffer((currentBuffer) => {
+        // Combine buffer with new data
+        const combinedData = currentBuffer + data;
+
+        // Split by line breaks (supporting both \r\n and \n)
+        const lines = combinedData.split(/\r?\n/);
+
+        // The last element might be incomplete if it doesn't end with a line break
+        const potentialIncompleteLog = lines.pop();
+
+        // Add complete lines to logs (if any)
+        if (lines.length > 0) {
+          setLogs((prevLogs) => [...prevLogs, ...lines?.map((line) => (line ? line : "\n"))]);
+        }
+
+        // Set timeout to flush buffer after 5 second of inactivity
+        if (potentialIncompleteLog && potentialIncompleteLog.trim()) {
+          bufferTimeoutRef.current = setTimeout(() => {
+            flushBuffer();
+          }, 5000);
+        }
+
+        // Return the potentially incomplete line as the new buffer
+        // If the original data ended with a line break, this will be empty
+        return potentialIncompleteLog || "";
+      });
+    },
+    onClose: () => {
+      // console.log("Socket Connection closed", event);
+      if (bufferTimeoutRef.current) {
+        clearTimeout(bufferTimeoutRef.current);
+      }
+      flushBuffer();
     },
     shouldReconnect: () => true,
     reconnectAttempts: 3,
@@ -164,6 +243,10 @@ function Logs(props) {
         // snackbar.showError("Unable to get the latest data...");
         setErrorMessage("Can't access logs data. Please check if the instance is available and logs are enabled.");
       }
+      if (bufferTimeoutRef.current) {
+        clearTimeout(bufferTimeoutRef.current);
+      }
+      flushBuffer();
     },
   });
 
@@ -179,6 +262,11 @@ function Logs(props) {
       if (socket) {
         socket.close();
       }
+
+      if (bufferTimeoutRef.current) {
+        clearTimeout(bufferTimeoutRef.current);
+      }
+      setLogBuffer("");
     };
   }, [logsSocketEndpoint]);
 
@@ -234,90 +322,125 @@ function Logs(props) {
     <Card
       mt={"32px"}
       sx={{
-        paddingTop: "12.5px",
-        paddingLeft: "20px",
-        paddingRight: "20px",
+        padding: 0,
+
         minHeight: "500px",
         borderRadius: "8px",
       }}
     >
-      <Stack
-        sx={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-        }}
-        alignItems="center"
-      >
-        <DataGridHeaderTitle title="Logs" desc="Detailed logs for monitoring and troubleshooting" />
-        {nodes?.length > 0 && (
-          <Box>
-            <Text size="small" weight="medium" color="#344054" ml="5px">
-              Node ID
-            </Text>
-            <Select
-              data-testid="node-id-menu"
-              value={selectedNode}
-              sx={{
-                width: "auto",
-                maxWidth: "250px",
-              }}
-              onChange={handleNodeChange}
-            >
-              {nodes.map((node) => (
-                <MenuItem
-                  value={node}
-                  key={node.id}
-                  sx={{
-                    whiteSpace: "normal",
-                    wordBreak: "break-all",
-                    maxWidth: "255px",
-                  }}
-                >
-                  {node.displayName}
-                </MenuItem>
-              ))}
-            </Select>
-          </Box>
-        )}
-      </Stack>
+      <Box>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          padding="20px"
+          borderBottom="1px solid #EAECF0"
+          gap="20px"
+          flexWrap="wrap"
+        >
+          <DataGridHeaderTitle title={`Logs`} desc="Detailed logs for monitoring and troubleshooting" />
+
+          {nodes?.length > 0 && (
+            <Box sx={{ minWidth: "200px" }}>
+              <Text size="small" weight="medium" color="#344054" sx={{ marginBottom: "4px", display: "block" }}>
+                Node ID
+              </Text>
+              <Select
+                data-testid={dataTestIds.liveLogs.nodeIdMenu}
+                value={selectedNode}
+                sx={{
+                  width: "100%",
+                  height: "36px",
+                  fontSize: "14px",
+                }}
+                onChange={handleNodeChange}
+              >
+                {nodes.map((node) => (
+                  <MenuItem
+                    value={node}
+                    key={node.id}
+                    sx={{
+                      whiteSpace: "normal",
+                      wordBreak: "break-all",
+                      fontSize: "14px",
+                    }}
+                  >
+                    {node.displayName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </Box>
+          )}
+        </Stack>
+        <Stack
+          direction="row"
+          justifyContent="end"
+          alignItems="center"
+          p="12px 24px"
+          borderBottom="1px solid #EAECF0"
+          gap="20px"
+          flexWrap="wrap"
+        >
+          <SearchInput
+            placeholder="Search logs..."
+            searchText={searchText}
+            setSearchText={setSearchText}
+            width="250px"
+          />
+
+          <Stack direction="row" gap="6px" alignItems="center">
+            <FieldTitle>Syntax Highlight</FieldTitle>
+            <Switch
+              checked={enableSyntaxHighlighting}
+              onChange={(e) => setEnableSyntaxHighlighting(e.target.checked)}
+              size="small"
+            />
+          </Stack>
+
+          {/* <Stack direction="row" gap="6px" alignItems="center">
+            <FieldTitle>Log Order</FieldTitle>
+            <Switch checked={invertLogOrder} onChange={(e) => setInvertLogOrder(e.target.checked)} size="small" />
+          </Stack> */}
+        </Stack>
+      </Box>
       <Divider sx={{ marginTop: "12px" }} />
       {instanceStatus === "COMPLETE" && selectedNode?.isJob === true ? (
         <JobCompleted />
       ) : (
-        <Box position="relative">
-          <LogsContainer data-testid="logs-container" className="sleek-scroll">
-            <div ref={startDivRef} style={{ visibility: "hidden", height: "24px" }} />
-            <InfiniteScroll pageStart={0} hasMore={hasMoreLogs} loadMore={loadMoreLogs} useWindow={false}>
-              {logs
-                ?.filter((log, index) => index < records)
-                .map((log) => {
-                  return (
-                    <>
-                      <Log key={log}>
-                        <Ansi>{log}</Ansi>
+        <Box sx={{ padding: "20px" }}>
+          <Box position="relative">
+            <LogsContainer data-testid="logs-container" className="sleek-scroll">
+              <div ref={startDivRef} style={{ visibility: "hidden", height: "24px" }} />
+              <InfiniteScroll pageStart={0} hasMore={hasMoreLogs} loadMore={loadMoreLogs} useWindow={false}>
+                {displayLogs
+                  ?.filter((log, index) => index < records)
+                  .map((log, index) => {
+                    return (
+                      <Log key={`${log}-${index}`}>
+                        <SyntaxHighlightedLog logLine={log} enableSyntaxHighlighting={enableSyntaxHighlighting} />
                       </Log>
-                    </>
-                  );
-                })}
-            </InfiniteScroll>
-            <div ref={endDivRef} style={{ visibility: "hidden" }} />
-          </LogsContainer>
-          {isLogsDataLoaded && (
-            <>
-              <IconButton
-                dataTestId="scroll-to-top-button"
-                titleText="Navigate to top"
-                direction="up"
-                divRef={startDivRef}
-              />
-              <IconButton
-                dataTestId="scroll-to-bottom-button"
-                titleText="Navigate to bottom"
-                direction="down"
-                divRef={endDivRef}
-              />
-            </>
-          )}
+                    );
+                  })}
+              </InfiniteScroll>
+              <div ref={endDivRef} style={{ visibility: "hidden" }} />
+            </LogsContainer>
+            {isLogsDataLoaded && (
+              <>
+                <IconButton
+                  dataTestId="scroll-to-top-button"
+                  titleText="Navigate to top"
+                  direction="up"
+                  divRef={startDivRef}
+                />
+                <IconButton
+                  dataTestId="scroll-to-bottom-button"
+                  titleText="Navigate to bottom"
+                  direction="down"
+                  divRef={endDivRef}
+                />
+              </>
+            )}
+          </Box>
         </Box>
       )}
     </Card>

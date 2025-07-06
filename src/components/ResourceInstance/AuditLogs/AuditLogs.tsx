@@ -6,6 +6,7 @@ import { createColumnHelper } from "@tanstack/react-table";
 import dayjs from "dayjs";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
+import { pageElements } from "page-objects/instance-details-page";
 import { OnCopyProps } from "react-json-view";
 
 import SearchInput from "src/components/DataGrid/SearchInput";
@@ -20,8 +21,9 @@ import GridCellExpand from "src/components/GridCellExpand/GridCellExpand";
 import JSONView from "src/components/JSONView/JSONView";
 import RefreshWithToolTip from "src/components/RefreshWithTooltip/RefreshWithToolTip";
 import useUserData from "src/hooks/usersData";
+import { AuditEvent } from "src/types/auditEvent";
 import { SetState } from "src/types/common/reactGenerics";
-import { AccessEvent, EventType } from "src/types/event";
+import { EventType } from "src/types/event";
 import formatDateLocal from "src/utils/formatDateLocal";
 import { getAccessControlRoute } from "src/utils/route/access/accessRoute";
 import DataGridHeaderTitle from "components/Headers/DataGridHeaderTitle";
@@ -46,7 +48,7 @@ type AuditLogsTableHeaderProps = {
   setSelectedEventTypes: SetState<EventType[]>;
 };
 
-const columnHelper = createColumnHelper<AccessEvent>();
+const columnHelper = createColumnHelper<AuditEvent>();
 
 const AuditLogsTableHeader: FC<AuditLogsTableHeaderProps> = (props) => {
   const {
@@ -70,12 +72,12 @@ const AuditLogsTableHeader: FC<AuditLogsTableHeaderProps> = (props) => {
       borderBottom="1px solid #EAECF0"
     >
       <DataGridHeaderTitle
-        title="List of Events"
+        title={pageElements.auditLogsTableTitle}
         desc="Detailed audit trail of user actions performed on deployment instances"
         count={count}
         units={{
-          singular: "Event",
-          plural: "Events",
+          singular: "Log",
+          plural: "Logs",
         }}
       />
       <Stack direction="row" justifyContent="flex-end" flexGrow={1} flexWrap={"wrap"} alignItems="center" gap="12px">
@@ -101,7 +103,7 @@ type AuditLogsTabProps = {
   subscriptionId: string;
 };
 
-function DetailTableRowView(props: { rowData: AccessEvent }) {
+function DetailTableRowView(props: { rowData: AuditEvent }) {
   const { rowData: event } = props;
   const { workflowFailures } = event;
   return (
@@ -174,7 +176,11 @@ const AuditLogs: FC<AuditLogsTabProps> = ({ instanceId, subscriptionId }) => {
         id: "type",
         header: "Type",
         cell: (data) => {
-          return data.row.original.eventSource ? <EventTypeChip eventType={data.row.original.eventSource} /> : "-";
+          return data.row.original.eventSource ? (
+            <EventTypeChip eventType={data.row.original.eventSource as EventType} />
+          ) : (
+            "-"
+          );
         },
       }),
       columnHelper.accessor((row) => formatDateLocal(row.time), {
@@ -213,7 +219,7 @@ const AuditLogs: FC<AuditLogsTabProps> = ({ instanceId, subscriptionId }) => {
           let userDisplayLabel = userName;
 
           if (isUserServiceProvider) {
-            userDisplayLabel = `Service Provider`;
+            userDisplayLabel = `SaaS Provider`;
           }
 
           return <GridCellExpand href={pageLink} target="_blank" value={userDisplayLabel || "-"} />;
@@ -256,6 +262,7 @@ const AuditLogs: FC<AuditLogsTabProps> = ({ instanceId, subscriptionId }) => {
   return (
     <Box mt="32px">
       <DataTable
+        // @ts-ignore
         columns={dataTableColumns}
         rows={filteredEvents}
         renderDetailsComponent={DetailTableRowView}

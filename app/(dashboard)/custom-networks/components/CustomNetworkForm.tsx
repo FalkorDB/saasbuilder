@@ -1,14 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { useMutation } from "@tanstack/react-query";
 import CloudProviderRadio from "app/(dashboard)/components/CloudProviderRadio/CloudProviderRadio";
 import { useFormik } from "formik";
 
-import { createCustomNetwork, updateCustomNetwork } from "src/api/customNetworks";
+import { $api } from "src/api/query";
 import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 import useSnackbar from "src/hooks/useSnackbar";
-import { UpdateCustomNetworkRequestBody } from "src/types/customNetwork";
 import GridDynamicForm from "components/DynamicForm/GridDynamicForm";
 import { FormConfiguration } from "components/DynamicForm/types";
 
@@ -23,18 +21,19 @@ const CustomNetworkForm = ({
   selectedCustomNetwork,
 }) => {
   const snackbar = useSnackbar();
-  const createCustomNetworkMutation = useMutation(createCustomNetwork, {
-    onSuccess: async () => {
+  const createCustomNetworkMutation = $api.useMutation("post", "/2022-09-01-00/resource-instance/custom-network", {
+    onSuccess: () => {
       onClose();
       snackbar.showSuccess("Customer Network created successfully");
       refetchCustomNetworks();
     },
   });
 
-  const updateCustomNetworkMutation = useMutation(
-    (data: UpdateCustomNetworkRequestBody) => updateCustomNetwork(selectedCustomNetwork.id, data),
+  const updateCustomNetworkMutation = $api.useMutation(
+    "patch",
+    "/2022-09-01-00/resource-instance/custom-network/{id}",
     {
-      onSuccess: async () => {
+      onSuccess: () => {
         onClose();
         snackbar.showSuccess("Customer Network updated successfully");
         refetchCustomNetworks();
@@ -53,10 +52,19 @@ const CustomNetworkForm = ({
     onSubmit: (values) => {
       const data = { ...values };
       if (formMode === "create") {
-        createCustomNetworkMutation.mutate(data);
+        createCustomNetworkMutation.mutate({
+          body: data,
+        });
       } else {
         updateCustomNetworkMutation.mutate({
-          name: data.name,
+          params: {
+            path: {
+              id: selectedCustomNetwork.id,
+            },
+          },
+          body: {
+            name: data.name,
+          },
         });
       }
     },
@@ -171,7 +179,7 @@ const CustomNetworkForm = ({
       formData={formData}
       formMode={formMode}
       onClose={onClose}
-      isFormSubmitting={createCustomNetworkMutation.isLoading || updateCustomNetworkMutation.isLoading}
+      isFormSubmitting={createCustomNetworkMutation.isPending || updateCustomNetworkMutation.isPending}
       previewCardTitle="Customer Network Summary"
     />
   );

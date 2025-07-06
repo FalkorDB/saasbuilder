@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Box, Dialog, Stack, styled } from "@mui/material";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useFormik } from "formik";
 
-import { disconnected } from "src/api/resourceInstance";
+import { $api } from "src/api/query";
+import useEnvironmentType from "src/hooks/useEnvironmentType";
 import useSnackbar from "src/hooks/useSnackbar";
 import Button from "components/Button/Button";
 import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
@@ -86,6 +87,7 @@ const ListItem = styled(Box)({
 });
 
 const usePolling = (fetchClickedInstanceDetails, setClickedInstance, stepStatusStopPolling) => {
+  const environmentType = useEnvironmentType();
   const queryClient = useQueryClient();
   const [isPolling, setIsPolling] = useState(true);
   const timeoutId = useRef(null);
@@ -113,10 +115,20 @@ const usePolling = (fetchClickedInstanceDetails, setClickedInstance, stepStatusS
         },
       }));
 
-      queryClient.setQueryData(["instances"], (oldData) => ({
-        ...oldData,
-        data: {
-          resourceInstances: (oldData?.data?.resourceInstances || []).map((inst) =>
+      queryClient.setQueryData(
+        [
+          "get",
+          "/2022-09-01-00/resource-instance",
+          {
+            params: {
+              query: {
+                environmentType,
+              },
+            },
+          },
+        ],
+        (oldData) => ({
+          resourceInstances: (oldData?.resourceInstances || []).map((inst) =>
             inst?.id === resourceInstance?.id
               ? {
                   ...resourceInstance,
@@ -125,8 +137,8 @@ const usePolling = (fetchClickedInstanceDetails, setClickedInstance, stepStatusS
                 }
               : inst
           ),
-        },
-      }));
+        })
+      );
 
       // // Stop polling if the status matches the stop condition
       if (resourceInstance?.status === stepStatusStopPolling) {
@@ -264,6 +276,20 @@ const Check = ({ instance, fetchClickedInstanceDetails, setClickedInstance, serv
                 </StyledLink>
                  CloudFormation template to grant {`${serviceProviderName}`} the required permissions.
               </Text>
+            ) : instance?.result_params?.azure_subscription_id ? (
+              <Box>
+                <Text size="medium" weight="regular" color="#374151">
+                  {/* <b>Using Azure Cloud Shell:</b>  */}
+                  Please open the Azure Cloud Shell environment using the following link:{" "}
+                  <StyledLink target="_blank" rel="noopener noreferrer" href="https://portal.azure.com/#cloudshell/">
+                    Azure Cloud Shell
+                  </StyledLink>
+                  . Once the terminal is open, execute the following command:
+                </Text>
+                {instance?.result_params?.azure_bootstrap_shell_script && (
+                  <TextContainerToCopy text={instance?.result_params?.azure_bootstrap_shell_script} marginTop="12px" />
+                )}
+              </Box>
             ) : (
               <Box>
                 <Text size="medium" weight="regular" color="#374151">
@@ -334,26 +360,16 @@ function ConnectAccountConfigDialog(props) {
     }
   }, [connectState, setConnectState, instance?.status]);
 
-  const accountConfigMutation = useMutation(
-    () => {
-      const requestPayload = {
-        subscriptionId: instance?.subscriptionId,
-        instanceId: instance?.id,
-        disconnect: true,
-        serviceId: serviceId,
-      };
-      return disconnected(requestPayload);
+  const accountConfigMutation = $api.useMutation("post", "/2022-09-01-00/resource-instance/account-config/{id}", {
+    onSuccess: () => {
+      refetchInstances();
+      snackbar.showSuccess("Connecting cloud account");
+      setConnectState(stateAccountConfigStepper.check);
+      // eslint-disable-next-line no-use-before-define
+      formik.resetForm();
     },
-    {
-      onSuccess: () => {
-        refetchInstances();
-        snackbar.showSuccess("Connecting cloud account");
-        setConnectState(stateAccountConfigStepper.check);
-        // eslint-disable-next-line no-use-before-define
-        formik.resetForm();
-      },
-    }
-  );
+  });
+
   const formik = useFormik({
     initialValues: {
       connect: "",
@@ -362,7 +378,18 @@ function ConnectAccountConfigDialog(props) {
       if (!instance) return snackbar.showError("No instance selected");
 
       if (values.connect === "connect") {
-        accountConfigMutation.mutate();
+        accountConfigMutation.mutate({
+          params: {
+            path: {
+              id: instance?.id,
+            },
+          },
+          body: {
+            setConnection: true,
+            serviceId,
+            subscriptionId: instance?.subscriptionId,
+          },
+        });
       } else {
         snackbar.showError("Please enter connect");
       }
@@ -414,11 +441,11 @@ function ConnectAccountConfigDialog(props) {
                 height: "40px !important",
                 padding: "10px 14px !important",
               }}
-              disabled={isFetching || accountConfigMutation.isLoading}
+              disabled={isFetching || accountConfigMutation.isPending}
               bgColor={buttonColor}
               onClick={formik.handleSubmit}
             >
-              {"Connect"} {isFetching || (accountConfigMutation.isLoading && <LoadingSpinnerSmall />)}
+              {"Connect"} {isFetching || (accountConfigMutation.isPending && <LoadingSpinnerSmall />)}
             </Button>
           )}
           {connectState === stateAccountConfigStepper.check && (

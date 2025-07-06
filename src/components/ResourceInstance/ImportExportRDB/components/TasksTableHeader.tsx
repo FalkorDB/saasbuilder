@@ -77,12 +77,12 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({ count, refetch, isRefetch
                   height: "40px !important",
                   padding: "10px 14px !important",
                 }}
-                startIcon={<ImportIcon disabled={status != "RUNNING" || isRefetching || importMutation.isLoading || exportMutation.isLoading} />}
-                disabled={status != "RUNNING" || isRefetching || importMutation.isLoading || exportMutation.isLoading}
+                startIcon={<ImportIcon disabled={status != "RUNNING" || isRefetching || importMutation.isPending || exportMutation.isPending} />}
+                disabled={status != "RUNNING" || isRefetching || importMutation.isPending || exportMutation.isPending}
                 onClick={() => setDialog({ open: true, type: "import" })}
               >
                 Import RDB
-                {(importMutation.isLoading || exportMutation.isLoading) && <LoadingSpinnerSmall sx={{ color: "#7F56D9", marginLeft: "12px" }} />}
+                {(importMutation.isPending || exportMutation.isPending) && <LoadingSpinnerSmall sx={{ color: "#7F56D9", marginLeft: "12px" }} />}
               </Button>
             </span>
           </Tooltip>
@@ -94,12 +94,12 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({ count, refetch, isRefetch
                   height: "40px !important",
                   padding: "10px 14px !important",
                 }}
-                startIcon={<ExportIcon disabled={status != "RUNNING" || isRefetching || exportMutation.isLoading || importMutation.isLoading} />}
-                disabled={status != "RUNNING" || isRefetching || exportMutation.isLoading || importMutation.isLoading}
+                startIcon={<ExportIcon disabled={status != "RUNNING" || isRefetching || exportMutation.isPending || importMutation.isPending} />}
+                disabled={status != "RUNNING" || isRefetching || exportMutation.isPending || importMutation.isPending}
                 onClick={() => setDialog({ open: true, type: "export" })}
               >
                 Export RDB
-                {(exportMutation.isLoading || importMutation.isLoading) && <LoadingSpinnerSmall sx={{ color: "#7F56D9", marginLeft: "12px" }} />}
+                {(exportMutation.isPending || importMutation.isPending) && <LoadingSpinnerSmall sx={{ color: "#7F56D9", marginLeft: "12px" }} />}
               </Button>
             </span>
           </Tooltip>
@@ -220,10 +220,10 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({ count, refetch, isRefetch
           </Box>
         </DialogContent>
         <DialogFooter>
-          <Button variant="outlined" onClick={() => { setDialog({ open: false }); setFile(undefined) }} disabled={exportMutation.isLoading || importMutation.isLoading}>
+          <Button variant="outlined" onClick={() => { setDialog({ open: false }); setFile(undefined) }} disabled={exportMutation.isPending || importMutation.isPending}>
             Cancel
           </Button>
-          <Button variant="contained" type="submit" disabled={exportMutation.isLoading || importMutation.isLoading}>
+          <Button variant="contained" type="submit" disabled={exportMutation.isPending || importMutation.isPending}>
             {dialog.type === 'export' ? 'Export' : 'Import'}
           </Button>
         </DialogFooter>

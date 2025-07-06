@@ -7,11 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createColumnHelper } from "@tanstack/react-table";
 import { useFormik } from "formik";
 
-import {
-  deleteResourceInstance,
-  getResourceInstanceDetails,
-  // getTerraformKit,
-} from "src/api/resourceInstance";
+import { deleteResourceInstance, getResourceInstanceDetails } from "src/api/resourceInstance";
 import ConnectAccountConfigDialog from "src/components/AccountConfigDialog/ConnectAccountConfigDialog";
 import DisconnectAccountConfigDialog from "src/components/AccountConfigDialog/DisconnectAccountConfigDialog";
 import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
@@ -38,8 +34,6 @@ import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithL
 import StatusChip from "components/StatusChip/StatusChip";
 import Tooltip from "components/Tooltip/Tooltip";
 
-import useBillingDetails from "../billing/hooks/useBillingDetails";
-import useBillingStatus from "../billing/hooks/useBillingStatus";
 import FullScreenDrawer from "../components/FullScreenDrawer/FullScreenDrawer";
 import CloudAccountsIcon from "../components/Icons/CloudAccountsIcon";
 import PageContainer from "../components/Layout/PageContainer";
@@ -87,7 +81,9 @@ const CloudAccountsPage = () => {
 
   const azureBootstrapShellCommand = useMemo(() => {
     const result_params: any = clickedInstance?.result_params;
-    if (result_params?.cloud_provider_account_config_id) {
+    if (result_params?.azure_bootstrap_shell_script) {
+      return result_params?.azure_bootstrap_shell_script;
+    } else if (result_params?.cloud_provider_account_config_id) {
       return getAzureBootstrapShellCommand(result_params?.cloud_provider_account_config_id);
     }
   }, [clickedInstance]);
@@ -115,17 +111,10 @@ const CloudAccountsPage = () => {
 
   const {
     data: instances = [],
-    isLoading: isLoadingInstances,
+    isPending: isInstancesPending,
     isFetching: isFetchingInstances,
     refetch: refetchInstances,
   } = useInstances();
-
-  const billingStatusQuery = useBillingStatus();
-
-  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled);
-
-  const { data: billingConfig } = useBillingDetails(isBillingEnabled);
-  const isPaymentConfigured = Boolean(billingConfig?.paymentConfigured);
 
   // Open the Create Form Overlay when serviceId, servicePlanId and subscriptionId are present in the URL
   useEffect(() => {
@@ -292,7 +281,7 @@ const CloudAccountsPage = () => {
         },
         {
           id: "serviceName",
-          header: "Service Name",
+          header: "Product Name",
           cell: (data) => {
             const { serviceLogoURL, serviceName } = subscriptionsObj[data.row.original.subscriptionId as string] || {};
             return <ServiceNameWithLogo serviceName={serviceName} serviceLogoURL={serviceLogoURL} />;
@@ -328,7 +317,7 @@ const CloudAccountsPage = () => {
         },
         {
           id: "cloud_provider",
-          header: "Provider",
+          header: "Cloud Provider",
           cell: (data) => {
             let cloudProvider: CloudProvider | undefined;
             const result_params = data.row.original.result_params;
@@ -417,8 +406,8 @@ const CloudAccountsPage = () => {
     );
   }, [selectedInstanceOffering?.resourceParameters]);
 
-  const deleteAccountConfigMutation = useMutation(
-    () => {
+  const deleteAccountConfigMutation = useMutation({
+    mutationFn: () => {
       const requestPayload = {
         serviceProviderId: selectedInstanceOffering?.serviceProviderId,
         serviceKey: selectedInstanceOffering?.serviceURLKey,
@@ -432,18 +421,16 @@ const CloudAccountsPage = () => {
       };
       return deleteResourceInstance(requestPayload);
     },
-    {
-      onSuccess: () => {
-        setSelectedRows([]);
-        refetchInstances();
-        setIsOverlayOpen(false);
-        snackbar.showSuccess("Deleting account config...");
+    onSuccess: () => {
+      setSelectedRows([]);
+      refetchInstances();
+      setIsOverlayOpen(false);
+      snackbar.showSuccess("Deleting account config...");
 
-        // eslint-disable-next-line no-use-before-define
-        deleteformik.resetForm();
-      },
-    }
-  );
+      // eslint-disable-next-line no-use-before-define
+      deleteformik.resetForm();
+    },
+  });
 
   const deleteformik = useFormik({
     initialValues: {
@@ -484,38 +471,6 @@ const CloudAccountsPage = () => {
       clickedInstance?.subscriptionId
     );
   };
-
-  // const downloadTerraformKitMutation = useMutation(
-  //   () => {
-  //     if (clickedInstanceOffering && clickedInstanceSubscription) {
-  //       return getTerraformKit(
-  //         clickedInstanceOffering.serviceProviderId,
-  //         clickedInstanceOffering.serviceURLKey,
-  //         clickedInstanceOffering.serviceAPIVersion,
-  //         clickedInstanceOffering.serviceEnvironmentURLKey,
-  //         clickedInstanceOffering.serviceModelURLKey,
-  //         clickedInstanceSubscription.id,
-  //         // @ts-ignore
-  //         clickedInstance?.result_params?.gcp_project_id ? "gcp" : "aws"
-  //       );
-  //     }
-  //   },
-  //   {
-  //     onSuccess: (response: any) => {
-  //       if (!response?.data) {
-  //         return snackbar.showError("Failed to download terraform kit");
-  //       }
-  //       const href = URL.createObjectURL(response.data);
-  //       const link = document.createElement("a");
-  //       link.href = href;
-  //       link.setAttribute("download", "terraformkit.tar");
-  //       document.body.appendChild(link);
-  //       link.click();
-  //       document.body.removeChild(link);
-  //       URL.revokeObjectURL(href);
-  //     },
-  //   }
-  // );
 
   useEffect(() => {
     if (isAccountCreation) {
@@ -564,7 +519,7 @@ const CloudAccountsPage = () => {
             isFetchingInstances: isFetchingInstances,
             serviceModelType: selectedInstanceOffering?.serviceModelType,
           }}
-          isLoading={isLoadingInstances}
+          isLoading={isInstancesPending}
           selectionMode="single"
           selectedRows={selectedRows}
           onRowSelectionChange={setSelectedRows}
@@ -591,7 +546,6 @@ const CloudAccountsPage = () => {
             setOverlayType={setOverlayType}
             setClickedInstance={setClickedInstance}
             instances={instances}
-            isPaymentConfigured={isPaymentConfigured}
           />
         }
       />
@@ -604,7 +558,7 @@ const CloudAccountsPage = () => {
         }}
         formData={deleteformik}
         title="Delete Account Config"
-        isLoading={deleteAccountConfigMutation.isLoading}
+        isLoading={deleteAccountConfigMutation.isPending}
         accountInstructionDetails={deleteAccountInstructionDetails}
       />
       <ConnectAccountConfigDialog

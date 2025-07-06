@@ -7,6 +7,7 @@ import { createColumnHelper } from "@tanstack/react-table";
 import { useSelector } from "react-redux";
 
 import { deleteSubscription } from "src/api/subscriptions";
+import useEnvironmentType from "src/hooks/useEnvironmentType";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { selectUserrootData } from "src/slices/userDataSlice";
@@ -35,6 +36,7 @@ const columnHelper = createColumnHelper<Subscription>();
 type Overlay = "manage-subscriptions" | "unsubscribe-dialog" | "subscription-details";
 
 const SubscriptionsPage = () => {
+  const environmentType = useEnvironmentType();
   const queryClient = useQueryClient();
   const snackbar = useSnackbar();
   const searchParams = useSearchParams();
@@ -111,7 +113,7 @@ const SubscriptionsPage = () => {
       }),
       columnHelper.accessor("serviceName", {
         id: "serviceName",
-        header: "Service Name",
+        header: "Product Name",
         cell: (data) => {
           const { serviceName, serviceLogoURL } = data.row.original;
           return <ServiceNameWithLogo serviceName={serviceName} serviceLogoURL={serviceLogoURL} />;
@@ -122,7 +124,7 @@ const SubscriptionsPage = () => {
       }),
       columnHelper.accessor("productTierName", {
         id: "productTierName",
-        header: "Service Plan",
+        header: "Plan",
         cell: (data) => {
           return data.row.original.productTierName || "-";
         },
@@ -160,17 +162,23 @@ const SubscriptionsPage = () => {
     return subscriptions.find((subscription) => subscription.id === selectedRows[0]);
   }, [selectedRows, subscriptions]);
 
-  const unSubscribeMutation = useMutation(deleteSubscription, {
+  const unSubscribeMutation = useMutation({
+    mutationFn: deleteSubscription,
     onSuccess: () => {
-      queryClient.setQueryData(["user-subscriptions"], (oldData: any) => {
-        return {
-          ...oldData,
-          data: {
-            ids: oldData.data.ids.filter((id: string) => id !== subscriptionIdToDelete),
-            subscriptions: oldData.data.subscriptions.filter((sub: Subscription) => sub.id !== subscriptionIdToDelete),
+      queryClient.setQueryData(
+        [
+          "get",
+          "/2022-09-01-00/subscription",
+          {
+            params: { query: { environmentType } },
           },
-        };
-      });
+        ],
+        (oldData: any) => {
+          return {
+            subscriptions: oldData.subscriptions.filter((sub: Subscription) => sub.id !== subscriptionIdToDelete),
+          };
+        }
+      );
       setIsOverlayOpen(false);
 
       snackbar.showSuccess("Unsubscribed successfully");
@@ -212,7 +220,7 @@ const SubscriptionsPage = () => {
                 setIsOverlayOpen(true);
                 setOverlayType("unsubscribe-dialog");
               },
-              isUnsubscribing: unSubscribeMutation.isLoading,
+              isUnsubscribing: unSubscribeMutation.isPending,
               count: filteredSubscriptions?.length,
               isFetchingSubscriptions,
               refetchSubscriptions,
@@ -257,9 +265,9 @@ const SubscriptionsPage = () => {
             await unSubscribeMutation.mutateAsync(selectedSubscription.id);
           }}
           confirmationText="unsubscribe"
-          title="Unsubscribe Service"
+          title="Unsubscribe Product"
           buttonLabel="Unsubscribe"
-          isLoading={unSubscribeMutation.isLoading}
+          isLoading={unSubscribeMutation.isPending}
           subtitle={`Are you sure you want to unsubscribe from ${selectedSubscription?.serviceName}?`}
           message="To confirm, please enter <b>unsubscribe</b>, in the field below:"
         />

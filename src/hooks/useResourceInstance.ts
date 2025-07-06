@@ -1,24 +1,25 @@
-import { useQuery } from "@tanstack/react-query";
 import _ from "lodash";
 
+import { $api } from "src/api/query";
 import { calculateInstanceHealthPercentage } from "src/utils/instanceHealthPercentage";
 
-import { getResourceInstanceDetails } from "../api/resourceInstance";
 import processClusterPorts from "../utils/processClusterPorts";
 
-export default function useResourceInstance(
-  serviceProviderId,
-  serviceKey,
-  serviceAPIVersion,
-  serviceEnvironmentKey,
-  serviceModelKey,
-  productTierKey,
-  resourceKey,
-  resourceInstanceId,
-  resourceId,
-  subscriptionId
-) {
-  const isQueryEnabled = Boolean(
+const useResourceInstance = (queryParams) => {
+  const {
+    serviceProviderId,
+    serviceKey,
+    serviceAPIVersion,
+    serviceEnvironmentKey,
+    serviceModelKey,
+    productTierKey,
+    resourceKey,
+    resourceInstanceId,
+    resourceId,
+    subscriptionId,
+  } = queryParams;
+
+  const isEnabled = Boolean(
     serviceProviderId &&
       serviceKey &&
       serviceAPIVersion &&
@@ -30,57 +31,43 @@ export default function useResourceInstance(
       subscriptionId
   );
 
-  const resourceInstanceQuery = useQuery(
-    [
-      "resource-instance",
-      serviceProviderId,
-      serviceKey,
-      serviceAPIVersion,
-      serviceEnvironmentKey,
-      serviceModelKey,
-      productTierKey,
-      resourceKey,
-      resourceInstanceId,
-      subscriptionId,
-    ],
-    () => {
-      return getResourceInstanceDetails(
-        serviceProviderId,
-        serviceKey,
-        serviceAPIVersion,
-        serviceEnvironmentKey,
-        serviceModelKey,
-        productTierKey,
-        resourceKey,
-        resourceInstanceId,
-        subscriptionId
-      );
+  const query = $api.useQuery(
+    "get",
+    "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}/{id}",
+    {
+      params: {
+        path: {
+          serviceProviderId,
+          serviceKey,
+          serviceAPIVersion,
+          serviceEnvironmentKey,
+          serviceModelKey,
+          productTierKey,
+          resourceKey,
+          id: resourceInstanceId,
+        },
+        query: {
+          subscriptionId,
+        },
+      },
     },
     {
-      enabled: isQueryEnabled,
-      retry: false,
-      refetchInterval: 60000,
-      refetchOnMount: true,
-      refetchOnWindowFocus: false,
-
-      select: (response) => {
-        const data = response.data;
-
+      select: (data) => {
         let isLogsEnabled = false;
         let isMetricsEnabled = false;
         let metricsSocketURL = "";
         let logsSocketURL = "";
-        let customNetworkDetails = null;
+        let customNetworkDetails: any = null;
 
         if (data.customNetworkDetail) {
           customNetworkDetails = data.customNetworkDetail;
         }
 
-        const topologyDetails = data?.detailedNetworkTopology?.[resourceId];
-        const nodeEndpointsList = [];
-        const availabilityZonesList = [];
-        const nodes = [];
-        const globalEndpoints = {};
+        const topologyDetails: any = data?.detailedNetworkTopology?.[resourceId];
+        const nodeEndpointsList: any[] = [];
+        const availabilityZonesList: any[] = [];
+        const nodes: any[] = [];
+        const globalEndpoints: any = {};
 
         if (topologyDetails) {
           globalEndpoints.primary = {
@@ -95,9 +82,9 @@ export default function useResourceInstance(
           globalEndpoints.others = [];
         }
 
-        const customMetrics = [];
+        const customMetrics: any[] = [];
         // let otherResourcesCustomMetrics = [];
-        const productTierFeatures = data?.productTierFeatures;
+        const productTierFeatures: any = data?.productTierFeatures;
 
         if (productTierFeatures?.LOGS?.enabled) {
           isLogsEnabled = true;
@@ -110,7 +97,7 @@ export default function useResourceInstance(
 
           //check if custom metrics are configured
           if (additionalMetrics) {
-            Object.entries(additionalMetrics).forEach(([resourceKey, data]) => {
+            Object.entries(additionalMetrics).forEach(([resourceKey, data]: any) => {
               const metricsData = data?.metrics;
               if (metricsData) {
                 Object.entries(metricsData).forEach(([metricName, labelsObj]) => {
@@ -176,18 +163,19 @@ export default function useResourceInstance(
         }
 
         const nodeEndpoints = nodeEndpointsList.join(", ");
+        // @ts-ignore
         const availabilityZones = [...new Set(availabilityZonesList)].join(", ");
 
         const createdAt = data.created_at;
         const modifiedAt = data.last_modified_at;
 
-        const topologyDetailsOtherThanMain = Object.entries(data.detailedNetworkTopology ?? {})?.filter(
-          ([, topologyDetails]) => {
+        const topologyDetailsOtherThanMain = Object.entries(data?.detailedNetworkTopology ?? {})?.filter(
+          ([, topologyDetails]: any) => {
             return topologyDetails.main === false;
           }
         );
 
-        topologyDetailsOtherThanMain?.forEach(([resourceId, topologyDetails]) => {
+        topologyDetailsOtherThanMain?.forEach(([resourceId, topologyDetails]: any) => {
           const { resourceKey } = topologyDetails;
           if (resourceKey === "omnistrateobserv") {
             // Show Both Logs and Metrics if Observability Resource Present
@@ -273,16 +261,15 @@ export default function useResourceInstance(
 
         let clusterPorts;
         if (data?.detailedNetworkTopology) {
-          clusterPorts = Object.values(data.detailedNetworkTopology).reduce(
-            (accumulator, topologyDetails) => {
+          clusterPorts = Object.values(data?.detailedNetworkTopology).reduce(
+            (accumulator: any, topologyDetails: any) => {
               if (topologyDetails.main) return accumulator;
-              return [
-                ...accumulator,
-                {
-                  resourceName: topologyDetails?.resourceName,
-                  ports: processClusterPorts(topologyDetails?.clusterPorts),
-                },
-              ];
+
+              accumulator.push({
+                resourceName: topologyDetails?.resourceName,
+                ports: processClusterPorts(topologyDetails?.clusterPorts),
+              });
+              return accumulator;
             },
             [
               {
@@ -293,8 +280,8 @@ export default function useResourceInstance(
           );
         }
 
-        const additionalEndpoints = [];
-        Object.values(data.detailedNetworkTopology || {}).forEach((resource) => {
+        const additionalEndpoints: any[] = [];
+        Object.values(data?.detailedNetworkTopology || {}).forEach((resource: any) => {
           additionalEndpoints.push({
             resourceName: resource.resourceName,
             additionalEndpoints: resource.additionalEndpoints,
@@ -345,15 +332,20 @@ export default function useResourceInstance(
           mainResourceHasCompute: Boolean(topologyDetails?.hasCompute),
           customMetrics: customMetrics,
           customNetworkDetails,
-          detailedNetworkTopology: data.detailedNetworkTopology || {},
+          detailedNetworkTopology: data?.detailedNetworkTopology || {},
           maintenanceTasks: data.maintenanceTasks || {},
           subscriptionLicense: data?.subscriptionLicense || {},
         };
 
         return final;
       },
+      refetchInterval: 60000,
+      refetchOnMount: true,
+      enabled: isEnabled,
     }
   );
 
-  return resourceInstanceQuery;
-}
+  return query;
+};
+
+export default useResourceInstance;

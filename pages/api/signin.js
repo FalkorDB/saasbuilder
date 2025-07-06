@@ -1,4 +1,5 @@
 import _ from "lodash";
+
 const { customerUserSignIn } = require("src/server/api/customer-user");
 const { getEnvironmentType } = require("src/server/utils/getEnvironmentType");
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
@@ -7,6 +8,7 @@ import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
 
 export default async function handleSignIn(nextRequest, nextResponse) {
   if (nextRequest.method === "POST") {
+    let environmentType;
     try {
       const requestBody = nextRequest.body || {};
       const isReCaptchaSetup = checkReCaptchaSetup();
@@ -16,7 +18,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
         if (!isVerified) throw new CaptchaVerificationError();
       }
 
-      const environmentType = getEnvironmentType();
+      environmentType = getEnvironmentType();
       const payload = {
         ...nextRequest.body,
         environmentType: environmentType,

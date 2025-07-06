@@ -2,14 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { Box, Stack } from "@mui/material";
-import { useMutation } from "@tanstack/react-query";
 import { createColumnHelper } from "@tanstack/react-table";
 
-import { deleteResourceInstance } from "src/api/resourceInstance";
+import { $api } from "src/api/query";
 import LoadIndicatorHigh from "src/components/Icons/LoadIndicator/LoadIndicatorHigh";
 import LoadIndicatorIdle from "src/components/Icons/LoadIndicator/LoadIndicatorIdle";
 import LoadIndicatorNormal from "src/components/Icons/LoadIndicator/LoadIndicatorNormal";
-// import { getInitialFilterState } from "src/components/InstanceFilters/InstanceFilters";
 import InstanceHealthStatusChip, {
   getInstanceHealthStatus,
 } from "src/components/InstanceHealthStatusChip/InstanceHealthStatusChip";
@@ -34,13 +32,9 @@ import AccessSideRestoreInstance from "components/RestoreInstance/AccessSideRest
 import StatusChip from "components/StatusChip/StatusChip";
 import TextConfirmationDialog from "components/TextConfirmationDialog/TextConfirmationDialog";
 
-import useBillingDetails from "../billing/hooks/useBillingDetails";
-import useBillingStatus from "../billing/hooks/useBillingStatus";
 import FullScreenDrawer from "../components/FullScreenDrawer/FullScreenDrawer";
-// import InstancesIcon from "../components/Icons/InstancesIcon";
 import PageContainer from "../components/Layout/PageContainer";
 
-// import PageTitle from "../components/Layout/PageTitle";
 import InstanceForm from "./components/InstanceForm";
 import InstancesOverview from "./components/InstancesOverview";
 import InstancesTableHeader from "./components/InstancesTableHeader";
@@ -76,13 +70,6 @@ const InstancesPage = () => {
     instanceId?: string;
     isCustomDNS?: boolean;
   }>({});
-
-  const billingStatusQuery = useBillingStatus();
-
-  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled);
-
-  const { data: billingConfig, isLoading: isLoadingPaymentConfiguration } = useBillingDetails(isBillingEnabled);
-  const isPaymentConfigured = Boolean(billingConfig?.paymentConfigured);
 
   // const [statusFilters, setStatusFilters] = useState(getInitialFilterState());
 
@@ -205,7 +192,7 @@ const InstancesPage = () => {
       columnHelper.accessor(
         (row) => {
           const status = row.status;
-          const detailedNetworkTopology = row.detailedNetworkTopology;
+          const detailedNetworkTopology = row?.detailedNetworkTopology ?? {};
           const healthStatus = getInstanceHealthStatus(
             detailedNetworkTopology as Record<string, ResourceInstanceNetworkTopology>,
             status as string
@@ -233,7 +220,7 @@ const InstancesPage = () => {
               <InstanceHealthStatusChip
                 computedHealthStatus={value}
                 detailedNetworkTopology={
-                  data.row.original.detailedNetworkTopology as Record<string, ResourceInstanceNetworkTopology>
+                  (data.row.original?.detailedNetworkTopology ?? {}) as Record<string, ResourceInstanceNetworkTopology>
                 }
                 viewNodesLink={resourceInstanceUrlLink}
               />
@@ -322,7 +309,7 @@ const InstancesPage = () => {
       }),
       columnHelper.accessor("cloud_provider", {
         id: "cloud_provider",
-        header: "Provider",
+        header: "Cloud Provider",
         cell: (data) => {
           const cloudProvider = data.row.original.cloud_provider;
 
@@ -370,7 +357,7 @@ const InstancesPage = () => {
 
   const {
     data: instances = [],
-    isLoading: isLoadingInstances,
+    isPending: isLoadingInstances,
     isFetching: isFetchingInstances,
     refetch: refetchInstances,
   } = useInstances();
@@ -403,7 +390,7 @@ const InstancesPage = () => {
   const unhealthyInstances = useMemo(() => {
     return nonBYOAInstances?.filter((instance) => {
       const instanceHealthStatus = getInstanceHealthStatus(
-        instance.detailedNetworkTopology as Record<string, ResourceInstanceNetworkTopology>,
+        (instance?.detailedNetworkTopology ?? {}) as Record<string, ResourceInstanceNetworkTopology>,
 
         instance.status as string
       );
@@ -463,10 +450,9 @@ const InstancesPage = () => {
     };
   }, [selectedInstance, selectedInstanceOffering, selectedInstanceSubscription, selectedResource]);
 
-  const deleteInstanceMutation = useMutation(
-    () => {
-      return deleteResourceInstance(selectedInstanceData);
-    },
+  const deleteInstanceMutation = $api.useMutation(
+    "delete",
+    "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}/{id}",
     {
       onSuccess: () => {
         setSelectedRows([]);
@@ -476,12 +462,6 @@ const InstancesPage = () => {
       },
     }
   );
-
-  // const instancesFilterCount = {
-  //   failed: failedInstances.length,
-  //   overloaded: overloadedInstances.length,
-  //   unhealthy: unhealthyInstances.length,
-  // };
 
   const instancesCountSummary = useMemo(
     () => [
@@ -578,7 +558,6 @@ const InstancesPage = () => {
             selectedFilters,
             setSelectedFilters,
             isLoadingInstances,
-            isLoadingPaymentConfiguration,
             // instancesFilterCount: instancesFilterCount,
             // statusFilters: statusFilters,
             // setStatusFilters: setStatusFilters,
@@ -589,7 +568,7 @@ const InstancesPage = () => {
           selectionMode="single"
           getRowClassName={(rowData) => {
             const healthStatus = getInstanceHealthStatus(
-              rowData.detailedNetworkTopology as Record<string, ResourceInstanceNetworkTopology>,
+              (rowData?.detailedNetworkTopology ?? {}) as Record<string, ResourceInstanceNetworkTopology>,
               rowData.status
             );
             return healthStatus;
@@ -633,7 +612,6 @@ const InstancesPage = () => {
             setCreateInstanceModalData={setCreateInstanceModalData}
             setIsOverlayOpen={setIsOverlayOpen}
             setOverlayType={setOverlayType}
-            isPaymentConfigured={isPaymentConfigured}
           />
         }
       />
@@ -652,12 +630,28 @@ const InstancesPage = () => {
           if (!selectedResource) {
             return snackbar.showError("Resource not found");
           }
-          await deleteInstanceMutation.mutateAsync();
+          await deleteInstanceMutation.mutateAsync({
+            params: {
+              path: {
+                serviceProviderId: selectedInstanceData.serviceProviderId,
+                serviceKey: selectedInstanceData.serviceKey,
+                serviceAPIVersion: selectedInstanceData.serviceAPIVersion,
+                serviceEnvironmentKey: selectedInstanceData.serviceEnvironmentKey,
+                serviceModelKey: selectedInstanceData.serviceModelKey,
+                productTierKey: selectedInstanceData.productTierKey,
+                resourceKey: selectedInstanceData.resourceKey,
+                id: selectedInstanceData.instanceId,
+              },
+              query: {
+                subscriptionId: selectedInstanceSubscription.id,
+              },
+            },
+          });
         }}
         title="Delete Instance"
         subtitle={`Are you sure you want to delete - ${selectedRows[0]}?`}
         message="To confirm, please enter <b>deleteme</b>, in the field below:"
-        isLoading={deleteInstanceMutation.isLoading}
+        isLoading={deleteInstanceMutation.isPending}
       />
 
       <CapacityDialog

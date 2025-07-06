@@ -13,7 +13,7 @@ setup("Authenticate User", async ({ page }) => {
   const apiClient = new UserAPIClient();
   const signinPage = new SigninPage(page);
 
-  await signinPage.signIn();
+  await signinPage.signInWithPassword();
 
   // Intercept the Request to Get the JWT Token
   const request = await page.waitForResponse((response) => response.url().includes("/api/signin"));
@@ -24,7 +24,9 @@ setup("Authenticate User", async ({ page }) => {
   // Intercept the Request to Get Subscriptions
   const subscriptionsData = await page.waitForResponse(
     (response) => {
-      return response.url() === `${process.env.YOUR_SAAS_DOMAIN_URL}/api/action?endpoint=%2Fsubscription`;
+      return (
+        response.url() === `${process.env.YOUR_SAAS_DOMAIN_URL}/api/action?endpoint=%2F2022-09-01-00%2Fsubscription`
+      );
     },
     { timeout: 60 * 1000 } // Wait for 60 seconds if needed
   );

@@ -1,14 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo } from "react";
-import { useMutation } from "@tanstack/react-query";
 import useCustomNetworks from "app/(dashboard)/custom-networks/hooks/useCustomNetworks";
 import { useFormik } from "formik";
 import { cloneDeep } from "lodash";
 import * as yup from "yup";
 
-import { createResourceInstance, updateResourceInstance } from "src/api/resourceInstance";
-import Tooltip from "src/components/Tooltip/Tooltip";
+import { $api } from "src/api/query";
 import { productTierTypes } from "src/constants/servicePlan";
 import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
 import useResourcesInstanceIds from "src/hooks/useResourcesInstanceIds";
@@ -28,7 +26,7 @@ import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import { Text } from "components/Typography/Typography";
 
 import useResourceSchema from "../hooks/useResourceSchema";
-import { getInitialValues, getOfferingPaymentConfigRequiredStatus } from "../utils";
+import { getInitialValues } from "../utils";
 
 import {
   getDeploymentConfigurationFields,
@@ -44,7 +42,6 @@ const InstanceForm = ({
   setOverlayType,
   setIsOverlayOpen,
   setCreateInstanceModalData,
-  isPaymentConfigured,
 }) => {
   const snackbar = useSnackbar();
   const {
@@ -61,19 +58,17 @@ const InstanceForm = ({
     return instances.filter((instance) => !isCloudAccountInstance(instance));
   }, [instances]);
 
-  const createInstanceMutation = useMutation(
-    async (payload: any) => {
-      return createResourceInstance(payload);
-    },
+  const createInstanceMutation = $api.useMutation(
+    "post",
+    "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}",
     {
       onSuccess: (response) => {
         // Show the Create Instance Dialog
         setIsOverlayOpen(true);
         setOverlayType("create-instance-dialog");
         setCreateInstanceModalData({
-          // @ts-ignore
           isCustomDNS: formData.values.requestParams?.custom_dns_configuration,
-          instanceId: response.data?.id,
+          instanceId: response?.id,
         });
 
         snackbar.showSuccess("Instance created successfully");
@@ -83,14 +78,18 @@ const InstanceForm = ({
     }
   );
 
-  const updateResourceInstanceMutation = useMutation(updateResourceInstance, {
-    onSuccess: () => {
-      refetchInstances();
-      formData.resetForm();
-      snackbar.showSuccess("Updated Deployment Instance");
-      setIsOverlayOpen(false);
-    },
-  });
+  const updateInstanceMutation = $api.useMutation(
+    "patch",
+    "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}/{id}",
+    {
+      onSuccess: () => {
+        refetchInstances();
+        formData.resetForm();
+        snackbar.showSuccess("Updated Deployment Instance");
+        setIsOverlayOpen(false);
+      },
+    }
+  );
 
   const formData = useFormik({
     initialValues: getInitialValues(
@@ -98,13 +97,12 @@ const InstanceForm = ({
       subscriptions,
       serviceOfferingsObj,
       serviceOfferings,
-      nonCloudAccountInstances,
-      isPaymentConfigured
+      nonCloudAccountInstances
     ),
     enableReinitialize: true,
     validationSchema: yup.object({
-      serviceId: yup.string().required("Service is required"),
-      servicePlanId: yup.string().required("A service plan with a valid subscription is required"),
+      serviceId: yup.string().required("Product is required"),
+      servicePlanId: yup.string().required("A plan with a valid subscription is required"),
       subscriptionId: yup.string().required("Subscription is required"),
       resourceId: yup.string().required("Resource is required"),
     }),
@@ -116,13 +114,6 @@ const InstanceForm = ({
 
       const data: any = {
         ...cloneDeep(values),
-        serviceProviderId: offering?.serviceProviderId,
-        serviceKey: offering?.serviceURLKey,
-        serviceAPIVersion: offering?.serviceAPIVersion,
-        serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
-        serviceModelKey: offering?.serviceModelURLKey,
-        productTierKey: offering?.productTierURLKey,
-        resourceKey: selectedResource?.urlKey,
       };
 
       const createSchema =
@@ -234,7 +225,24 @@ const InstanceForm = ({
         }
 
         if (!isTypeError) {
-          createInstanceMutation.mutate(data);
+          createInstanceMutation.mutate({
+            params: {
+              path: {
+                serviceProviderId: offering?.serviceProviderId,
+                serviceKey: offering?.serviceURLKey,
+                serviceAPIVersion: offering?.serviceAPIVersion,
+                serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
+                serviceModelKey: offering?.serviceModelURLKey,
+                productTierKey: offering?.productTierURLKey,
+                resourceKey: selectedResource?.urlKey || "",
+              },
+              query: {
+                subscriptionId: values.subscriptionId,
+              },
+            },
+
+            body: data,
+          });
         }
       } else {
         // Only send the fields that have changed
@@ -253,7 +261,7 @@ const InstanceForm = ({
         delete data.requestParams.custom_network_id;
         delete data.requestParams.custom_availability_zone;
 
-        if (!Object.keys(requestParams).length) {
+        if (!Object.keys(requestParams).length && data.network_type === selectedInstance?.network_type) {
           return snackbar.showError("Please update at least one field before submitting");
         }
 
@@ -295,7 +303,24 @@ const InstanceForm = ({
         }
 
         if (!isTypeError) {
-          updateResourceInstanceMutation.mutate(data);
+          updateInstanceMutation.mutate({
+            params: {
+              path: {
+                serviceProviderId: offering?.serviceProviderId,
+                serviceKey: offering?.serviceURLKey,
+                serviceAPIVersion: offering?.serviceAPIVersion,
+                serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
+                serviceModelKey: offering?.serviceModelURLKey,
+                productTierKey: offering?.productTierURLKey,
+                resourceKey: selectedResource?.urlKey || "",
+                id: selectedInstance?.id,
+              },
+              query: {
+                subscriptionId: values.subscriptionId,
+              },
+            },
+            body: data,
+          });
         }
       }
     },
@@ -317,12 +342,11 @@ const InstanceForm = ({
 
   const resourceSchema = resourceSchemaData?.apis?.find((api) => api.verb === "CREATE") as APIEntity;
 
-  const { data: customAvailabilityZoneData, isLoading: isFetchingCustomAvailabilityZones } = useAvailabilityZone(
-    values.region,
-    values.cloudProvider as CloudProvider,
-    // @ts-ignore
-    values.requestParams?.custom_availability_zone !== undefined
-  );
+  const { data: customAvailabilityZoneData, isLoading: isFetchingCustomAvailabilityZones } = useAvailabilityZone({
+    regionCode: values.region,
+    cloudProviderName: values.cloudProvider as CloudProvider,
+    hasCustomAvailabilityZoneField: values.requestParams?.custom_availability_zone !== undefined,
+  });
 
   const { isFetching: isFetchingResourceInstanceIds, data: resourceIdInstancesHashMap = {} } = useResourcesInstanceIds(
     offering?.serviceProviderId,
@@ -333,12 +357,6 @@ const InstanceForm = ({
     offering?.productTierURLKey,
     offering?.resourceParameters,
     subscriptionsObj[values.subscriptionId]?.productTierId === values.servicePlanId && values.subscriptionId
-  );
-
-  const requiresValidPaymentConfig = getOfferingPaymentConfigRequiredStatus(
-    serviceOfferings,
-    values.serviceId,
-    values.servicePlanId
   );
 
   // Sets the Default Values for the Request Parameters
@@ -372,6 +390,7 @@ const InstanceForm = ({
   }, [resourceSchema, formMode, offering]);
 
   const customAvailabilityZones = useMemo(() => {
+    // @ts-expect-error TODO: Ask someone on the backend to fix the docs
     const availabilityZones = customAvailabilityZoneData?.availabilityZones || [];
     return availabilityZones.sort(function (a, b) {
       if (a.code < b.code) return -1;
@@ -380,6 +399,7 @@ const InstanceForm = ({
       }
       return -1;
     });
+    // @ts-expect-error TODO: Ask someone on the backend to fix the docs
   }, [customAvailabilityZoneData?.availabilityZones]);
 
   const cloudAccountInstances = useMemo(
@@ -421,18 +441,9 @@ const InstanceForm = ({
       formMode,
       customAvailabilityZones,
       isFetchingCustomAvailabilityZones,
-      isPaymentConfigured,
       nonCloudAccountInstances
     );
-  }, [
-    formMode,
-    formData.values,
-    resourceSchema,
-    customAvailabilityZones,
-    subscriptions,
-    isPaymentConfigured,
-    nonCloudAccountInstances,
-  ]);
+  }, [formMode, formData.values, resourceSchema, customAvailabilityZones, subscriptions, nonCloudAccountInstances]);
 
   const networkConfigurationFields = useMemo(() => {
     return getNetworkConfigurationFields(
@@ -480,8 +491,6 @@ const InstanceForm = ({
     ],
     [standardInformationFields, networkConfigurationFields, deploymentConfigurationFields]
   );
-
-  const disableInstanceCreation = requiresValidPaymentConfig && !isPaymentConfigured;
 
   if (isFetchingServiceOfferings) {
     return <LoadingSpinner />;
@@ -552,34 +561,23 @@ const InstanceForm = ({
               data-testid="cancel-button"
               variant="outlined"
               onClick={() => setIsOverlayOpen(false)}
-              disabled={createInstanceMutation.isLoading || updateResourceInstanceMutation.isLoading}
+              disabled={createInstanceMutation.isPending || updateInstanceMutation.isPending}
               sx={{ marginLeft: "auto" }} // Pushes the 2 buttons to the end
             >
               Cancel
             </Button>
-            <Tooltip
-              title="Valid payment method configuration required"
-              placement="top"
-              isVisible={disableInstanceCreation}
-            >
-              <span>
-                <Button
-                  data-testid="submit-button"
-                  variant="contained"
-                  disabled={
-                    createInstanceMutation.isLoading ||
-                    updateResourceInstanceMutation.isLoading ||
-                    disableInstanceCreation
-                  }
-                  type="submit"
-                >
-                  {formMode === "create" ? "Create" : "Update"}
-                  {(createInstanceMutation.isLoading || updateResourceInstanceMutation.isLoading) && (
-                    <LoadingSpinnerSmall />
-                  )}
-                </Button>
-              </span>
-            </Tooltip>
+
+            <span>
+              <Button
+                data-testid="submit-button"
+                variant="contained"
+                disabled={createInstanceMutation.isPending || updateInstanceMutation.isPending}
+                type="submit"
+              >
+                {formMode === "create" ? "Create" : "Update"}
+                {(createInstanceMutation.isPending || updateInstanceMutation.isPending) && <LoadingSpinnerSmall />}
+              </Button>
+            </span>
           </div>
         </div>
       </div>

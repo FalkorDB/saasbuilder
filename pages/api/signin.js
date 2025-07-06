@@ -1,6 +1,5 @@
 import _ from "lodash";
 
-import { getProviderUsers } from "src/server/api/provider-users";
 const { customerUserSignIn } = require("src/server/api/customer-user");
 const { getEnvironmentType } = require("src/server/utils/getEnvironmentType");
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
@@ -47,7 +46,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       return nextResponse.status(200).send({ ...responseData });
     } catch (error) {
       console.error("Error in sign in", error);
-      let defaultErrorMessage = "Failed to sign in. Either the credentials are incorrect or the user does not exist";
+      const defaultErrorMessage = "Failed to sign in. Either the credentials are incorrect or the user does not exist";
 
       //Wait for a random duration b/w 0ms and 150ms to mask the difference b/w response times of api when a user is present vs not present
       const delayInMilliseconds = _.random(0, 150);

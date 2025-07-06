@@ -98,7 +98,8 @@ const InstancesTableHeader = ({
     }
   );
 
-  const connectInstanceMutation = useMutation(connectToInstance, {
+  const connectInstanceMutation = useMutation({
+    mutationFn: connectToInstance,
     onSuccess: async () => {
       snackbar.showSuccess("Connecting to resource instance...");
     },
@@ -281,7 +282,7 @@ const InstancesTableHeader = ({
     if (!isComplexResource && !isProxyResource) {
       other.push({
         label: "Connect",
-        isLoading: connectInstanceMutation.isLoading,
+        isLoading: connectInstanceMutation.isPending,
         isDisabled:
           !selectedInstance || (status !== "RUNNING" && status !== "FAILED"),
         onClick: () => {

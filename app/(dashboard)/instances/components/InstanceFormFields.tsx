@@ -182,6 +182,7 @@ export const getStandardInformationFields = (
             setFieldTouched("subscriptionId", false);
             setFieldTouched("resourceId", false);
           }}
+          subscriptionInstancesNumHash={subscriptionInstanceCountHash}
           instances={instances}
         />
       ),
@@ -193,7 +194,7 @@ export const getStandardInformationFields = (
       subLabel: "Select the subscription",
       name: "subscriptionId",
       required: true,
-      isHidden: subscriptionMenuItems.length <= 1,
+      isHidden: subscriptionMenuItems.length === 0,
       customComponent: (
         <SubscriptionMenu
           field={{

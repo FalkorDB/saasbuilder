@@ -8,8 +8,7 @@ export const getValidSubscriptionForInstanceCreation = (
   subscriptions: Subscription[],
   instances: ResourceInstance[],
   serviceId?: string,
-  servicePlanId?: string,
-  skipInstanceQuotaCheck = true
+  servicePlanId?: string
 ): Subscription | undefined => {
   // Build subscription instance count hash
   const subscriptionInstancesNumHash: Record<string, number> = {};
@@ -58,7 +57,7 @@ export const getValidSubscriptionForInstanceCreation = (
 
   // First try to find a valid root subscription
   const rootSubscriptions = sortedSubscriptions.filter((sub) => sub.roleType === "root");
-  const validRootSubscription = rootSubscriptions.find((sub) => isSubscriptionValid(sub, !skipInstanceQuotaCheck));
+  const validRootSubscription = rootSubscriptions.find((sub) => isSubscriptionValid(sub));
 
   if (validRootSubscription) {
     return validRootSubscription;
@@ -143,8 +142,7 @@ export const getInitialValues = (
     byoaSubscriptions,
     instances,
     "",
-    "",
-    false
+    ""
   );
 
   const serviceId =
@@ -164,4 +162,9 @@ export const getInitialValues = (
     gcpProjectId: "",
     gcpProjectNumber: "",
   };
+};
+
+export const getOffboardReadiness = (cloudAccountInstanceStatus?: string, accountConfigInstanceStatus?: string) => {
+  if (cloudAccountInstanceStatus === "DELETING" && accountConfigInstanceStatus === "READY_TO_OFFBOARD") return true;
+  else return false;
 };

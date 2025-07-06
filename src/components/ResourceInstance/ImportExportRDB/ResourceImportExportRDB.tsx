@@ -23,32 +23,32 @@ function ResourceImportExportRDB(props) {
   const { data: tasksData = [], isLoading, isRefetching, refetch } = tasksQuery;
 
   const exportMutation = useMutation<unknown, unknown, { username: string; password: string }, unknown>(
-    async (vars) => {
-      await postInstanceExportRdb(instanceId, vars.username, vars.password);
-    },
     {
-      onSuccess() {
+      mutationFn: async (vars) => {
+        await postInstanceExportRdb(instanceId, vars.username, vars.password);
+      },
+      onSuccess: () => {
         snackbar.showSuccess(`Export task submitted successfully`);
       },
-      onError(error) {
+      onError: (error) => {
         snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
       },
     }
   );
 
   const importMutation = useMutation<unknown, unknown, { username: string; password: string, file: ArrayBuffer }, unknown>(
-    async (vars) => {
-      const { taskId, uploadUrl } = await postInstanceImportRdbRequestURL(instanceId, vars.username, vars.password);
-
-      await uploadFile(uploadUrl, vars.file)
-
-      await postInstanceImportRdbConfirmUpload(instanceId, taskId)
-    },
     {
-      onSuccess() {
+      mutationFn: async (vars) => {
+        const { taskId, uploadUrl } = await postInstanceImportRdbRequestURL(instanceId, vars.username, vars.password);
+
+        await uploadFile(uploadUrl, vars.file)
+
+        await postInstanceImportRdbConfirmUpload(instanceId, taskId)
+      },
+      onSuccess: () => {
         snackbar.showSuccess(`Import task submitted successfully`);
       },
-      onError(error) {
+      onError: (error) => {
         snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
       },
     }

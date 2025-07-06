@@ -1,4 +1,4 @@
-import { useQuery, UseQueryOptions, UseQueryResult } from "@tanstack/react-query";
+import { useQuery, UseQueryOptions } from "@tanstack/react-query";
 import { AxiosResponse } from "axios";
 
 import { getInstanceTasks } from "src/api/falkordb";
@@ -34,21 +34,22 @@ export type TasksResponse = {
 
 function useTasks(
   queryParams: QueryParams,
-  queryOptions: UseQueryOptions<AxiosResponse<{ data: TaskBase[] }>, unknown, TaskBase[]> = {}
+  queryOptions: UseQueryOptions<AxiosResponse<{ data: TaskBase[] }>, unknown, TaskBase[]> = {
+    queryKey: ["get-instance-tasks"],
+  }
 ) {
   const { instanceId } = queryParams;
 
-  const query: UseQueryResult<TaskBase[]> = useQuery<AxiosResponse<{ data: TaskBase[] }>, unknown, TaskBase[]>(
-    ["instanceRestore", instanceId],
-    () => {
-      return getInstanceTasks(instanceId);
-    },
+  const query = useQuery(
     {
+      queryFn: async () => {
+        const response = await getInstanceTasks(instanceId);
+        return response.data;
+      },
       refetchOnWindowFocus: false,
       retry: false,
       refetchOnMount: true,
       refetchInterval: 30000,
-      onError: () => { },
       select: (response) => {
         return response?.data?.data || [];
       },

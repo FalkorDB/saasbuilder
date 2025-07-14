@@ -58,15 +58,22 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       console.error("Error in signin", error);
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
-        return nextResponse.status(500).send({
+        return nextResponse.status(400).send({
           message: defaultErrorMessage,
         });
       } else if (error.response?.data?.message === "wrong user email or password") {
         return nextResponse.status(400).send({
           message: defaultErrorMessage,
         });
+      } else if (
+        error.response?.data?.message?.toLowerCase() ===
+        "user has not been activated. please check your email for activation link."
+      ) {
+        return nextResponse.status(400).send({
+          message: defaultErrorMessage,
+        });
       } else {
-        return nextResponse.status(error.response?.status || 500).send({
+        return nextResponse.status(error.response?.status || 400).send({
           message: error.response?.data?.message || defaultErrorMessage,
         });
       }

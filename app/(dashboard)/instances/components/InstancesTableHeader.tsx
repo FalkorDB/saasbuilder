@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { CircularProgress, menuClasses } from "@mui/material";
 import useBillingStatus from "app/(dashboard)/billing/hooks/useBillingStatus";
 
+import { connectToInstance } from "src/api/resourceInstance";
 import { $api } from "src/api/query";
 import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
 import Tooltip from "src/components/Tooltip/Tooltip";
@@ -25,6 +26,7 @@ import { getMainResourceFromInstance } from "../utils";
 
 import AddInstanceFilters from "./AddInstanceFilters";
 import EditInstanceFilters from "./EditInstanceFilters";
+import { useMutation } from "@tanstack/react-query";
 
 type Action = {
   dataTestId?: string;
@@ -95,6 +97,13 @@ const InstancesTableHeader = ({
       },
     }
   );
+
+  const connectInstanceMutation = useMutation({
+    mutationFn: connectToInstance,
+    onSuccess: async () => {
+      snackbar.showSuccess("Connecting to resource instance...");
+    },
+  });
 
   const selectedResource = useMemo(() => {
     return getMainResourceFromInstance(selectedInstance, selectedInstanceOffering);
@@ -272,6 +281,30 @@ const InstancesTableHeader = ({
 
     if (!isComplexResource && !isProxyResource) {
       other.push({
+        label: "Connect",
+        isLoading: connectInstanceMutation.isPending,
+        isDisabled:
+          !selectedInstance || (status !== "RUNNING" && status !== "FAILED"),
+        onClick: () => {
+          const resourceKey = Object.entries(selectedInstance.detailedNetworkTopology).filter(([_, v]) => {
+            return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
+          })[0][0];
+          connectInstanceMutation.mutate({
+            host: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterEndpoint,
+            port: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterPorts?.[0],
+            region: selectedInstance.region,
+            username: selectedInstance.result_params.falkordbUser,
+            tls: selectedInstance.result_params.enableTLS,
+          });
+        },
+        disabledMessage: !selectedInstance
+          ? "Please select an instance"
+          : status !== "RUNNING"
+            ? "Instance must be running to connect"
+            : "",
+      });
+
+      other.push({
         dataTestId: "reboot-button",
         label: "Reboot",
         isLoading: restartInstanceMutation.isPending,
@@ -350,6 +383,7 @@ const InstancesTableHeader = ({
     stopInstanceMutation,
     startInstanceMutation,
     restartInstanceMutation,
+    connectInstanceMutation,
     selectedInstanceOffering,
     isComplexResource,
     isProxyResource,

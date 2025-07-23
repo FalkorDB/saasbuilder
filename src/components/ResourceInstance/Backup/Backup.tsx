@@ -17,7 +17,7 @@ import { getResourceInstanceBackupStatusStylesAndLabel } from "src/constants/sta
 import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
 import useSnackbar from "src/hooks/useSnackbar";
 import { NetworkType } from "src/types/common/enums";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { roundNumberToTwoDecimals } from "src/utils/formatNumber";
 
 import BackupSummary from "./components/BackupSummary";
@@ -156,14 +156,14 @@ const Backup: FC<{
         headerName: "Created On",
         flex: 1,
         minWidth: 170,
-        valueGetter: (params: { row: SnapshotBase }) => formatDateUTC(params.row.createdTime),
+        valueGetter: (params: { row: SnapshotBase }) => formatDateLocal(params.row.createdTime),
       },
       {
         field: "completeTime",
         headerName: "Completion Time",
         flex: 1,
         minWidth: 170,
-        valueGetter: (params: { row: SnapshotBase }) => formatDateUTC(params.row.completeTime),
+        valueGetter: (params: { row: SnapshotBase }) => formatDateLocal(params.row.completeTime),
       },
       {
         field: "progress",

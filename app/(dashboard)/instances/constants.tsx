@@ -7,6 +7,7 @@ import GenerateTokenIcon from "components/Icons/GenerateToken/GenerateTokenIcon"
 import PlayIcon from "components/Icons/Play/Play";
 import RestartIcon from "components/Icons/Reboot/Reboot";
 import RemoveCapacityIcon from "components/Icons/RemoveCapacity/RemoveCapacityIcon";
+import ConnectIcon from "components/Icons/Connect/Connect";
 import RestoreIcon from "components/Icons/RestoreInstance/RestoreInstanceIcon";
 import StopIcon from "components/Icons/Stop/Stop";
 
@@ -18,6 +19,7 @@ export const icons = {
   Create: AddIcon,
   Reboot: RestartIcon,
   Restore: RestoreIcon,
+  Connect: ConnectIcon,
   "Add Capacity": AddCapacityIcon,
   "Remove Capacity": RemoveCapacityIcon,
   "Generate Token": GenerateTokenIcon,

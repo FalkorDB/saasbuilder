@@ -17,7 +17,7 @@ import AuditLogsEventFilterDropdown from "src/components/ResourceInstance/AuditL
 import { AuditEvent } from "src/types/auditEvent";
 import { SetState } from "src/types/common/reactGenerics";
 import { EventType } from "src/types/event";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { getAccessControlRoute } from "src/utils/route/access/accessRoute";
 
 import DateRangePicker, { initialRangeState } from "../DateRangePicker/DateRangePicker";
@@ -232,10 +232,10 @@ const EventsTable: FC<EventsTableProps> = (props) => {
             }),
           ]
         : []),
-      columnHelper.accessor((row) => formatDateUTC(row.time), {
+      columnHelper.accessor((row) => formatDateLocal(row.time), {
         id: "time",
         header: "Time",
-        cell: (data) => (data.row.original.time ? formatDateUTC(data.row.original.time) : "-"),
+        cell: (data) => (data.row.original.time ? formatDateLocal(data.row.original.time) : "-"),
       }),
 
       columnHelper.accessor("userName", {

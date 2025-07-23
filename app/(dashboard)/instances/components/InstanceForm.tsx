@@ -157,7 +157,21 @@ const InstanceForm = ({
               else data.requestParams[key] = false;
               break;
           }
+
+          if (
+            (key === "nodeInstanceType" &&
+              data.cloudProvider === "aws" &&
+              !data.requestParams["nodeInstanceType"].includes(".")) ||
+            (data.cloudProvider === "gcp" && !data.requestParams["nodeInstanceType"].includes("-"))
+          ) {
+            snackbar.showError(`Invalid Node Instance Type`);
+            isTypeError = true;
+          }
         });
+
+        if (isTypeError) {
+          return;
+        }
 
         for (const key in data.requestParams) {
           const value = data.requestParams[key];

@@ -1,3 +1,7 @@
+import { clarity } from "react-microsoft-clarity";
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
+
 export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
   consentGiven: false,
   categories: [
@@ -31,6 +35,15 @@ export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
           handleEnable: "addGoogleAnalytics",
           handleDisable: "removeGoogleAnalyticsScriptsAndCookies",
         },
+        {
+          // clarity
+          type: "script",
+          src: "https://cdn.clarity.ms/gdpr/consent.js",
+          name: "clarity",
+          "consent-category": "analytics",
+          handleEnable: "addClarity",
+          handleDisable: "removeClarity",
+        },
       ],
       hide: false,
       editable: true,
@@ -42,6 +55,8 @@ export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
 const handlerMap = {
   addGoogleAnalytics,
   removeGoogleAnalyticsScriptsAndCookies,
+  addClarity,
+  removeClarity,
 };
 
 function addGoogleAnalytics() {
@@ -121,6 +136,35 @@ function removeGoogleAnalyticsScriptsAndCookies() {
   window.gaGlobal = undefined;
   window.google_tag_data = undefined;
   window.google_tag_manager = undefined;
+}
+
+function addClarity() {
+  try {
+    if (process.env.NEXT_PUBLIC_CLARITY_ID) {
+      if (!clarity) return;
+      clarity.init(process.env.NEXT_PUBLIC_CLARITY_ID);
+      clarity.consent();
+      const token = Cookies.get("token");
+      if (token) {
+        const payload = jwtDecode(token);
+        if (payload.userID) {
+          clarity.identify(payload.userID);
+        }
+      }
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function removeClarity() {
+  try {
+    if (clarity) {
+      clarity.clear();
+    }
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 export const handleConsentChanges = (categories) => {

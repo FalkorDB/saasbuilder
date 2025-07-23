@@ -29,7 +29,6 @@ import GridCellExpand from "components/GridCellExpand/GridCellExpand";
 import RegionIcon from "components/Region/RegionIcon";
 import CreateInstanceModal from "components/ResourceInstance/CreateInstanceModal/CreateInstanceModal";
 import AccessSideRestoreInstance from "components/RestoreInstance/AccessSideRestoreInstance";
-import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithLogo";
 import StatusChip from "components/StatusChip/StatusChip";
 import TextConfirmationDialog from "components/TextConfirmationDialog/TextConfirmationDialog";
 
@@ -116,26 +115,43 @@ const InstancesPage = () => {
           minWidth: 240,
         },
       }),
-      columnHelper.accessor(
-        (row) => {
-          const subscription = subscriptionsObj[row.subscriptionId as string];
-          return subscription?.serviceName;
+      columnHelper.accessor("result_params.name", {
+        id: "name",
+        header: "Name",
+        cell: (data) => {
+          const { result_params } = data.row.original;
+          return (result_params as any).name ?? "";
         },
-        {
-          id: "serviceName",
-          header: "Product Name",
-          cell: (data) => {
-            const subscription = subscriptionsObj[data.row.original.subscriptionId as string];
-            const serviceName = subscription?.serviceName;
-            const serviceLogoURL = subscription?.serviceLogoURL;
+        meta: {
+          minWidth: 240,
+        },
+      }),
+      // columnHelper.accessor(
+      //   (row) => {
+      //     const subscription = subscriptionsObj[row.subscriptionId as string];
+      //     return subscription?.serviceName;
+      //   },
+      //   {
+      //     id: "serviceName",
+      //     header: "Service Name",
+      //     cell: (data) => {
+      //       const subscription =
+      //         subscriptionsObj[data.row.original.subscriptionId as string];
+      //       const serviceName = subscription?.serviceName;
+      //       const serviceLogoURL = subscription?.serviceLogoURL;
 
-            return <ServiceNameWithLogo serviceName={serviceName} serviceLogoURL={serviceLogoURL} />;
-          },
-          meta: {
-            minWidth: 230,
-          },
-        }
-      ),
+      //       return (
+      //         <ServiceNameWithLogo
+      //           serviceName={serviceName}
+      //           serviceLogoURL={serviceLogoURL}
+      //         />
+      //       );
+      //     },
+      //     meta: {
+      //       minWidth: 230,
+      //     },
+      //   }
+      // ),
       columnHelper.accessor(
         (row) => {
           const subscription = subscriptionsObj[row.subscriptionId as string];
@@ -150,16 +166,16 @@ const InstancesPage = () => {
           header: "Resource Name",
         }
       ),
-      columnHelper.accessor(
-        (row) => {
-          const subscription = subscriptionsObj[row.subscriptionId as string];
-          return subscription?.productTierName;
-        },
-        {
-          id: "subscriptionPlan",
-          header: "Subscription Plan",
-        }
-      ),
+      // columnHelper.accessor(
+      //   (row) => {
+      //     const subscription = subscriptionsObj[row.subscriptionId as string];
+      //     return subscription?.productTierName;
+      //   },
+      //   {
+      //     id: "subscriptionPlan",
+      //     header: "Subscription Plan",
+      //   }
+      // ),
       columnHelper.accessor("status", {
         id: "status",
         header: "Lifecycle Status",
@@ -308,7 +324,12 @@ const InstancesPage = () => {
         id: "region",
         header: "Region",
         cell: (data) => {
-          return <GridCellExpand value={data.row.original.region || "Global"} startIcon={<RegionIcon />} />;
+          return (
+            <GridCellExpand
+              value={data.row.original.region || "Global"}
+              startIcon={<RegionIcon region={data.row.original.region} provider={data.row.original.cloud_provider} />}
+            />
+          );
         },
       }),
       columnHelper.accessor(

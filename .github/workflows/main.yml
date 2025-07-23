@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       deploy_target:
-        description: 'Deploy target'
+        description: "Deploy target"
         required: true
         type: string
-        default: 'master'
+        default: "master"
 
 jobs:
   create-and-merge-deploy-pr:
@@ -36,9 +36,9 @@ jobs:
             echo 'git diff failed unexpectedly.'
             exit 1
           fi
-          
+
           # Add some logic to check if the latest CI status is success.
-          
+
           # Create a PR
           pr_url=$( \
             gh pr create \

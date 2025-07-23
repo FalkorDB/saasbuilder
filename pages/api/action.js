@@ -89,16 +89,15 @@ export default async function handleAction(nextRequest, nextResponse) {
 
           // Send response data
           if (responseData) {
-            nextResponse.send(responseData);
+            return nextResponse.send(responseData);
           } else {
-            nextResponse.send();
+            return nextResponse.send();
           }
-          return;
         }
       } catch (error) {
         console.error("Action Route error", error);
-        const errorCode = error?.status || 500;
-        const errorMessage = error?.message || defaultErrorMessage;
+        const errorCode = error?.response?.status || 500;
+        const errorMessage = error?.response?.data?.message || defaultErrorMessage;
         return nextResponse.status(errorCode).send({
           message: errorMessage,
         });

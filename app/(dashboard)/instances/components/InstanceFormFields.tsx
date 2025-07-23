@@ -22,6 +22,7 @@ import {
 } from "../utils";
 
 import AccountConfigDescription from "./AccountConfigDescription";
+import { fromProvider } from "cloud-regions-country-flags";
 import CustomNetworkDescription from "./CustomNetworkDescription";
 
 export const getStandardInformationFields = (
@@ -61,6 +62,12 @@ export const getStandardInformationFields = (
   const subscriptionMenuItems = subscriptions.filter((sub) => sub.productTierId === servicePlanId);
 
   const resourceMenuItems = getResourceMenuItems(serviceOfferingsObj[serviceId]?.[servicePlanId]);
+
+  resourceMenuItems.sort((a, b) => {
+    const order = ["Standalone", "Single-Zone", "Multi-Zone", "Cluster-Single-Zone", "Cluster-Multi-Zone", "Grafana"];
+
+    return order.indexOf(a.label) - order.indexOf(b.label);
+  });
 
   const inputParametersObj = (resourceSchema?.inputParameters || []).reduce((acc: any, param: any) => {
     acc[param.key] = param;
@@ -126,9 +133,16 @@ export const getStandardInformationFields = (
       required: true,
       customComponent: (
         <SubscriptionPlanRadio
-          servicePlans={Object.values(serviceOfferingsObj[serviceId] || {}).sort((a: any, b: any) =>
-            a.productTierName.localeCompare(b.productTierName)
-          )}
+          servicePlans={Object.values(serviceOfferingsObj[serviceId] || {}).sort((a: any, b: any) => {
+            const order = {
+              "FalkorDB Free": 0,
+              "FalkorDB Startup": 1,
+              "FalkorDB Pro": 2,
+              "FalkorDB Enterprise": 3,
+            };
+
+            return order[a.productTierName] - order[b.productTierName];
+          })}
           serviceSubscriptions={subscriptions.filter((subscription) => subscription.serviceId === serviceId)}
           name="servicePlanId"
           formData={formData}
@@ -245,8 +259,10 @@ export const getStandardInformationFields = (
           onChange={(newCloudProvider: CloudProvider) => {
             if (newCloudProvider === "aws") {
               setFieldValue("region", offering.awsRegions?.[0] || "");
+              setFieldValue("requestParams.nodeInstanceType", "m6i.large");
             } else if (newCloudProvider === "gcp") {
               setFieldValue("region", offering.gcpRegions?.[0] || "");
+              setFieldValue("requestParams.nodeInstanceType", "e2-standard-2");
             } else if (newCloudProvider === "azure") {
               // @ts-ignore
               setFieldValue("region", offering.azureRegions?.[0] || "");
@@ -279,6 +295,12 @@ export const getStandardInformationFields = (
           : "No regions available",
       menuItems: getRegionMenuItems(serviceOfferingsObj[serviceId]?.[servicePlanId], cloudProvider),
       disabled: formMode !== "create",
+      previewValue:
+        values.region && values.cloudProvider
+          ? () => {
+              return `${fromProvider(values.region, values.cloudProvider.toUpperCase()).flag} ${values.region}`;
+            }
+          : null,
     });
   }
 
@@ -544,6 +566,7 @@ export const getDeploymentConfigurationFields = (
         disabled: formMode !== "create" && param.custom && !param.modifiable,
       });
     } else if (param.options !== undefined && param.isList === false) {
+      console.log({ param });
       fields.push({
         dataTestId: `${param.key}-select`,
         label: param.displayName || param.key,
@@ -551,7 +574,19 @@ export const getDeploymentConfigurationFields = (
         name: `requestParams.${param.key}`,
         value: values.requestParams[param.key] || "",
         type: "single-select-autocomplete",
-        menuItems: param.options.map((option) => option),
+        menuItems: param.options
+          .filter((option) => {
+            if (param.key !== "nodeInstanceType") {
+              return true;
+            }
+            // Check cloud provider value and filter instance types accordingly
+            if (values.cloudProvider === "aws") {
+              return option.includes("c6") || option.includes("m6");
+            } else if (values.cloudProvider === "gcp") {
+              return option.includes("e2");
+            }
+          })
+          .map((option) => option),
         required: formMode !== "modify" && param.required,
         previewValue: values.requestParams[param.key],
         disabled: formMode !== "create" && param.custom && !param.modifiable,
@@ -613,6 +648,32 @@ export const getDeploymentConfigurationFields = (
         });
       }
     }
+  });
+
+  const order = [
+    "requestParams.memory",
+    "requestParams.nodeInstanceType",
+    "requestParams.name",
+    "requestParams.description",
+    "requestParams.falkordbUser",
+    "requestParams.falkordbPassword",
+    "requestParams.enableTLS",
+    "requestParams.maxMemory",
+    "requestParams.RDBPersistenceConfig",
+    "requestParams.AOFPersistenceConfig",
+    "requestParams.falkorDBCacheSize",
+    "requestParams.falkorDBNodeCreationBuffer",
+    "requestParams.falkorDBMaxQueuedQueries",
+    "requestParams.falkorDBTimeoutMax",
+    "requestParams.falkorDBTimeoutDefault",
+    "requestParams.falkorDBResultSetSize",
+    "requestParams.falkorDBQueryMemCapacity",
+  ];
+
+  fields.sort((a, b) => {
+    if (order.indexOf(a.name) === undefined) return 1;
+    if (order.indexOf(b.name) === undefined) return -1;
+    return order.indexOf(a.name) - order.indexOf(b.name);
   });
 
   return fields;

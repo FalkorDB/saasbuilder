@@ -4,7 +4,7 @@ import { Base64 } from "js-base64";
 
 import InstanceLicenseStatusChip from "src/components/InstanceLicenseStatusChip/InstanceLicenseStatusChip";
 import { INTEGRATION_TYPE_LABEL_MAP } from "src/constants/productTierFeatures";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 
 import NonOmnistrateIntegrationRow from "./NonOmnistrateIntegrationRow";
@@ -92,12 +92,12 @@ function ResourceInstanceDetails(props) {
       {
         dataTestId: "created-at",
         label: "Created at",
-        value: formatDateUTC(createdAt),
+        value: formatDateLocal(createdAt),
       },
       {
         dataTestId: "modified-at",
         label: "Modified at",
-        value: formatDateUTC(modifiedAt),
+        value: formatDateLocal(modifiedAt),
       },
       {
         dataTestId: "high-availability-status",
@@ -144,7 +144,7 @@ function ResourceInstanceDetails(props) {
       },
       {
         label: "License Expiry Date",
-        value: formatDateUTC(licenseDetails?.expirationDate),
+        value: formatDateLocal(licenseDetails?.expirationDate),
       },
       {
         label: "Download License",
@@ -167,12 +167,12 @@ function ResourceInstanceDetails(props) {
       },
       {
         label: "Earliest Restore Time",
-        value: backupStatus?.earliestRestoreTime ? formatDateUTC(backupStatus?.earliestRestoreTime) : "-",
+        value: backupStatus?.earliestRestoreTime ? formatDateLocal(backupStatus?.earliestRestoreTime) : "-",
         valueType: backupStatus?.earliestRestoreTime ? "text" : "custom",
       },
       {
         label: "Last Backup Time",
-        value: backupStatus?.lastBackupTime ? formatDateUTC(backupStatus?.lastBackupTime) : "-",
+        value: backupStatus?.lastBackupTime ? formatDateLocal(backupStatus?.lastBackupTime) : "-",
         valueType: backupStatus?.lastBackupTime ? "text" : "custom",
       },
       {

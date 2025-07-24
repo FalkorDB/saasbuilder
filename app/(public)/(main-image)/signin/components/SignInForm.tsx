@@ -66,7 +66,11 @@ const SignInForm: FC<SignInFormProps> = ({
     }
 
     if (jwtToken) {
-      Cookies.set("token", jwtToken, { sameSite: "Lax", secure: true });
+      Cookies.set("token", jwtToken, {
+        sameSite: "Lax",
+        secure: true,
+        domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+      });
 
       try {
         localStorage.removeItem("loggedInUsingSSO");

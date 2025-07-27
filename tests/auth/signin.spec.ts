@@ -41,7 +41,7 @@ test.describe("Signin Page", () => {
         await expect(page.getByRole("link", { name: "Sign Up" })).toHaveAttribute("href", PageURLs.signup);
       } else {
         await expect(page.getByRole("link", { name: "Forgot Password" })).not.toBeVisible();
-        await expect(page.getByRole("link", { name: "New to Omnistrate? Sign Up" })).not.toBeVisible();
+        await expect(page.getByRole("link", { name: "New to FalkorDB? Sign Up" })).not.toBeVisible();
       }
 
       //check that the email input is disabled

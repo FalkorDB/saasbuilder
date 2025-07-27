@@ -468,7 +468,7 @@ const LoginMethodStep: FC<LoginMethodStepProps> = (props) => {
           )}
           {environmentType === "PROD" && allowPasswordLogin && (
             <Text size="small" weight="regular" sx={{ color: "#535862", textAlign: "center" }}>
-              New to Omnistrate?{" "}
+              New to FalkorDB?{" "}
               <Link href="/signup" style={{ color: "#364152", fontWeight: 600 }}>
                 Sign Up{" "}
               </Link>

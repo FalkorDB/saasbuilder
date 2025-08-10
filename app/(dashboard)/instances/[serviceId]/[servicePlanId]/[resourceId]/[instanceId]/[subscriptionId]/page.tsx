@@ -254,7 +254,7 @@ const InstanceDetailsPage = ({
           })}
         </Tabs>
 
-        <Button
+        {resourceInstanceData.networkType !== "INTERNAL" && <Button
           variant="contained"
           size="xlarge"
           sx={{ marginTop: "16px" }}
@@ -275,7 +275,7 @@ const InstanceDetailsPage = ({
             style={{ marginRight: "8px" }}
           />
           Connect
-        </Button>
+        </Button>}
       </Box>
       {currentTab === tabs.resourceInstanceDetails && (
         <ResourceInstanceDetails

@@ -284,7 +284,7 @@ const InstancesTableHeader = ({
         label: "Connect",
         isLoading: connectInstanceMutation.isPending,
         isDisabled:
-          !selectedInstance || (status !== "RUNNING" && status !== "FAILED"),
+          !selectedInstance || (status !== "RUNNING" && status !== "FAILED" && selectedInstance.network_type !== "INTERNAL"),
         onClick: () => {
           const resourceKey = Object.entries(selectedInstance.detailedNetworkTopology).filter(([_, v]) => {
             return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
@@ -299,9 +299,11 @@ const InstancesTableHeader = ({
         },
         disabledMessage: !selectedInstance
           ? "Please select an instance"
-          : status !== "RUNNING"
-            ? "Instance must be running to connect"
-            : "",
+          : selectedInstance.network_type == "INTERNAL" ?
+            "This instance is deployed in an internal network"
+            : status !== "RUNNING"
+              ? "Instance must be running to connect"
+              : "",
       });
 
       other.push({

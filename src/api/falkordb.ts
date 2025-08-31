@@ -1,6 +1,8 @@
 import axios, { AxiosResponse } from "axios";
 import Cookies from "js-cookie";
 
+import { TaskBase } from "src/components/ResourceInstance/ImportExportRDB/hooks/useTasks";
+
 const axiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_FALKORDB_API_BASE_URL,
   headers: {
@@ -14,7 +16,7 @@ axios.interceptors.request.use((config) => {
 });
 
 export const getInstanceTasks = (instanceId: string, config = {}) => {
-  return axiosInstance.get(`/db-importer/tasks?instanceId=${instanceId}`, {
+  return axiosInstance.get<{ data: TaskBase[] }>(`/db-importer/tasks?instanceId=${instanceId}`, {
     ...config,
   });
 };

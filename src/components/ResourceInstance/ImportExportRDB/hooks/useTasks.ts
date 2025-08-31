@@ -44,15 +44,13 @@ function useTasks(
     {
       queryFn: async () => {
         const response = await getInstanceTasks(instanceId);
-        return response.data;
+        return response;
       },
       refetchOnWindowFocus: false,
       retry: false,
       refetchOnMount: true,
       refetchInterval: 30000,
-      select: (response) => {
-        return response?.data?.data || [];
-      },
+      select: (response) => response.data.data,
       ...queryOptions,
     }
   );

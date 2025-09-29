@@ -200,7 +200,7 @@ const InstanceDetailsPage = ({
   }
   const componentName = Object.entries(resourceInstanceData.detailedNetworkTopology).filter(([_, v]) => {
     return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
-  })[0][0];
+  })?.[0]?.[0];
 
   const url = window.location.href;
 

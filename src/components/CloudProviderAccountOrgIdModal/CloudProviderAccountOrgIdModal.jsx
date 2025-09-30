@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import Button from "src/components/Button/Button";
 import { Text } from "src/components/Typography/Typography";
 import useEnvironmentType from "src/hooks/useEnvironmentType";
+import { addQuotesToShellCommand } from "src/utils/accountConfig/accountConfig";
 import {
   // ACCOUNT_CREATION_METHODS,
   getAccountConfigStatusBasedHeader,
@@ -308,7 +309,7 @@ const CreationTimeInstructions = (props) => {
                 Please open the Google Cloud Shell environment using the following link {gcpCloudShellLink} and execute
                 the below command.
               </BodyText>
-              <TextContainerToCopy text={gcpBootstrapShellCommand} />
+              <TextContainerToCopy text={addQuotesToShellCommand(gcpBootstrapShellCommand)} />
               <BodyText sx={{ marginTop: "20px" }}>
                 For guidance, our instructional video is available {gcpShellScriptGuide}.
               </BodyText>
@@ -342,7 +343,7 @@ const CreationTimeInstructions = (props) => {
                 Please open the Azure Cloud Shell environment using the following link {azureCloudShellLink} and execute
                 the below command.
               </BodyText>
-              <TextContainerToCopy text={azureBootstrapShellCommand} />
+              <TextContainerToCopy text={addQuotesToShellCommand(azureBootstrapShellCommand)} />
               <BodyText sx={{ marginTop: "20px" }}>
                 For guidance, our instructional video is available {azureShellScriptGuide}.
               </BodyText>
@@ -488,7 +489,7 @@ const NonCreationTimeInstructions = (props) => {
                         execute the command below.
                       </BodyText>
 
-                      <TextContainerToCopy text={gcpBootstrapShellCommand} marginTop="12px" />
+                      <TextContainerToCopy text={addQuotesToShellCommand(gcpBootstrapShellCommand)} marginTop="12px" />
                       <BodyText sx={{ marginTop: "20px" }}>
                         For guidance our instructional video is {gcpShellScriptGuide}.
                       </BodyText>
@@ -524,7 +525,7 @@ const NonCreationTimeInstructions = (props) => {
                       execute the command below.
                     </BodyText>
 
-                    <TextContainerToCopy text={azureBootstrapShellCommand} marginTop="12px" />
+                    <TextContainerToCopy text={addQuotesToShellCommand(azureBootstrapShellCommand)} marginTop="12px" />
                     <BodyText sx={{ marginTop: "20px" }}>
                       For guidance our instructional video is {azureShellScriptGuide}.
                     </BodyText>
@@ -590,36 +591,6 @@ function CloudProviderAccountOrgIdModal(props) {
       Azure Cloud Shell
     </StyledLink>
   );
-
-  // const terraformlink = isAccessPage ? (
-  //   <>
-  //     <Box
-  //       sx={{
-  //         cursor: "pointer",
-  //         textDecoration: "underline",
-  //         color: "#7F56D9",
-  //         fontWeight: 600,
-  //       }}
-  //       component="span"
-  //       onClick={() => {
-  //         downloadTerraformKitMutation.mutate();
-  //       }}
-  //     >
-  //       here
-  //     </Box>
-  //     {downloadTerraformKitMutation.isPending && (
-  //       <LoadingSpinnerSmall sx={{ color: "black", ml: "16px" }} size={12} />
-  //     )}
-  //   </>
-  // ) : (
-  //   <StyledLink
-  //     href="https://github.com/omnistrate-oss/account-setup"
-  //     target="_blank"
-  //     rel="noopener noreferrer"
-  //   >
-  //     here
-  //   </StyledLink>
-  // );
 
   // links pointing to guides for different methods
   const azureShellScriptGuide = isAccessPage ? (

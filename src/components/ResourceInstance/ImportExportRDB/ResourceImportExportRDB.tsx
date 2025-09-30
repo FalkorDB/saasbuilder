@@ -109,8 +109,12 @@ function ResourceImportExportRDB(props) {
         field: "output",
         headerName: "Output",
         flex: 0.7,
+        minWidth: 150,
         valueGetter: (params: { row: TaskBase }) => params.row.output?.readUrl,
         renderCell: (params: { row: TaskBase; value?: string }) => {
+          if (params.row.status === "failed") {
+            return <Link underline="hover" onClick={() => snackbar.showError(params.row.error)}><Text ellipsis={true}>{params.row.error}</Text></Link>
+          }
           if (params.row.status !== 'completed') {
             return <Text> </Text>
           }
@@ -140,7 +144,6 @@ function ResourceImportExportRDB(props) {
           }
           return <Text> </Text>;
         },
-        minWidth: 150,
       },
     ],
     []

@@ -5,12 +5,17 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
-import { Collapse, Stack, Box } from "@mui/material";
+import { Collapse, Stack, Box, CircularProgress } from "@mui/material";
 import PageContainer from "app/(dashboard)/components/Layout/PageContainer";
 import NoServiceFoundUI from "app/(dashboard)/components/NoServiceFoundUI/NoServiceFoundUI";
+import InstanceActionMenu from "app/(dashboard)/instances/components/InstanceActionMenu";
+import InstanceDialogs from "app/(dashboard)/instances/components/InstanceDialogs";
+import useInstances from "app/(dashboard)/instances/hooks/useInstances";
+import { Overlay } from "app/(dashboard)/instances/page";
 import { RiArrowGoBackFill } from "react-icons/ri";
 import { useDispatch, useSelector } from "react-redux";
 
+import RefreshWithToolTip from "src/components/RefreshWithTooltip/RefreshWithToolTip";
 import ResourceCustomDNS from "src/components/ResourceInstance/Connectivity/ResourceCustomDNS";
 import { Tab, Tabs } from "src/components/Tab/Tab";
 import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
@@ -64,6 +69,8 @@ const InstanceDetailsPage = ({
   const { serviceId, servicePlanId, resourceId, instanceId, subscriptionId } = params;
   const searchParams = useSearchParams();
   const view = searchParams?.get("view");
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+  const [overlayType, setOverlayType] = useState<Overlay>("delete-dialog");
 
   const [currentTab, setCurrentTab] = useState<CurrentTab>("Instance Details");
 
@@ -99,6 +106,7 @@ const InstanceDetailsPage = ({
 
   const isCliManagedResource = useMemo(() => CLI_MANAGED_RESOURCES.includes(resourceType as string), [resourceType]);
 
+  const { data: instances = [] } = useInstances();
   const resourceInstanceQuery = useResourceInstance({
     serviceProviderId: offering?.serviceProviderId,
     serviceKey: offering?.serviceURLKey,
@@ -112,7 +120,7 @@ const InstanceDetailsPage = ({
     subscriptionId: subscription?.id,
   });
 
-  const { data: resourceInstanceData } = resourceInstanceQuery;
+  const { data: resourceInstanceData, refetch: refetchInstance } = resourceInstanceQuery;
 
   const resourceSchemaQuery = useServiceOfferingResourceSchema({
     serviceId,
@@ -151,7 +159,7 @@ const InstanceDetailsPage = ({
     );
   }
 
-  if (isFetchingServiceOfferings || isFetchingSubscriptions || resourceInstanceQuery.isPending) {
+  if (isFetchingServiceOfferings || isFetchingSubscriptions || resourceInstanceQuery.isLoading) {
     return (
       <PageContainer>
         <LoadingSpinner />
@@ -236,8 +244,8 @@ const InstanceDetailsPage = ({
           }}
         />
       </Collapse>
-      <Box flexDirection="row" justifyContent="space-between" width="100%" display="flex">
-        <Tabs value={currentTab} sx={{ marginTop: "20px" }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" gap="24px" sx={{ marginTop: "20px" }}>
+        <Tabs value={currentTab} variant="scrollable" scrollButtons="auto">
           {Object.entries(tabs).map(([key, value]) => {
             const isDisabled = disabledTabs?.includes(key);
             return (
@@ -256,29 +264,42 @@ const InstanceDetailsPage = ({
           })}
         </Tabs>
 
-        {resourceInstanceData.networkType !== "INTERNAL" && <Button
-          variant="contained"
-          size="xlarge"
-          sx={{ marginTop: "16px" }}
-          disabled={resourceInstanceData.status !== "RUNNING"}
-          onClick={() =>
-            connectToInstance({
-              host: (resourceInstanceData.detailedNetworkTopology[componentName] as any)?.clusterEndpoint,
-              port: (resourceInstanceData.detailedNetworkTopology[componentName] as any).clusterPorts?.[0],
-              username: (resourceInstanceData.resultParameters as any)?.falkordbUser,
-              region: resourceInstanceData.region,
-              tls: (resourceInstanceData.resultParameters as any)?.enableTLS,
-            })
-          }
-        >
-          <ConnectIcon
-            color="white"
+        <Stack direction="row" alignItems="center" gap="16px">
+          <div className="flex items-center">{resourceInstanceQuery.isFetching && <CircularProgress size={20} />}</div>
+          <RefreshWithToolTip disabled={resourceInstanceQuery.isFetching} refetch={refetchInstance} />
+          {resourceInstanceData.networkType !== "INTERNAL" && <Button
+            variant="contained"
+            size="common"
             disabled={resourceInstanceData.status !== "RUNNING"}
-            style={{ marginRight: "8px" }}
+            disabledMessage="Instance must be running to connect"
+            onClick={() =>
+              connectToInstance({
+                host: (resourceInstanceData.detailedNetworkTopology[componentName] as any)?.clusterEndpoint,
+                port: (resourceInstanceData.detailedNetworkTopology[componentName] as any).clusterPorts?.[0],
+                username: (resourceInstanceData.resultParameters as any)?.falkordbUser,
+                region: resourceInstanceData.region,
+                tls: (resourceInstanceData.resultParameters as any)?.enableTLS,
+              })
+            }
+          >
+            <ConnectIcon
+              color="white"
+              disabled={resourceInstanceData.status !== "RUNNING"}
+              style={{ marginRight: "8px" }}
+            />
+            Connect
+          </Button>}
+          <InstanceActionMenu
+            variant="details-page"
+            instance={resourceInstanceData?.unprocessedData}
+            serviceOffering={offering}
+            subscription={subscription}
+            setOverlayType={setOverlayType}
+            setIsOverlayOpen={setIsOverlayOpen}
+            refetchData={refetchInstance}
           />
-          Connect
-        </Button>}
-      </Box>
+        </Stack>
+      </Stack>
       {currentTab === tabs.resourceInstanceDetails && (
         <ResourceInstanceDetails
           resourceInstanceId={instanceId}
@@ -304,26 +325,22 @@ const InstanceDetailsPage = ({
           highAvailability={resourceInstanceData.highAvailability}
           backupStatus={resourceInstanceData.backupStatus}
           autoscaling={resourceInstanceData.autoscaling}
-          serverlessEnabled={resourceInstanceData.serverlessEnabled}
+          autostopEnabled={resourceInstanceData.serverlessEnabled}
           isCliManagedResource={isCliManagedResource}
           maintenanceTasks={resourceInstanceData.maintenanceTasks}
           licenseDetails={resourceInstanceData?.subscriptionLicense}
+          tierVersion={resourceInstanceData?.unprocessedData?.tierVersion}
         />
       )}
       {currentTab === tabs.connectivity && (
         <Connectivity
           networkType={resourceInstanceData.connectivity.networkType}
-          clusterEndpoint={resourceInstanceData.connectivity.clusterEndpoint}
-          nodeEndpoints={resourceInstanceData.connectivity.nodeEndpoints}
           ports={resourceInstanceData.connectivity.ports}
-          availabilityZones={resourceInstanceData.connectivity.availabilityZones}
           publiclyAccessible={resourceInstanceData.connectivity.publiclyAccessible}
           privateNetworkCIDR={resourceInstanceData.connectivity.privateNetworkCIDR}
           privateNetworkId={resourceInstanceData.connectivity.privateNetworkId}
           globalEndpoints={resourceInstanceData.connectivity.globalEndpoints}
           nodes={resourceInstanceData.nodes}
-          queryData={queryData}
-          refetchInstance={resourceInstanceQuery.refetch}
           additionalEndpoints={resourceInstanceData.connectivity.additionalEndpoints}
         />
       )}
@@ -342,6 +359,7 @@ const InstanceDetailsPage = ({
           subscriptionData={subscription}
           subscriptionId={subscription.id}
           isBYOAServicePlan={offering?.serviceModelType === "BYOA"}
+          isServerless={resourceInstanceData?.serverlessEnabled}
         />
       )}
       {currentTab === tabs.metrics && (
@@ -413,7 +431,19 @@ const InstanceDetailsPage = ({
         />
       )}
       {currentTab === tabs.importExportRDB && <ResourceImportExportRDB instanceId={instanceId} status={resourceInstanceData.status} />}
-    </PageContainer>
+      <InstanceDialogs
+        variant="details-page"
+        isOverlayOpen={isOverlayOpen}
+        setIsOverlayOpen={setIsOverlayOpen}
+        overlayType={overlayType}
+        setOverlayType={setOverlayType}
+        instance={resourceInstanceData?.unprocessedData}
+        instances={instances}
+        serviceOffering={offering}
+        subscription={subscription}
+        refetchData={refetchInstance}
+      />
+    </PageContainer >
   );
 };
 

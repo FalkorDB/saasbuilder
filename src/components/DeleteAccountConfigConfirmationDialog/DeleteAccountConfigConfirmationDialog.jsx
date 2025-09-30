@@ -2,11 +2,12 @@ import Link from "next/link";
 import CloseIcon from "@mui/icons-material/Close";
 import { Box, Dialog, IconButton, Stack, styled } from "@mui/material";
 
+import { addQuotesToShellCommand } from "src/utils/accountConfig/accountConfig";
 import Button from "components/Button/Button";
 import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
 import Form from "components/FormElements/Form/Form";
 import TextField from "components/FormElements/TextField/TextField";
-import DeleteCirleIcon from "components/Icons/DeleteCircle/DeleteCirleIcon";
+import DeleteCircleIcon from "components/Icons/DeleteCircle/DeleteCircleIcon";
 import { Text } from "components/Typography/Typography";
 
 import { TextContainerToCopy } from "../CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
@@ -186,7 +187,10 @@ const DeleteInstructions = ({ accountInstructionDetails }) => {
                 revoke our access.
               </Text>
               {accountInstructionDetails?.gcpOffboardCommand && (
-                <TextContainerToCopy text={accountInstructionDetails?.gcpOffboardCommand} marginTop="12px" />
+                <TextContainerToCopy
+                  text={addQuotesToShellCommand(accountInstructionDetails?.gcpOffboardCommand)}
+                  marginTop="12px"
+                />
               )}
             </Box>
           </ListItem>
@@ -210,7 +214,10 @@ const DeleteInstructions = ({ accountInstructionDetails }) => {
               </Text>
 
               {accountInstructionDetails?.azureOffboardCommand && (
-                <TextContainerToCopy text={accountInstructionDetails?.azureOffboardCommand} marginTop="12px" />
+                <TextContainerToCopy
+                  text={addQuotesToShellCommand(accountInstructionDetails?.azureOffboardCommand)}
+                  marginTop="12px"
+                />
               )}
             </Box>
           </ListItem>
@@ -251,7 +258,7 @@ function DeleteAccountConfigConfirmationDialog(props) {
     buttonLabel = "Delete",
     buttonColor = "#D92D20",
     isLoading,
-    IconComponent = DeleteCirleIcon,
+    IconComponent = DeleteCircleIcon,
     accountInstructionDetails,
   } = props;
 

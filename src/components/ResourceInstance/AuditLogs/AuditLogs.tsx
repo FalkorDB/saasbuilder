@@ -16,10 +16,8 @@ import {
   DateTimePickerPopover,
   initialRangeState,
 } from "src/components/DateRangePicker/DateTimeRangePickerStatic";
-import EventMessageChip from "src/components/EventsTable/EventMessageChip";
 import GridCellExpand from "src/components/GridCellExpand/GridCellExpand";
 import JSONView from "src/components/JSONView/JSONView";
-import RefreshWithToolTip from "src/components/RefreshWithTooltip/RefreshWithToolTip";
 import useUserData from "src/hooks/usersData";
 import { AuditEvent } from "src/types/auditEvent";
 import { SetState } from "src/types/common/reactGenerics";
@@ -32,6 +30,7 @@ import EventTypeChip from "../../EventsTable/EventTypeChip";
 
 import AuditLogsEventFilterDropdown from "./components/AuditLogsEventFilterDropdown";
 import useAccessInstanceAuditLogs from "./hooks/useAccessInstanceAuditLogs";
+import MessageInput from "src/components/MessageInput/MessageInput";
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
@@ -55,8 +54,6 @@ const AuditLogsTableHeader: FC<AuditLogsTableHeaderProps> = (props) => {
     count,
     searchText,
     setSearchText,
-    refetchLogs,
-    isRefetching,
     selectedDateRange,
     setSelectedDateRange,
     selectedEventTypes,
@@ -87,7 +84,6 @@ const AuditLogsTableHeader: FC<AuditLogsTableHeaderProps> = (props) => {
           placeholder="Search by Message/User"
           width="250px"
         />
-        <RefreshWithToolTip refetch={refetchLogs} disabled={isRefetching} />
         <DateTimePickerPopover dateRange={selectedDateRange} setDateRange={setSelectedDateRange} />
         <AuditLogsEventFilterDropdown
           selectedEventTypes={selectedEventTypes}
@@ -192,12 +188,13 @@ const AuditLogs: FC<AuditLogsTabProps> = ({ instanceId, subscriptionId }) => {
         id: "message",
         header: "Message",
         cell: (data) => {
-          return data.row.original.message ? <EventMessageChip message={data.row.original.message} /> : "-";
+          return data.row.original.message ? <MessageInput message={data.row.original.message} showCopyButton /> : "-";
         },
         meta: {
-          flex: 1.5,
+          flex: 2,
         },
       }),
+
       columnHelper.accessor("userName", {
         id: "userName",
         header: "User",

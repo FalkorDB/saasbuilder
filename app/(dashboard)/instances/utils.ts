@@ -19,9 +19,9 @@ import {
   ResourceInstance,
   ResourceInstanceNetworkTopology,
 } from "src/types/resourceInstance";
+import { TierVersionSet } from "src/types/tier-version-set";
 
 import { loadStatusLabel, loadStatusMap } from "./constants";
-import { TierVersionSet } from "src/types/tier-version-set";
 
 export const getServiceMenuItems = (serviceOfferings: ServiceOffering[]) => {
   const menuItems: MenuItem[] = [];
@@ -87,9 +87,15 @@ export const getVersionSetResourceMenuItems = (versionSet?: TierVersionSet) => {
     return [];
   }
 
-  //filter out observability and injected account config resources
+  //filter out observability, injected account config, internal and managed proxy resources
   return versionSet.resources
-    .filter((resource) => !resource.id.startsWith("r-obsrv") && !resource.id.startsWith("r-injectedaccountconfig"))
+    .filter(
+      (resource) =>
+        !resource.id.startsWith("r-obsrv") &&
+        !resource.id.startsWith("r-injectedaccountconfig") &&
+        resource.managedResourceType !== "PortsBasedProxy" &&
+        resource.isExternal === true
+    )
     .map((resource) => ({
       label: resource.name,
       value: resource.id,

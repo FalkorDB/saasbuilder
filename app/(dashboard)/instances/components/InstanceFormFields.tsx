@@ -111,6 +111,7 @@ export const getStandardInformationFields = (
       disabled: formMode !== "create",
       emptyMenuText: "No Products available",
       menuItems: serviceMenuItems,
+      isHidden: serviceMenuItems.length === 1,
       onChange: (e) => {
         const serviceId = e.target.value;
 
@@ -139,6 +140,7 @@ export const getStandardInformationFields = (
         }
 
         const resources = getResourceMenuItems(offering);
+        setFieldValue("productTierVersion", "");
         setFieldValue("resourceId", resources[0]?.value || "");
         setFieldValue("requestParams", {});
 

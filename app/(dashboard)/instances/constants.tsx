@@ -5,7 +5,6 @@ import DeleteIcon from "components/Icons/Delete/Delete";
 import EditIcon from "components/Icons/Edit/Edit";
 import GenerateTokenIcon from "components/Icons/GenerateToken/GenerateTokenIcon";
 import PlayIcon from "components/Icons/Play/Play";
-import RestartIcon from "components/Icons/Reboot/Reboot";
 import ConnectIcon from "components/Icons/Connect/Connect";
 import RebootIcon from "components/Icons/Reboot/Reboot";
 import RestoreIcon from "components/Icons/RestoreInstance/RestoreInstanceIcon";

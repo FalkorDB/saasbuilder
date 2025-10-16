@@ -12,7 +12,7 @@ import useSnackbar from "src/hooks/useSnackbar";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { selectUserrootData } from "src/slices/userDataSlice";
 import { Subscription } from "src/types/subscription";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import DataGridText from "components/DataGrid/DataGridText";
 import DataTable from "components/DataTable/DataTable";
 import GridCellExpand from "components/GridCellExpand/GridCellExpand";
@@ -136,10 +136,10 @@ const SubscriptionsPage = () => {
           return <StatusChip status={data.row.original.status} />;
         },
       }),
-      columnHelper.accessor((row) => formatDateUTC(row.createdAt), {
+      columnHelper.accessor((row) => formatDateLocal(row.createdAt), {
         id: "createdAt",
         header: "Subscription Date",
-        cell: (data) => (data.row.original.createdAt ? formatDateUTC(data.row.original.createdAt) : "-"),
+        cell: (data) => (data.row.original.createdAt ? formatDateLocal(data.row.original.createdAt) : "-"),
       }),
       columnHelper.accessor("subscriptionOwnerName", {
         id: "subscriptionOwnerName",

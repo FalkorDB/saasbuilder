@@ -330,6 +330,7 @@ const InstanceDetailsPage = ({
           maintenanceTasks={resourceInstanceData.maintenanceTasks}
           licenseDetails={resourceInstanceData?.subscriptionLicense}
           tierVersion={resourceInstanceData?.unprocessedData?.tierVersion}
+          customTags={resourceInstanceData?.customTags}
         />
       )}
       {currentTab === tabs.connectivity && (

@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Box, Link, Tooltip } from "@mui/material";
+import { useMemo, useState } from "react";
+import { Box, Link, Tooltip, Stack, DialogContent, LinearProgress } from "@mui/material";
 
 import { Text } from "src/components/Typography/Typography";
 import StatusChip from "src/components/StatusChip/StatusChip";
@@ -12,10 +12,36 @@ import TasksTableHeader from "src/components/ResourceInstance/ImportExportRDB/co
 import { useMutation } from "@tanstack/react-query";
 import useSnackbar from "src/hooks/useSnackbar";
 import { postInstanceExportRdb, postInstanceImportRdbConfirmUpload, postInstanceImportRdbRequestURL, uploadFile } from "src/api/falkordb";
+import InformationDialogTopCenter, {
+  DialogFooter,
+  DialogHeader,
+} from "src/components/Dialog/InformationDialogTopCenter";
+import TextField from "src/components/FormElementsv2/TextField/TextField";
+import { PasswordField } from "src/components/FormElementsv2/PasswordField/PasswordField";
+import FieldContainer from "src/components/FormElements/FieldContainer/FieldContainer";
+import FieldLabel from "src/components/FormElements/FieldLabel/FieldLabel";
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { styled } from "@mui/system";
+import Button from "src/components/Button/Button";
+
+const VisuallyHiddenInput = styled('input')({
+  clip: 'rect(0 0 0 0)',
+  clipPath: 'inset(50%)',
+  height: 1,
+  overflow: 'hidden',
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  whiteSpace: 'nowrap',
+  width: 1,
+});
 
 function ResourceImportExportRDB(props) {
   const snackbar = useSnackbar();
   const { instanceId, status } = props;
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [dialog, setDialog] = useState<{ open: boolean, type?: 'export' | 'import' }>({ open: false, type: 'export' });
+  const [file, setFile] = useState<File | undefined>();
 
   const tasksQuery = useTasks({
     instanceId,
@@ -41,9 +67,13 @@ function ResourceImportExportRDB(props) {
       mutationFn: async (vars) => {
         const { taskId, uploadUrl } = await postInstanceImportRdbRequestURL(instanceId, vars.username, vars.password);
 
-        await uploadFile(uploadUrl, vars.file)
+        await uploadFile(uploadUrl, vars.file, (progressEvent) => {
+          setUploadProgress(Math.floor((progressEvent.progress ?? 0) * 100))
+        })
 
         await postInstanceImportRdbConfirmUpload(instanceId, taskId)
+
+        setUploadProgress(0);
       },
       onSuccess: () => {
         snackbar.showSuccess(`Import task submitted successfully`);
@@ -134,7 +164,7 @@ function ResourceImportExportRDB(props) {
               params.row.payload?.destination?.expiresIn &&
               new Date(params.row.updatedAt).getTime() + params.row.payload.destination.expiresIn < Date.now()
             ) {
-              return <Text>Expired</Text>;
+              return <Text>Link Expired</Text>;
             }
             return (
               <Link target="_blank" href={params.value}>
@@ -166,6 +196,7 @@ function ResourceImportExportRDB(props) {
               isRefetching,
               exportMutation,
               importMutation,
+              openDialog: (params) => setDialog(params),
               status
             },
           }}
@@ -181,6 +212,143 @@ function ResourceImportExportRDB(props) {
           noRowsText="No tasks"
         />
       </Box>
+
+
+      <InformationDialogTopCenter
+        handleClose={() => { setDialog({ open: false }); setFile(undefined) }}
+        open={dialog.open}
+        PaperProps={{
+          component: "form",
+          onSubmit: async (event: React.FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            const formData = new FormData(event.currentTarget);
+            const formJson = Object.fromEntries((formData as any).entries());
+
+            if (dialog.type === "import") {
+
+              if (!file) {
+                snackbar.showError(`Please select a valid RDB file`);
+                return;
+              }
+              await importMutation.mutateAsync({
+                username: formJson.username,
+                password: formJson.password,
+                file: await file.arrayBuffer(),
+              })
+            } else {
+              await exportMutation.mutateAsync({
+                username: formJson.username,
+                password: formJson.password,
+              });
+            }
+            refetch();
+            setDialog({ open: false });
+            setFile(undefined)
+          },
+        }}
+      >
+        <DialogHeader>
+          <Box>
+            <Text size="large" weight="bold">
+              Enter the instance&apos;s username and password
+            </Text>
+          </Box>
+        </DialogHeader>
+        <DialogContent>
+          <Box>
+            <Text size="small" weight="regular" color="#344054">
+              To {dialog.type} your RDB, you must enter again the username and password with read/write access to your FalkorDB
+              Instance
+            </Text>
+            {
+              dialog.type === 'import' && (
+                <Text size="small" weight="semibold" color="#EF4444">
+                  Caution: Your instance will be erased before the import takes place.
+                </Text>
+              )
+            }
+            <FieldContainer>
+              <FieldLabel required>Username</FieldLabel>
+              <TextField
+                autoFocus
+                required
+                id="username"
+                name="username"
+                placeholder="falkordb"
+                fullWidth
+                sx={{ mt: 0 }}
+              />
+            </FieldContainer>
+            <FieldContainer>
+              <FieldLabel required>Password</FieldLabel>
+              <PasswordField
+                required
+                id="password"
+                name="password"
+                placeholder="your password"
+                fullWidth
+                sx={{ mt: 0 }}
+              />
+            </FieldContainer>
+            {
+              dialog.type === "import" && (
+                <FieldContainer>
+                  <Stack
+                    spacing={{ xs: 2 }}
+                    direction="row"
+                    useFlexGap
+                    sx={{ flexWrap: 'nowrap' }}
+                    alignItems="center"
+                  >
+                    <Button
+                      component="label"
+                      role={undefined}
+                      variant="contained"
+                      tabIndex={-1}
+                      startIcon={<CloudUploadIcon />}
+                    >
+                      Select RDB file
+                      <VisuallyHiddenInput
+                        type="file"
+                        accept=".rdb"
+                        onChange={(event) => {
+                          setFile(event?.target?.files?.[0])
+                        }}
+                      />
+                    </Button>
+                    {
+                      file && (
+                        <Text ellipsis={true} maxWidth="275px">{file.name}</Text>
+                      )
+                    }
+                  </Stack>
+
+                  {
+                    importMutation.isPending && (
+                      <Stack direction="row" gap="8px" alignItems="center" marginTop="16px">
+                        <Box width="100%">
+                          <LinearProgress variant="determinate" value={uploadProgress} />
+                        </Box>
+                        <Box component="span" sx={{ fontSize: 14 }}>
+                          {uploadProgress}%
+                        </Box>
+                      </Stack>
+                    )
+                  }
+                </FieldContainer>
+              )
+            }
+          </Box>
+        </DialogContent>
+        <DialogFooter>
+          <Button variant="outlined" onClick={() => { setDialog({ open: false }); setFile(undefined) }} disabled={exportMutation.isPending || importMutation.isPending}>
+            Cancel
+          </Button>
+          <Button variant="contained" type="submit" disabled={exportMutation.isPending || importMutation.isPending}>
+            {dialog.type === 'export' ? 'Export' : 'Import'}
+          </Button>
+        </DialogFooter>
+      </InformationDialogTopCenter>
     </>
   );
 }

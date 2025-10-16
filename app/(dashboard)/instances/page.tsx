@@ -1,23 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Box, Stack } from "@mui/material";
 import { createColumnHelper } from "@tanstack/react-table";
-
-import LoadIndicatorHigh from "src/components/Icons/LoadIndicator/LoadIndicatorHigh";
-import LoadIndicatorIdle from "src/components/Icons/LoadIndicator/LoadIndicatorIdle";
-import LoadIndicatorNormal from "src/components/Icons/LoadIndicator/LoadIndicatorNormal";
 import InstanceHealthStatusChip, {
   getInstanceHealthStatus,
 } from "src/components/InstanceHealthStatusChip/InstanceHealthStatusChip";
-import InstanceLicenseStatusChip from "src/components/InstanceLicenseStatusChip/InstanceLicenseStatusChip";
-import { BlackTooltip } from "src/components/Tooltip/Tooltip";
 import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { ResourceInstance, ResourceInstanceNetworkTopology } from "src/types/resourceInstance";
 import { isCloudAccountInstance } from "src/utils/access/byoaResource";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { getInstanceDetailsRoute } from "src/utils/routes";
 import DataGridText from "components/DataGrid/DataGridText";
 import DataTable from "components/DataTable/DataTable";
@@ -33,7 +26,6 @@ import InstancesOverview from "./components/InstancesOverview";
 import InstancesTableHeader from "./components/InstancesTableHeader";
 import StatusCell from "./components/StatusCell";
 import useInstances from "./hooks/useInstances";
-import { loadStatusMap } from "./constants";
 import {
   FilterCategorySchema,
   getFilteredInstances,
@@ -235,76 +227,11 @@ const InstancesPage = () => {
           },
         }
       ),
-      columnHelper.accessor((row) => loadStatusMap[row.instanceLoadStatus || "UNKNOWN"] || "Unknown", {
-        id: "instanceLoadStatus",
-        header: "Load",
-        cell: (data) => {
-          const instanceLoadStatus = loadStatusMap[data.row.original.instanceLoadStatus || "UNKNOWN"] || "Unknown";
-
-          return (
-            <Stack direction="row" alignItems="center" gap="4px">
-              {(instanceLoadStatus === "STOPPED" || instanceLoadStatus === "N/A") && (
-                <StatusChip status="UNKNOWN" label="Unknown" />
-              )}
-              {instanceLoadStatus === "Unknown" && <Box>-</Box>}
-
-              {instanceLoadStatus === "Low" && (
-                <BlackTooltip title="Idle" placement="top">
-                  <span style={{ display: "flex", alignItems: "center" }}>
-                    <LoadIndicatorIdle />
-                  </span>
-                </BlackTooltip>
-              )}
-              {instanceLoadStatus === "Medium" && (
-                <BlackTooltip title="Normal" placement="top">
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      marginBottom: "-2px",
-                    }}
-                  >
-                    <LoadIndicatorNormal />
-                  </span>
-                </BlackTooltip>
-              )}
-              {instanceLoadStatus === "High" && (
-                <BlackTooltip title="High" placement="top">
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      marginBottom: "-4px",
-                    }}
-                  >
-                    <LoadIndicatorHigh />
-                  </span>
-                </BlackTooltip>
-              )}
-            </Stack>
-          );
-        },
-        meta: {
-          minWidth: 120,
-          disableBrowserTooltip: true,
-        },
-      }),
-      columnHelper.accessor("subscriptionLicense", {
-        id: "subscriptionLicense",
-        header: "License Status",
-        cell: (data) => {
-          const licenseDetails = data.cell.getValue();
-          const licenseExpirationDate = licenseDetails?.expirationDate;
-
-          return <InstanceLicenseStatusChip expirationDate={licenseExpirationDate} showExpirationDateTooltip={true} />;
-        },
-      }),
-
-      columnHelper.accessor((row) => formatDateUTC(row.created_at), {
+      columnHelper.accessor((row) => formatDateLocal(row.created_at), {
         id: "created_at",
         header: "Created On",
         cell: (data) => {
-          return data.row.original.created_at ? formatDateUTC(data.row.original.created_at) : "-";
+          return data.row.original.created_at ? formatDateLocal(data.row.original.created_at) : "-";
         },
         meta: {
           minWidth: 225,
@@ -345,11 +272,11 @@ const InstancesPage = () => {
           header: "Subscription Owner",
         }
       ),
-      columnHelper.accessor((row) => formatDateUTC(row.last_modified_at), {
+      columnHelper.accessor((row) => formatDateLocal(row.last_modified_at), {
         id: "last_modified_at",
         header: "Last Modified",
         cell: (data) => {
-          return data.row.original.last_modified_at ? formatDateUTC(data.row.original.last_modified_at) : "-";
+          return data.row.original.last_modified_at ? formatDateLocal(data.row.original.last_modified_at) : "-";
         },
         meta: {
           minWidth: 225,

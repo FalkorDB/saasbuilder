@@ -1,4 +1,4 @@
-import axios, { AxiosResponse } from "axios";
+import axios, { AxiosProgressEvent, AxiosResponse } from "axios";
 import Cookies from "js-cookie";
 
 import { TaskBase } from "src/components/ResourceInstance/ImportExportRDB/hooks/useTasks";
@@ -62,13 +62,14 @@ export const postInstanceImportRdbConfirmUpload = (instanceId: string, taskId: s
   );
 };
 
-export const uploadFile = (url: string, file: ArrayBuffer, config: any = {}) => {
+export const uploadFile = (url: string, file: ArrayBuffer, progressCallback?: (progressEvent: AxiosProgressEvent) => void, config: any = {}) => {
   return axios.create().put(url, file, {
     ...config,
     headers: {
       ...config?.headers,
       "Content-Type": 'application/octet-stream',
     },
+    onUploadProgress: (progressEvent) => progressCallback && progressCallback(progressEvent),
   })
 }
 

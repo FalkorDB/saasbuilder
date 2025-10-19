@@ -23,23 +23,6 @@ const RootLayout = async ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="en">
       <head>
-        {/* {process.env.GOOGLE_ANALYTICS_TAG_ID && (
-          <Script
-            src={`https://www.googletagmanager.com/gtag/js?id=${process.env.GOOGLE_ANALYTICS_TAG_ID}`}
-            strategy="afterInteractive"
-          />
-        )}
-        {process.env.GOOGLE_ANALYTICS_TAG_ID && (
-          <Script id="google-analytics" strategy="afterInteractive">
-            {`
-	              window.dataLayer = window.dataLayer || [];
-	              function gtag(){window.dataLayer.push(arguments);}
-	              gtag('js', new Date());
-
-	              gtag('config', '${process.env.GOOGLE_ANALYTICS_TAG_ID}');
-	            `}
-          </Script>
-        )} */}
         <link rel="icon" href="" id="provider-favicon" />
         <meta httpEquiv="cache-control" content="no-cache" />
         <meta httpEquiv="expires" content="0" />

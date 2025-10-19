@@ -60,34 +60,63 @@ const handlerMap = {
 };
 
 function addGoogleAnalytics() {
-  if (this.gtag && this.gtag?.toLowerCase() !== "undefined") {
-    window[`ga-disable-${this.gtag}`] = false;
-    const id = `script-${this.name}`;
-    if (document.getElementById(id)) return; // Avoid duplicate scripts
+  if (!this.gtag || this.gtag.toLowerCase() === "undefined") return;
 
-    const script = document.createElement("script");
-    script.src = this.src;
-    script.id = id;
-    script.async = true;
-    document.head.appendChild(script);
+  const id = `gtm-script-${this.name}`;
+  if (document.getElementById(id)) return; // Avoid duplicate GTM script
 
-    script.onload = () => {
-      initializeGoogleAnalytics.call(this);
-    };
+  // Create GTM script dynamically
+  const script = document.createElement("script");
+  script.id = id;
+  script.async = true;
+  script.text = `
+    (function(w,d,s,l,i){
+      w[l]=w[l]||[];
+      w[l].push({'gtm.start': new Date().getTime(), event:'gtm.js'});
+      var f=d.getElementsByTagName(s)[0],
+          j=d.createElement(s),
+          dl=l!='dataLayer'?'&l='+l:'';
+      j.async=true;
+      j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
+      f.parentNode.insertBefore(j,f);
+    })(window, document, 'script', 'dataLayer', '${this.gtag}');
+  `;
 
-    script.onerror = () => {
-      console.error(`Failed to load script ${id}.`);
-    };
-  }
+  document.head.appendChild(script);
+
+  script.onload = () => {
+    console.info(`Google Tag Manager (${this.gtag}) installed.`);
+    initializeGoogleAnalytics.call(this);
+  };
+
+  script.onerror = () => {
+    console.error(`Failed to load GTM script (${this.gtag}).`);
+  };
 }
 
 function initializeGoogleAnalytics() {
-  window.dataLayer = window.dataLayer || [];
-  function gtag() {
-    window.dataLayer.push(arguments);
-  }
-  gtag("js", new Date());
-  gtag("config", this.gtag);
+  if (!this.gtag || this.gtag.toLowerCase() === "undefined") return;
+
+  const id = `gtm-noscript-${this.name}`;
+  if (document.getElementById(id)) return; // Avoid duplicate noscript
+
+  // Create a <noscript> element with the GTM iframe
+  const noscript = document.createElement("noscript");
+  noscript.id = id;
+
+  const iframe = document.createElement("iframe");
+  iframe.src = `https://www.googletagmanager.com/ns.html?id=${this.gtag}`;
+  iframe.height = "0";
+  iframe.width = "0";
+  iframe.style.display = "none";
+  iframe.style.visibility = "hidden";
+
+  noscript.appendChild(iframe);
+
+  // Append <noscript> to <body>
+  document.body.appendChild(noscript);
+
+  console.info(`Google Tag Manager (noscript) initialized for ${this.gtag}.`);
 }
 
 const removeScript = (id) => {
@@ -129,14 +158,27 @@ const removeCookies = (cookieNames) => {
 };
 
 function removeGoogleAnalyticsScriptsAndCookies() {
-  removeScript(`script-${this.name}`);
-  removeCookies(this.cookies);
-  window[`ga-disable-${this.gtag}`] = true;
-  window.dataLayer = undefined; // Clear global state
-  window.gaGlobal = undefined;
-  window.google_tag_data = undefined;
+  // Remove the main GTM <script> tag
+  removeScript(`gtm-script-${this.name}`);
+
+  // Remove the <noscript> iframe block
+  const noscript = document.getElementById(`gtm-noscript-${this.name}`);
+  if (noscript) {
+    noscript.remove();
+  }
+
+  // Remove any related cookies
+  if (this.cookies && Array.isArray(this.cookies)) {
+    removeCookies(this.cookies);
+  }
+
+  // Clear GTM-related globals
+  window.dataLayer = undefined;
   window.google_tag_manager = undefined;
+
+  console.info(`Google Tag Manager (${this.gtag}) scripts and cookies removed.`);
 }
+
 
 function addClarity() {
   try {

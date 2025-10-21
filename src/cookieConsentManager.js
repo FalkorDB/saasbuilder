@@ -1,6 +1,7 @@
 import { clarity } from "react-microsoft-clarity";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
+import { loadReoScript } from 'reodotdev'
 
 export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
   consentGiven: false,
@@ -117,6 +118,8 @@ function initializeGoogleAnalytics() {
   document.body.appendChild(noscript);
 
   console.info(`Google Tag Manager (noscript) initialized for ${this.gtag}.`);
+
+  startReo()
 }
 
 const removeScript = (id) => {
@@ -207,6 +210,21 @@ function removeClarity() {
   } catch (error) {
     console.error(error);
   }
+}
+
+function startReo() {
+  // Declare clientID from environment variable or directly as string
+  const clientID = process.env.NEXT_PUBLIC_REO_CLIENT_ID || "aa70f06a8dabbfd";
+
+  // Resolve promise to get access to methods on Reo
+  const reoPromise = loadReoScript({ clientID });
+  reoPromise
+    .then(Reo => {
+      Reo.init({ clientID });
+    })
+    .catch(error => {
+      console.error('Error loading Reo', error);
+    })
 }
 
 export const handleConsentChanges = (categories) => {

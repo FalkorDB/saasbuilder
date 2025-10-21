@@ -593,6 +593,13 @@ const InstanceForm = ({
 
     const defaultValues = inputParameters.reduce((acc: any, param: any) => {
       acc[param.key] = param.defaultValue || "";
+      if (param.key === "nodeInstanceType") {
+        if (formData.values.cloudProvider === "aws") {
+          acc[param.key] = "m6i.large";
+        } else if (formData.values.cloudProvider === "gcp") {
+          acc[param.key] = "e2-standard-2"
+        }
+      }
       return acc;
     }, {});
 

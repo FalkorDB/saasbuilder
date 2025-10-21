@@ -6929,6 +6929,11 @@ remarkable@^2.0.1:
     argparse "^1.0.10"
     autolinker "^3.11.0"
 
+reodotdev@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/reodotdev/-/reodotdev-1.0.0.tgz#ad895418a6fcd871f576958522ef3c75a34799a8"
+  integrity sha512-wXe1vJucZjrhQL0SxOL9EvmJrtbMCIEGMdZX5lj/57n2T3UhBHZsAcM5TQASJ0T6ZBbrETRnMhH33bsbJeRO6Q==
+
 repeat-string@^1.5.2:
   version "1.6.1"
   resolved "https://registry.yarnpkg.com/repeat-string/-/repeat-string-1.6.1.tgz#8dcae470e1c88abc2d600fff4a776286da75e637"

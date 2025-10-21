@@ -65,12 +65,35 @@ const SignupPage = (props) => {
   const snackbar = useSnackbar();
   const reCaptchaRef = useRef(null);
 
+  const formik = useFormik({
+    initialValues: {
+      name: "",
+      email: loginStepOneEmail || "",
+      password: "",
+      confirmPassword: "",
+      legalcompanyname: "",
+      companydescription: "",
+      companyurl: "",
+      userSource: "",
+    },
+    enableReinitialize: true,
+    onSubmit: handleFormSubmit,
+    validationSchema: signupValidationSchema,
+  });
+
   const signupMutation = useMutation({
     mutationFn: (payload) => {
       setShowSuccess(false);
       return customerUserSignup(payload);
     },
     onSuccess: () => {
+      const identity = {
+        "username": formik.values.email,
+        "type": "email",
+        "firstname": formik.values.name?.split(' ')[0],
+      }
+      window['Reo']?.identify?.call(identity);
+
       /* eslint-disable-next-line no-use-before-define*/
       formik.resetForm();
       setShowSuccess(true);
@@ -100,22 +123,6 @@ const SignupPage = (props) => {
 
     signupMutation.mutate(data);
   }
-
-  const formik = useFormik({
-    initialValues: {
-      name: "",
-      email: loginStepOneEmail || "",
-      password: "",
-      confirmPassword: "",
-      legalcompanyname: "",
-      companydescription: "",
-      companyurl: "",
-      userSource: "",
-    },
-    enableReinitialize: true,
-    onSubmit: handleFormSubmit,
-    validationSchema: signupValidationSchema,
-  });
 
   useEffect(() => {
     const updatedValues = {};

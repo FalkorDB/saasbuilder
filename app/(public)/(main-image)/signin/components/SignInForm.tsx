@@ -48,6 +48,16 @@ const SignInForm: FC<SignInFormProps> = ({
 
   const reCaptchaRef = useRef<ReCAPTCHA | null>(null);
 
+  const formik = useFormik({
+    initialValues: {
+      email: email || "",
+      password: "",
+    },
+    // enableReinitialize: true,
+    onSubmit: handleFormSubmit,
+    validationSchema: createSigninValidationSchema,
+  });
+
   useEffect(() => {
     if (redirect_reason === "idp_auth_error") {
       snackbar.showError("Something went wrong. Please retry");
@@ -98,8 +108,7 @@ const SignInForm: FC<SignInFormProps> = ({
         "username": formik.values.email,
         "type": "email",
       }
-      //@ts-ignore
-      global['Reo'] && Reo.identify(identity);
+      window['Reo']?.identify?.call(identity);
 
       /*eslint-disable-next-line no-use-before-define*/
       formik.resetForm();
@@ -129,16 +138,6 @@ const SignInForm: FC<SignInFormProps> = ({
 
     passwordSignInMutation.mutate(data);
   }
-
-  const formik = useFormik({
-    initialValues: {
-      email: email || "",
-      password: "",
-    },
-    // enableReinitialize: true,
-    onSubmit: handleFormSubmit,
-    validationSchema: createSigninValidationSchema,
-  });
 
   return (
     <>

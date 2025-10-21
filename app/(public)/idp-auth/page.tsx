@@ -16,8 +16,6 @@ import { getInstancesRoute } from "src/utils/routes";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import { Text } from "components/Typography/Typography";
 import { IDENTITY_PROVIDER_TYPES } from "app/(public)/(main-image)/signin/constants";
-import { useSelector } from "react-redux";
-import { selectUserrootData } from "src/slices/userDataSlice";
 
 const IDPAuthPage = () => {
   const environmentType = useEnvironmentType();
@@ -50,18 +48,16 @@ const IDPAuthPage = () => {
             console.warn("Failed to set SSO state:", error);
           }
 
-          const selectUser = useSelector(selectUserrootData);
-          if (selectUser) {
-
+          try {
+            const user = await axios.get("/user").then(response => response.data)
             const identity = {
-              "username": selectUser.email,
+              "username": user.email,
               "type": payload.identityProviderName === IDENTITY_PROVIDER_TYPES.Google ? "gmail" : payload.identityProviderName === IDENTITY_PROVIDER_TYPES.GitHub ? "github" : "other",
-              "firstname": selectUser.name?.split(' ')[0],
+              "firstname": user.name?.split(' ')[0],
             }
-            //@ts-ignore
-            global['Reo'] && Reo.identify(identity);
-          } else {
-            console.log("Could not set user to Reo. Missing userSlice");
+            window['Reo']?.identify?.call(identity);
+          } catch (error) {
+            console.error(error);
           }
 
           const decodedDestination = decodeURIComponent(destination);

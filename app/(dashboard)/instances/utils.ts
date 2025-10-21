@@ -79,7 +79,11 @@ export const getResourceMenuItems = (offering: ServiceOffering) => {
     });
   });
 
-  return menuItems.sort((a, b) => a.label.localeCompare(b.label));
+  return menuItems.sort((a, b) => {
+    const order = ["Standalone", "Single-Zone", "Multi-Zone", "Cluster-Single-Zone", "Cluster-Multi-Zone", "Grafana"];
+
+    return order.indexOf(a.label) - order.indexOf(b.label);
+  });
 };
 
 export const getVersionSetResourceMenuItems = (versionSet?: TierVersionSet) => {
@@ -99,7 +103,11 @@ export const getVersionSetResourceMenuItems = (versionSet?: TierVersionSet) => {
     .map((resource) => ({
       label: resource.name,
       value: resource.id,
-    }));
+    })).sort((a, b) => {
+      const order = ["Standalone", "Single-Zone", "Multi-Zone", "Cluster-Single-Zone", "Cluster-Multi-Zone", "Grafana"];
+
+      return order.indexOf(a.label) - order.indexOf(b.label);
+    });
 };
 
 export const getRegionMenuItems = (offering: ServiceOffering, cloudProvider: CloudProvider) => {

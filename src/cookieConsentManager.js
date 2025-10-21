@@ -118,6 +118,8 @@ function initializeGoogleAnalytics() {
   document.body.appendChild(noscript);
 
   console.info(`Google Tag Manager (noscript) initialized for ${this.gtag}.`);
+
+  startReo()
 }
 
 const removeScript = (id) => {

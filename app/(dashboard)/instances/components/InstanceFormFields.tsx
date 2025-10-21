@@ -86,12 +86,6 @@ export const getStandardInformationFields = (
     ? tierVersionSetResourceMenuItems
     : serviceOfferingResourceMenuItems;
 
-  resourceMenuItems.sort((a, b) => {
-    const order = ["Standalone", "Single-Zone", "Multi-Zone", "Cluster-Single-Zone", "Cluster-Multi-Zone", "Grafana"];
-
-    return order.indexOf(a.label) - order.indexOf(b.label);
-  });
-
   const inputParametersObj = (resourceSchema?.inputParameters || []).reduce((acc: any, param: any) => {
     acc[param.key] = param;
     return acc;
@@ -416,9 +410,9 @@ export const getStandardInformationFields = (
     customComponent: <CustomTagsField formData={formData} />,
     previewValue: formData?.values.customTags?.filter((tag) => tag.key && tag.value)?.length
       ? formData.values.customTags
-          ?.filter((tag) => tag.key && tag.value)
-          ?.map((tag) => `${tag.key}:${tag.value}`)
-          .join(", ")
+        ?.filter((tag) => tag.key && tag.value)
+        ?.map((tag) => `${tag.key}:${tag.value}`)
+        .join(", ")
       : null,
   });
 

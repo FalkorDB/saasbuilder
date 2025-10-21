@@ -93,6 +93,14 @@ const SignInForm: FC<SignInFormProps> = ({
       setLoginMethod({
         methodType: "Password",
       });
+
+      const identity = {
+        "username": formik.values.email,
+        "type": "email",
+      }
+      //@ts-ignore
+      global['Reo'] && Reo.identify(identity);
+
       /*eslint-disable-next-line no-use-before-define*/
       formik.resetForm();
 

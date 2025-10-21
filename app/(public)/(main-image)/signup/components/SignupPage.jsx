@@ -71,6 +71,14 @@ const SignupPage = (props) => {
       return customerUserSignup(payload);
     },
     onSuccess: () => {
+      const identity = {
+        "username": formik.values.email,
+        "type": "email",
+        "firstname": formik.values.name?.split(' ')[0],
+      }
+      //@ts-ignore
+      global['Reo'] && Reo.identify(identity);
+
       /* eslint-disable-next-line no-use-before-define*/
       formik.resetForm();
       setShowSuccess(true);

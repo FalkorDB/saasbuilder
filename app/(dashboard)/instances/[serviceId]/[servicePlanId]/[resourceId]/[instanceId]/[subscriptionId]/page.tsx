@@ -32,7 +32,6 @@ import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import AuditLogs from "components/ResourceInstance/AuditLogs/AuditLogs";
 import Backup from "components/ResourceInstance/Backup/Backup";
 import Connectivity from "components/ResourceInstance/Connectivity/Connectivity";
-import Logs from "components/ResourceInstance/Logs/Logs";
 import NodesTable from "components/ResourceInstance/NodesTable/NodesTable";
 import ResourceInstanceDetails from "components/ResourceInstance/ResourceInstanceDetails/ResourceInstanceDetails";
 import ResourceInstanceOverview from "components/ResourceInstance/ResourceInstanceOverview/ResourceInstanceOverview";
@@ -397,7 +396,8 @@ const InstanceDetailsPage = ({
           )}
         </Stack>
       )}
-      {currentTab === tabs.logs && (
+
+      {/* {currentTab === tabs.logs && (
         <Logs
           resourceInstanceId={instanceId}
           nodes={resourceInstanceData.nodes}
@@ -406,7 +406,7 @@ const InstanceDetailsPage = ({
           resourceKey={resourceInstanceData.resourceKey}
           mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
         />
-      )}
+      )} */}
 
       {currentTab === tabs.auditLogs && <AuditLogs instanceId={instanceId} subscriptionId={subscriptionId} />}
       {currentTab === tabs.backups && (

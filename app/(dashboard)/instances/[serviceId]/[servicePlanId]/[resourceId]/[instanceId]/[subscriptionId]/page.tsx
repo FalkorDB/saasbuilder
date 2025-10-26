@@ -397,7 +397,8 @@ const InstanceDetailsPage = ({
           )}
         </Stack>
       )}
-      {currentTab === tabs.logs && (
+
+      {/* {currentTab === tabs.logs && (
         <Logs
           resourceInstanceId={instanceId}
           nodes={resourceInstanceData.nodes}
@@ -406,7 +407,7 @@ const InstanceDetailsPage = ({
           resourceKey={resourceInstanceData.resourceKey}
           mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
         />
-      )}
+      )} */}
 
       {currentTab === tabs.auditLogs && <AuditLogs instanceId={instanceId} subscriptionId={subscriptionId} />}
       {currentTab === tabs.backups && (

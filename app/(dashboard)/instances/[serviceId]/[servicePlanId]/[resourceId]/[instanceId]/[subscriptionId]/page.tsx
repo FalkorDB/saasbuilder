@@ -131,7 +131,7 @@ const InstanceDetailsPage = ({
     () =>
       getTabs(
         true, // resourceInstanceData?.isMetricsEnabled,
-        resourceInstanceData?.isLogsEnabled,
+        false,
         resourceInstanceData?.active,
         isResourceBYOA,
         isCliManagedResource,

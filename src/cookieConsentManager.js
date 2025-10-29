@@ -47,11 +47,9 @@ export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
       hide: false,
       editable: true,
       enabled: false, // user must opt-in to enable
-    });
-}
-
-  return base;
-};
+    }
+  ]
+})
 
 const handlerMap = {
   addGoogleAnalytics,

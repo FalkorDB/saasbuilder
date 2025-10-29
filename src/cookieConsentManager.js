@@ -27,14 +27,12 @@ export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
       category: "analytics",
       services: [
         {
-          type: "script",
-          src: `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsTagID}`,
+          type: "script", // We still treat GA as a script category for handler logic
           name: "googletagmanager",
-          "consent-category": "analytics",
-          gtag: `${googleAnalyticsTagID}`,
+          gtag: googleAnalyticsTagID,
           cookies: ["_ga", "_ga_*", "_gid"],
-          handleEnable: "addGoogleAnalytics",
-          handleDisable: "removeGoogleAnalyticsScriptsAndCookies",
+          handleEnable: "grantAnalyticsConsent",
+          handleDisable: "revokeAnalyticsConsent",
         },
         {
           // clarity
@@ -48,10 +46,10 @@ export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
       ],
       hide: false,
       editable: true,
-      enabled: false,
-    },
-  ],
-});
+      enabled: false, // user must opt-in to enable
+    }
+  ]
+})
 
 const handlerMap = {
   addGoogleAnalytics,
@@ -130,32 +128,26 @@ const removeScript = (id) => {
 };
 
 const removeCookies = (cookieNames) => {
-  cookieNames.forEach((name) => {
-    const allCookies = document.cookie.split("; "); // Get all cookies as an array of "key=value" strings
-    const domains = [location.hostname]; // Current and parent domain
-    const paths = ["/"]; // Default path
-
+  cookieNames?.forEach((name) => {
+    const allCookies = document.cookie.split("; ");
+    const domains = [location.hostname];
+    const paths = ["/"];
+    const deleteCookie = (cookieName) => {
+      domains.forEach((domain) =>
+        paths.forEach(
+          (path) =>
+            (document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=${path}; domain=${domain}`)
+        )
+      );
+    };
     if (name.includes("*")) {
-      // Handle wildcard pattern
       const regex = new RegExp(`^${name.replace("*", ".*")}`);
       allCookies.forEach((cookie) => {
         const cookieName = cookie.split("=")[0];
-        if (regex.test(cookieName)) {
-          // Attempt deletion for all domain-path combinations
-          domains.forEach((domain) => {
-            paths.forEach((path) => {
-              document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=${path}; domain=${domain}`;
-            });
-          });
-        }
+        if (regex.test(cookieName)) deleteCookie(cookieName);
       });
     } else {
-      // Exact match removal
-      domains.forEach((domain) => {
-        paths.forEach((path) => {
-          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=${path}; domain=${domain}`;
-        });
-      });
+      deleteCookie(name);
     }
   });
 };
@@ -228,14 +220,12 @@ function startReo() {
 }
 
 export const handleConsentChanges = (categories) => {
-  categories.forEach((cat) => {
+  categories?.forEach((cat) => {
     cat.services?.forEach((srv) => {
       if (srv.type === "script") {
         if (cat.enabled) {
-          // Load script dynamically if category is enabled
           if (srv.handleEnable) handlerMap[srv.handleEnable]?.call(srv);
         } else {
-          // Remove script and associated cookies if category is disabled
           if (srv.handleDisable) handlerMap[srv.handleDisable]?.call(srv);
         }
       }

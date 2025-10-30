@@ -221,8 +221,8 @@ function startReo() {
 }
 
 export const handleConsentChanges = (categories) => {
-  for (let cat of categories) {
-    for (let svc of cat.services) {
+  for (const cat of categories) {
+    for (const svc of cat.services) {
       if (svc.type == "script" && cat.enabled) {
         handlerMap[svc.handleEnable]?.call(svc);
       }

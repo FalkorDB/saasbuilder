@@ -4,6 +4,7 @@ import { jwtDecode } from "jwt-decode";
 import { loadReoScript } from 'reodotdev'
 
 export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
+  version: 1,
   consentGiven: false,
   categories: [
     {
@@ -31,8 +32,8 @@ export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
           name: "googletagmanager",
           gtag: googleAnalyticsTagID,
           cookies: ["_ga", "_ga_*", "_gid"],
-          handleEnable: "grantAnalyticsConsent",
-          handleDisable: "revokeAnalyticsConsent",
+          handleEnable: "addGoogleAnalytics",
+          handleDisable: "removeGoogleAnalyticsScriptsAndCookies",
         },
         {
           // clarity
@@ -220,15 +221,14 @@ function startReo() {
 }
 
 export const handleConsentChanges = (categories) => {
-  categories?.forEach((cat) => {
-    cat.services?.forEach((srv) => {
-      if (srv.type === "script") {
-        if (cat.enabled) {
-          if (srv.handleEnable) handlerMap[srv.handleEnable]?.call(srv);
-        } else {
-          if (srv.handleDisable) handlerMap[srv.handleDisable]?.call(srv);
-        }
+  for (const cat of categories) {
+    for (const svc of cat.services) {
+      if (svc.type == "script" && cat.enabled) {
+        handlerMap[svc.handleEnable]?.call(svc);
       }
-    });
-  });
+      if (svc.type == "script" && !cat.enabled) {
+        handlerMap[svc.handleDisable]?.call(svc);
+      }
+    }
+  }
 };

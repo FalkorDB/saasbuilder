@@ -442,7 +442,7 @@ export const getNetworkConfigurationFields = (
   const cloudProviderNativeNetworkIdFieldExists = inputParametersObj["cloud_provider_native_network_id"];
   const customDNSFieldExists = inputParametersObj["custom_dns_configuration"];
 
-  const networkTypeFieldExists = cloudProviderFieldExists && !isMultiTenancy && offering?.supportsPublicNetwork;
+  const networkTypeFieldExists = cloudProviderFieldExists && !isMultiTenancy && offering?.supportsPublicNetwork && customNetworkFieldExists;
 
   if (networkTypeFieldExists) {
     fields.push({

@@ -6,13 +6,21 @@ import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError
 import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
 import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
 
+function checkRequiresReCaptcha(apiKey) {
+
+  const skipRecaptchaApiKeys = process.env.SKIP_RECAPTCHA_API_KEYS ?? "";
+  if (skipRecaptchaApiKeys && skipRecaptchaApiKeys.includes(apiKey)) return false;
+
+  return true;
+}
+
 export default async function handleSignIn(nextRequest, nextResponse) {
   if (nextRequest.method === "POST") {
     let environmentType;
     try {
       const requestBody = nextRequest.body || {};
-      const isReCaptchaSetup = checkReCaptchaSetup();
-      if (isReCaptchaSetup) {
+      const requiresReCaptachValidation = checkReCaptchaSetup() && checkRequiresReCaptcha(nextRequest.get?.("X-Api-Key") || "");
+      if (requiresReCaptachValidation) {
         const { reCaptchaToken } = requestBody;
         const isVerified = await verifyRecaptchaToken(reCaptchaToken);
         if (!isVerified) throw new CaptchaVerificationError();

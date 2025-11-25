@@ -131,7 +131,7 @@ const InstanceDetailsPage = ({
   const tabs = useMemo(
     () =>
       getTabs(
-        true, // resourceInstanceData?.isMetricsEnabled,
+        offering.productTierName !== "FalkorDB Free", // resourceInstanceData?.isMetricsEnabled,
         false,
         resourceInstanceData?.active,
         isResourceBYOA,
@@ -196,6 +196,7 @@ const InstanceDetailsPage = ({
   };
 
   let cloudProvider = resourceInstanceData?.cloudProvider;
+  const customNetworkExists = resourceInstanceData?.customNetworkDetails?.id ? true : false;
 
   // The api doesn't return cloud provider field in the root object for a Cloud Provider Account instance
   // Get the cloud provider data from result parameters in this case
@@ -426,6 +427,7 @@ const InstanceDetailsPage = ({
           cloudProvider={cloudProvider}
           tab={"backups"}
           setCurrentTab={setCurrentTab}
+          customNetworkExists={customNetworkExists}
         />
       )}
       {currentTab === tabs.snapshots && (
@@ -444,6 +446,7 @@ const InstanceDetailsPage = ({
           cloudProvider={cloudProvider}
           tab="snapshots"
           setCurrentTab={setCurrentTab}
+          customNetworkExists={customNetworkExists}
         />
       )}
       {currentTab === tabs.customDNS && (

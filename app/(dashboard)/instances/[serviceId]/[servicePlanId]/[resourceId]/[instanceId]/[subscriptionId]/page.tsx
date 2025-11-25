@@ -131,7 +131,7 @@ const InstanceDetailsPage = ({
   const tabs = useMemo(
     () =>
       getTabs(
-        true, // resourceInstanceData?.isMetricsEnabled,
+        offering.productTierName !== "FalkorDB Free", // resourceInstanceData?.isMetricsEnabled,
         false,
         resourceInstanceData?.active,
         isResourceBYOA,

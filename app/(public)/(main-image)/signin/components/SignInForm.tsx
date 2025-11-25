@@ -111,7 +111,9 @@ const SignInForm: FC<SignInFormProps> = ({
       window['Reo']?.identify?.call(identity);
 
       /*eslint-disable-next-line no-use-before-define*/
-      formik.resetForm();
+      formik.setFieldValue("password", "");
+      /*eslint-disable-next-line no-use-before-define*/
+      formik.setFieldTouched("password", false);
 
       //@ts-ignore
       const jwtToken = response?.data?.jwtToken;

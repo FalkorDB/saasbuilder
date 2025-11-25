@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { Stack } from "@mui/material";
 import { UseMutationResult } from "@tanstack/react-query";
 
@@ -11,6 +11,9 @@ import RefreshWithToolTip from "src/components/RefreshWithTooltip/RefreshWithToo
 import { CLOUD_PROVIDERS } from "src/constants/cloudProviders";
 import { SetState } from "src/types/common/reactGenerics";
 
+import { SnapshotCreationType } from "../Backup";
+import { SnapshotBase } from "../hooks/useBackup";
+
 type BackupsTableHeaderProps = {
   resourceName: string;
   count: number;
@@ -21,11 +24,12 @@ type BackupsTableHeaderProps = {
   isRefetching: boolean;
   selectedDateRange: DateRange;
   setSelectedDateRange: SetState<DateRange>;
-  handleOpenCopySnapshotModal: () => void;
+  handleOpenCopySnapshotModal: (creationType: SnapshotCreationType) => void;
   cloudProvider: string | undefined;
   copySnapshotMutation: UseMutationResult<void, Error, { targetRegion: string }, unknown>;
-  selectedSnapshotId: string | undefined;
+  selectedSnapshot: SnapshotBase | null;
   tab: "backups" | "snapshots";
+  handleRestoreInstanceClick?: () => void;
 };
 
 const BackupsTableHeader: FC<BackupsTableHeaderProps> = ({
@@ -41,9 +45,49 @@ const BackupsTableHeader: FC<BackupsTableHeaderProps> = ({
   handleOpenCopySnapshotModal,
   cloudProvider,
   copySnapshotMutation,
-  selectedSnapshotId,
+  selectedSnapshot,
   tab,
+  handleRestoreInstanceClick,
 }) => {
+  const copySnapshotDisabledMessage = useMemo(() => {
+    if (copySnapshotMutation.isPending) {
+      return "Creating snapshot...";
+    }
+    if (cloudProvider !== CLOUD_PROVIDERS.gcp) {
+      return "Snapshot creation is restricted to GCP deployments";
+    }
+    if (!selectedSnapshot) {
+      return `Select a ${tab === "snapshots" ? "snapshot" : "backup"} to create ${tab === "snapshots" ? "another snapshot" : "a snapshot"} from it`;
+    }
+    if (selectedSnapshot?.status !== "COMPLETE") {
+      return `Selected ${tab === "snapshots" ? "snapshot" : "backup"} must be 'Complete' to create a new snapshot from it`;
+    }
+    return "";
+  }, [cloudProvider, copySnapshotMutation.isPending, selectedSnapshot, tab]);
+
+  // const createSnapshotDisabledMessage = useMemo(() => {
+  //   if (copySnapshotMutation.isPending) {
+  //     return "Creating snapshot...";
+  //   }
+  //   if (cloudProvider !== CLOUD_PROVIDERS.gcp) {
+  //     return "Snapshot creation is restricted to GCP deployments";
+  //   }
+  //   return "";
+  // }, [cloudProvider, copySnapshotMutation.isPending]);
+
+  const restoreDisabledMessage = useMemo(() => {
+    if (restoreMutation.isPending) {
+      return `Restoring ${tab === "snapshots" ? "snapshot" : "backup"}...`;
+    }
+    if (!selectedSnapshot) {
+      return `Please select a ${tab === "snapshots" ? "snapshot" : "backup"} to restore`;
+    }
+    if (selectedSnapshot?.status !== "COMPLETE") {
+      return `Selected ${tab === "snapshots" ? "snapshot" : "backup"} must be 'Complete' to restore from it`;
+    }
+    return "";
+  }, [restoreMutation.isPending, selectedSnapshot, tab]);
+
   return (
     <>
       <Stack
@@ -57,8 +101,8 @@ const BackupsTableHeader: FC<BackupsTableHeaderProps> = ({
           title={`List of  ${tab === "snapshots" ? "snapshots" : "completed backups"} ${resourceName ? `for ${resourceName}` : ""}`}
           desc={
             tab === "snapshots"
-              ? "Snapshots are region-specific copies created from backups. Restore a snapshot to create a new instance in the snapshot’s region."
-              : "View completed backups for this instance. Select a backup to Restore or Copy it to another region"
+              ? "View, restore, copy, or create snapshots for this instance"
+              : "View completed backups for this instance. Select a backup to restore or create a snapshot."
           }
           count={count}
           units={{
@@ -81,45 +125,49 @@ const BackupsTableHeader: FC<BackupsTableHeaderProps> = ({
               height: "40px !important",
               padding: "10px 14px !important",
             }}
-            disabled={isRefetching || restoreMutation.isPending || !selectedSnapshotId}
-            disabledMessage={
-              restoreMutation.isPending
-                ? `Restoring ${tab === "snapshots" ? "snapshot" : "backup"}...`
-                : `Please select a ${tab === "snapshots" ? "snapshot" : "backup"} to restore`
+            disabled={
+              isRefetching || restoreMutation.isPending || !selectedSnapshot || selectedSnapshot?.status !== "COMPLETE"
             }
-            onClick={() => {
-              restoreMutation.mutate();
-            }}
+            disabledMessage={restoreDisabledMessage}
+            onClick={handleRestoreInstanceClick}
           >
             Restore
             {restoreMutation.isPending && <LoadingSpinnerSmall sx={{ color: "#7F56D9", marginLeft: "12px" }} />}
           </Button>
 
-          {tab === "backups" && (
+          <Button
+            variant="outlined"
+            sx={{
+              height: "40px !important",
+              padding: "10px 14px !important",
+            }}
+            onClick={() => handleOpenCopySnapshotModal("copyFromExisting")}
+            disabled={
+              isRefetching ||
+              copySnapshotMutation.isPending ||
+              cloudProvider !== CLOUD_PROVIDERS.gcp ||
+              !selectedSnapshot ||
+              selectedSnapshot?.status !== "COMPLETE"
+            }
+            disabledMessage={copySnapshotDisabledMessage}
+          >
+            {tab === "backups" ? "Create Snapshot" : "Copy Snapshot"}
+          </Button>
+
+          {/* {tab === "snapshots" && (
             <Button
               variant="outlined"
               sx={{
                 height: "40px !important",
                 padding: "10px 14px !important",
               }}
-              onClick={handleOpenCopySnapshotModal}
-              disabled={
-                isRefetching ||
-                copySnapshotMutation.isPending ||
-                cloudProvider !== CLOUD_PROVIDERS.gcp ||
-                !selectedSnapshotId
-              }
-              disabledMessage={
-                copySnapshotMutation.isPending
-                  ? "Creating snapshot..."
-                  : cloudProvider !== CLOUD_PROVIDERS.gcp
-                    ? "Only supported for GCP cloud"
-                    : "Please select a backup to copy"
-              }
+              onClick={() => handleOpenCopySnapshotModal("createNew")}
+              disabled={isRefetching || copySnapshotMutation.isPending || cloudProvider !== CLOUD_PROVIDERS.gcp}
+              disabledMessage={createSnapshotDisabledMessage}
             >
-              Copy snapshot
+              Create Snapshot
             </Button>
-          )}
+          )} */}
         </Stack>
       </Stack>
     </>

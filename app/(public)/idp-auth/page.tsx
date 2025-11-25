@@ -100,6 +100,7 @@ const IDPAuthPage = () => {
           const identityProvider = localAuthState.identityProvider;
           const invitationInfo = localAuthState.invitationInfo || {};
           const destination = localAuthState.destination;
+          const affiliateCode = localAuthState.affiliateCode;
 
           const payload = {
             authorizationCode: code,
@@ -108,6 +109,10 @@ const IDPAuthPage = () => {
             state: state,
             ...invitationInfo,
           };
+
+          if (affiliateCode) {
+            payload["attributes"] = { affiliateCode };
+          }
           if (isAPICallInprogress.current !== true) {
             handleSignIn(payload, destination);
           }

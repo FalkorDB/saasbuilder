@@ -213,7 +213,9 @@ const InstanceForm = ({
             (key === "nodeInstanceType" &&
               data.cloudProvider === "aws" &&
               !data.requestParams["nodeInstanceType"].includes(".")) ||
-            (data.cloudProvider === "gcp" && !data.requestParams["nodeInstanceType"].includes("-"))
+            (data.cloudProvider === "gcp" &&
+              data.requestParams?.["nodeInstanceType"] &&
+              !data.requestParams?.["nodeInstanceType"]?.includes("-"))
           ) {
             snackbar.showError(`Invalid Node Instance Type`);
             isTypeError = true;
@@ -607,7 +609,7 @@ const InstanceForm = ({
         if (formData.values.cloudProvider === "aws") {
           acc[param.key] = "m6i.large";
         } else if (formData.values.cloudProvider === "gcp") {
-          acc[param.key] = "e2-standard-2"
+          acc[param.key] = "e2-standard-2";
         }
       }
       return acc;

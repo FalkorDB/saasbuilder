@@ -213,6 +213,9 @@ const InstanceDetailsPage = ({
 
   const url = window.location.href;
 
+  console.log("resourceInstanceData:", resourceInstanceData);
+  console.log("unprocessedData:", resourceInstanceData?.unprocessedData);
+
   return (
     <PageContainer>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -299,6 +302,7 @@ const InstanceDetailsPage = ({
             setIsOverlayOpen={setIsOverlayOpen}
             refetchData={refetchInstance}
           />
+        
         </Stack>
       </Stack>
       {currentTab === tabs.resourceInstanceDetails && (

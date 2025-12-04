@@ -5,6 +5,7 @@ import { Base64 } from "js-base64";
 
 import InstanceLicenseStatusChip from "src/components/InstanceLicenseStatusChip/InstanceLicenseStatusChip";
 import { INTEGRATION_TYPE_LABEL_MAP } from "src/constants/productTierFeatures";
+import { extractAppVersion } from "src/utils/extractAppVersion";
 import formatDateLocal from "src/utils/formatDateLocal";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 
@@ -40,11 +41,6 @@ function ResourceInstanceDetails(props) {
   } = props;
 
   const isResourceBYOA = resultParameters.gcp_project_id || resultParameters.aws_account_id;
-
-  // Show Version If The Service Offering Allows Upgrades
-  const showVersion = serviceOffering?.productTierFeatures?.some(
-    (feature) => feature.feature === "VERSION_SET_OVERRIDE" && feature.scope === "CUSTOMER"
-  );
 
   const resultParametersWithDescription = useMemo(() => {
     const result = Object.keys(resultParameters)
@@ -131,13 +127,13 @@ function ResourceInstanceDetails(props) {
       );
     }
 
-    if (showVersion) {
-      res.push({
-        dataTestId: "version",
-        label: "Plan Version",
-        value: tierVersion || "-",
-      });
-    }
+    // Always show App Version (extracted from tierVersion)
+    res.push({
+      dataTestId: "app-version",
+      label: "App Version",
+      value: extractAppVersion(tierVersion),
+    });
+
     res.push({
       dataTestId: "custom-tags",
       label: "Tags",
@@ -150,13 +146,11 @@ function ResourceInstanceDetails(props) {
     createdAt,
     modifiedAt,
     autoscalingEnabled,
-    subscriptionId,
-    resultParameters,
     highAvailability,
     backupStatus,
     isCliManagedResource,
     tierVersion,
-    showVersion,
+    customTags,
   ]);
 
   const licenseData = useMemo(() => {

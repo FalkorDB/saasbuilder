@@ -7,6 +7,7 @@ import useSnackbar from "src/hooks/useSnackbar";
 import { ResourceInstance } from "src/types/resourceInstance";
 import { ServiceOffering } from "src/types/serviceOffering";
 import { Subscription } from "src/types/subscription";
+import { extractAppVersion } from "src/utils/extractAppVersion";
 
 import LoadingSpinnerSmall from "../CircularProgress/CircularProgress";
 import ConfirmationDialog from "../Dialog/ConfirmationDialog";
@@ -91,20 +92,32 @@ const UpgradeDialog: React.FC<UpgradeDialogProps> = ({
       );
     }
 
+    const currentAppVersion = extractAppVersion(instance?.tierVersion);
+    const targetAppVersion = extractAppVersion(selectedVersion);
+
     return (
       <>
         <Text size="small" weight="medium" color="#414651" sx={{ mb: "20px" }}>
           Do you want to upgrade the version?
         </Text>
 
-        <Stack direction="row" gap="24px" alignItems="center">
+        <Stack direction="row" gap="24px" alignItems="center" sx={{ mb: "16px" }}>
           <Box flex="1">
-            <FieldLabel>Version from</FieldLabel>
-            <TextField disabled value={instance?.tierVersion || "1.0"} />
+            <FieldLabel>Current App Version</FieldLabel>
+            <TextField disabled value={currentAppVersion} />
           </Box>
 
+          {selectedVersion && targetAppVersion !== "unknown" && (
+            <Box flex="1">
+              <FieldLabel>Target App Version</FieldLabel>
+              <TextField disabled value={targetAppVersion} />
+            </Box>
+          )}
+        </Stack>
+
+        <Stack direction="row" gap="24px" alignItems="center">
           <Box flex="1">
-            <FieldLabel required>Version to</FieldLabel>
+            <FieldLabel required>Select Version</FieldLabel>
             <Select value={selectedVersion} onChange={(e) => setSelectedVersion(e.target.value)}>
               {versionMenuItems?.length > 0 ? (
                 versionMenuItems.map((option) => {

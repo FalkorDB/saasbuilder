@@ -127,266 +127,274 @@ const InstanceForm = ({
     validateOnBlur: true,
     validateOnChange: true,
     onSubmit: async (values) => {
-      const offering = serviceOfferingsObj[values.serviceId]?.[values.servicePlanId];
+      try {
+        const offering = serviceOfferingsObj[values.serviceId]?.[values.servicePlanId];
 
-      // Determine if we should use version set resources or service offering resources
-      // Check for VERSION_SET_OVERRIDE feature with CUSTOMER scope in productTierFeatures
-      const allowCustomerVersionOverride =
-        offering?.productTierFeatures?.some(
-          (feature) => feature.feature === "VERSION_SET_OVERRIDE" && feature.scope === "CUSTOMER"
-        ) || false;
+        // Determine if we should use version set resources or service offering resources
+        // Check for VERSION_SET_OVERRIDE feature with CUSTOMER scope in productTierFeatures
+        const allowCustomerVersionOverride =
+          offering?.productTierFeatures?.some(
+            (feature) => feature.feature === "VERSION_SET_OVERRIDE" && feature.scope === "CUSTOMER"
+          ) || false;
 
-      let resourceKey = "";
+        let resourceKey = "";
 
-      if (allowCustomerVersionOverride && values.productTierVersion) {
-        // Get resource from the selected version set
-        const selectedVersionSet = customerVersionSets.find(
-          (versionSet) => versionSet.version === values.productTierVersion
-        );
-        const selectedVersionSetResource = selectedVersionSet?.resources?.find(
-          (resource) => resource.id === values.resourceId
-        );
-        // For version set resources, use the resource id as the key
-        resourceKey = selectedVersionSetResource?.urlKey || "";
-      } else {
-        // Get resource from service offering
-        const selectedOfferingResource = offering?.resourceParameters.find(
-          (resource) => resource.resourceId === values.resourceId
-        );
-        // For service offering resources, use the urlKey
-        resourceKey = selectedOfferingResource?.urlKey || "";
-      }
+        if (allowCustomerVersionOverride && values.productTierVersion) {
+          // Get resource from the selected version set
+          const selectedVersionSet = customerVersionSets.find(
+            (versionSet) => versionSet.version === values.productTierVersion
+          );
+          const selectedVersionSetResource = selectedVersionSet?.resources?.find(
+            (resource) => resource.id === values.resourceId
+          );
+          // For version set resources, use the resource id as the key
+          resourceKey = selectedVersionSetResource?.urlKey || "";
+        } else {
+          // Get resource from service offering
+          const selectedOfferingResource = offering?.resourceParameters.find(
+            (resource) => resource.resourceId === values.resourceId
+          );
+          // For service offering resources, use the urlKey
+          resourceKey = selectedOfferingResource?.urlKey || "";
+        }
 
-      const data: any = {
-        ...cloneDeep(values),
-      };
+        const data: any = {
+          ...cloneDeep(values),
+        };
 
-      // Remove productTierVersion if allowCustomerVersionOverride is false or if we're not creating
-      if (!allowCustomerVersionOverride || formMode !== "create") {
-        delete data.productTierVersion;
-      }
+        // Remove productTierVersion if allowCustomerVersionOverride is false or if we're not creating
+        if (!allowCustomerVersionOverride || formMode !== "create") {
+          delete data.productTierVersion;
+        }
 
-      const createSchema =
-        // eslint-disable-next-line no-use-before-define
-        resourceSchemaData?.apis?.find((api) => api.verb === "CREATE")?.inputParameters || [];
+        const createSchema =
+          // eslint-disable-next-line no-use-before-define
+          resourceSchemaData?.apis?.find((api) => api.verb === "CREATE")?.inputParameters || [];
 
-      const updateSchema =
-        // eslint-disable-next-line no-use-before-define
-        resourceSchemaData?.apis?.find((api) => api.verb === "UPDATE")?.inputParameters || [];
+        const updateSchema =
+          // eslint-disable-next-line no-use-before-define
+          resourceSchemaData?.apis?.find((api) => api.verb === "UPDATE")?.inputParameters || [];
 
-      const schema = formMode === "create" ? createSchema : updateSchema;
-      const filterSchema = filterSchemaByCloudProvider(schema, data.cloudProvider);
-      const inputParametersObj = filterSchema.reduce((acc: any, param: any) => {
-        acc[param.key] = param;
-        return acc;
-      }, {});
+        const schema = formMode === "create" ? createSchema : updateSchema;
+        const filterSchema = filterSchemaByCloudProvider(schema, data.cloudProvider);
+        const inputParametersObj = filterSchema.reduce((acc: any, param: any) => {
+          acc[param.key] = param;
+          return acc;
+        }, {});
 
-      if (formMode === "create") {
-        let isTypeError = false;
-        Object.keys(data.requestParams).forEach((key) => {
-          const result = filterSchema.find((schemaParam) => {
-            return schemaParam.key === key;
+        if (formMode === "create") {
+          let isTypeError = false;
+          Object.keys(data.requestParams).forEach((key) => {
+            const result = filterSchema.find((schemaParam) => {
+              return schemaParam.key === key;
+            });
+
+            switch (result?.type?.toLowerCase()) {
+              case "number":
+                if (data.requestParams[key] === "") break;
+                data.requestParams[key] = Number(data.requestParams[key]);
+                break;
+              case "float64":
+                if (data.requestParams[key] === "") break;
+                const output = Number(data.requestParams[key]);
+                if (!Number.isNaN(output)) {
+                  data.requestParams[key] = Number(data.requestParams[key]);
+                } else {
+                  snackbar.showError(`Invalid data in ${key}`);
+                  isTypeError = true;
+                }
+                break;
+              case "boolean":
+                if (data.requestParams[key] === "true") data.requestParams[key] = true;
+                else data.requestParams[key] = false;
+                break;
+            }
+
+            if (
+              (key === "nodeInstanceType" &&
+                data.cloudProvider === "aws" &&
+                !data.requestParams["nodeInstanceType"].includes(".")) ||
+              (data.cloudProvider === "gcp" &&
+                data.requestParams?.["nodeInstanceType"] &&
+                !data.requestParams?.["nodeInstanceType"]?.includes("-"))
+            ) {
+              snackbar.showError(`Invalid Node Instance Type`);
+              isTypeError = true;
+            }
           });
 
-          switch (result?.type?.toLowerCase()) {
-            case "number":
-              if (data.requestParams[key] === "") break;
-              data.requestParams[key] = Number(data.requestParams[key]);
-              break;
-            case "float64":
-              if (data.requestParams[key] === "") break;
-              const output = Number(data.requestParams[key]);
-              if (!Number.isNaN(output)) {
-                data.requestParams[key] = Number(data.requestParams[key]);
-              } else {
-                snackbar.showError(`Invalid data in ${key}`);
-                isTypeError = true;
-              }
-              break;
-            case "boolean":
-              if (data.requestParams[key] === "true") data.requestParams[key] = true;
-              else data.requestParams[key] = false;
-              break;
+          if (isTypeError) {
+            return;
+          }
+
+          for (const key in data.requestParams) {
+            const value = data.requestParams[key];
+
+            if (value === undefined || (typeof value === "string" && !value.trim())) {
+              delete data.requestParams[key];
+            }
+          }
+
+          // Remove cloud_provider_native_network_id if cloudProvider is gcp or azure
+          if (data.cloudProvider === "gcp" || data.cloudProvider === "azure") {
+            delete data.requestParams.cloud_provider_native_network_id;
+          }
+
+          // Check for Required Fields
+          const requiredFields = filterSchema
+            .filter((field) => !["cloud_provider", "region"].includes(field.key))
+            .filter((schemaParam) => schemaParam.required);
+
+          data.cloud_provider = data.cloudProvider;
+          data.custom_network_id = data.requestParams.custom_network_id;
+
+          const networkTypeFieldExists =
+            inputParametersObj["cloud_provider"] &&
+            offering?.productTierType !== productTierTypes.OMNISTRATE_MULTI_TENANCY &&
+            offering?.supportsPublicNetwork;
+
+          if (!data.network_type) {
+            delete data.network_type;
+          }
+
+          if (!data.cloudProvider && inputParametersObj["cloud_provider"]) {
+            return snackbar.showError("Cloud Provider is required");
+          } else if (!data.region && inputParametersObj["region"]) {
+            return snackbar.showError("Region is required");
+          } else if (!data.network_type && networkTypeFieldExists) {
+            return snackbar.showError("Network Type is required");
+          }
+
+          if (inputParametersObj["custom_dns_configuration"] && data.requestParams["custom_dns_configuration"]) {
+            data.requestParams.custom_dns_configuration = {
+              [resourceKey]: data.requestParams.custom_dns_configuration,
+            };
+          }
+
+          for (const field of requiredFields) {
+            if (data.requestParams[field.key] === undefined) {
+              snackbar.showError(`${field.displayName || field.key} is required`);
+              return;
+            }
+          }
+
+          if (!isTypeError) {
+            createInstanceMutation.mutate({
+              params: {
+                path: {
+                  serviceProviderId: offering?.serviceProviderId,
+                  serviceKey: offering?.serviceURLKey,
+                  serviceAPIVersion: offering?.serviceAPIVersion,
+                  serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
+                  serviceModelKey: offering?.serviceModelURLKey,
+                  productTierKey: offering?.productTierURLKey,
+                  resourceKey: resourceKey,
+                },
+                query: {
+                  subscriptionId: values.subscriptionId,
+                },
+              },
+
+              body: data,
+            });
+          }
+        } else {
+          // Only send the fields that have changed
+          const requestParams = {},
+            oldResultParams = selectedInstance?.result_params;
+
+          for (const key in data.requestParams) {
+            const value = data.requestParams[key];
+            if (oldResultParams[key] !== value) {
+              requestParams[key] = value;
+            }
+          }
+
+          data.requestParams = requestParams;
+          delete data.requestParams.network_type;
+          delete data.requestParams.custom_network_id;
+          delete data.requestParams.custom_availability_zone;
+
+          // Include customTags if they have changed
+          const oldCustomTags = selectedInstance?.customTags || [];
+          const newCustomTags = data.customTags || [];
+
+          let hasCustomTagsChanged = false;
+          if (!_.isEqual(oldCustomTags, newCustomTags)) {
+            data.customTags = newCustomTags.filter((tag) => tag.key && tag.value);
+            hasCustomTagsChanged = true;
           }
 
           if (
-            (key === "nodeInstanceType" &&
-              data.cloudProvider === "aws" &&
-              !data.requestParams["nodeInstanceType"].includes(".")) ||
-            (data.cloudProvider === "gcp" && !data.requestParams["nodeInstanceType"].includes("-"))
+            !Object.keys(requestParams).length &&
+            data.network_type === selectedInstance?.network_type &&
+            !hasCustomTagsChanged
           ) {
-            snackbar.showError(`Invalid Node Instance Type`);
-            isTypeError = true;
+            return snackbar.showError("Please update at least one field before submitting");
           }
-        });
 
-        if (isTypeError) {
-          return;
-        }
+          let isTypeError = false;
+          Object.keys(data.requestParams).forEach((key) => {
+            const result = schema.find((schemaParam) => {
+              return schemaParam.key === key;
+            });
 
-        for (const key in data.requestParams) {
-          const value = data.requestParams[key];
-
-          if (value === undefined || (typeof value === "string" && !value.trim())) {
-            delete data.requestParams[key];
-          }
-        }
-
-        // Remove cloud_provider_native_network_id if cloudProvider is gcp or azure
-        if (data.cloudProvider === "gcp" || data.cloudProvider === "azure") {
-          delete data.requestParams.cloud_provider_native_network_id;
-        }
-
-        // Check for Required Fields
-        const requiredFields = filterSchema
-          .filter((field) => !["cloud_provider", "region"].includes(field.key))
-          .filter((schemaParam) => schemaParam.required);
-
-        data.cloud_provider = data.cloudProvider;
-        data.custom_network_id = data.requestParams.custom_network_id;
-
-        const networkTypeFieldExists =
-          inputParametersObj["cloud_provider"] &&
-          offering?.productTierType !== productTierTypes.OMNISTRATE_MULTI_TENANCY &&
-          offering?.supportsPublicNetwork;
-
-        if (!data.network_type) {
-          delete data.network_type;
-        }
-
-        if (!data.cloudProvider && inputParametersObj["cloud_provider"]) {
-          return snackbar.showError("Cloud Provider is required");
-        } else if (!data.region && inputParametersObj["region"]) {
-          return snackbar.showError("Region is required");
-        } else if (!data.network_type && networkTypeFieldExists) {
-          return snackbar.showError("Network Type is required");
-        }
-
-        if (inputParametersObj["custom_dns_configuration"] && data.requestParams["custom_dns_configuration"]) {
-          data.requestParams.custom_dns_configuration = {
-            [resourceKey]: data.requestParams.custom_dns_configuration,
-          };
-        }
-
-        for (const field of requiredFields) {
-          if (data.requestParams[field.key] === undefined) {
-            snackbar.showError(`${field.displayName || field.key} is required`);
-            return;
-          }
-        }
-
-        if (!isTypeError) {
-          createInstanceMutation.mutate({
-            params: {
-              path: {
-                serviceProviderId: offering?.serviceProviderId,
-                serviceKey: offering?.serviceURLKey,
-                serviceAPIVersion: offering?.serviceAPIVersion,
-                serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
-                serviceModelKey: offering?.serviceModelURLKey,
-                productTierKey: offering?.productTierURLKey,
-                resourceKey: resourceKey,
-              },
-              query: {
-                subscriptionId: values.subscriptionId,
-              },
-            },
-
-            body: data,
-          });
-        }
-      } else {
-        // Only send the fields that have changed
-        const requestParams = {},
-          oldResultParams = selectedInstance?.result_params;
-
-        for (const key in data.requestParams) {
-          const value = data.requestParams[key];
-          if (oldResultParams[key] !== value) {
-            requestParams[key] = value;
-          }
-        }
-
-        data.requestParams = requestParams;
-        delete data.requestParams.network_type;
-        delete data.requestParams.custom_network_id;
-        delete data.requestParams.custom_availability_zone;
-
-        // Include customTags if they have changed
-        const oldCustomTags = selectedInstance?.customTags || [];
-        const newCustomTags = data.customTags || [];
-
-        let hasCustomTagsChanged = false;
-        if (!_.isEqual(oldCustomTags, newCustomTags)) {
-          data.customTags = newCustomTags.filter((tag) => tag.key && tag.value);
-          hasCustomTagsChanged = true;
-        }
-
-        if (
-          !Object.keys(requestParams).length &&
-          data.network_type === selectedInstance?.network_type &&
-          !hasCustomTagsChanged
-        ) {
-          return snackbar.showError("Please update at least one field before submitting");
-        }
-
-        let isTypeError = false;
-        Object.keys(data.requestParams).forEach((key) => {
-          const result = schema.find((schemaParam) => {
-            return schemaParam.key === key;
-          });
-
-          switch (result?.type?.toLowerCase()) {
-            case "number":
-              if (data.requestParams[key] === "") break;
-              data.requestParams[key] = Number(data.requestParams[key]);
-              break;
-            case "float64":
-              if (data.requestParams[key] === "") break;
-              const output = Number(data.requestParams[key]);
-              if (!Number.isNaN(output)) {
+            switch (result?.type?.toLowerCase()) {
+              case "number":
+                if (data.requestParams[key] === "") break;
                 data.requestParams[key] = Number(data.requestParams[key]);
-              } else {
-                snackbar.showError(`Invalid data in ${key}`);
-                isTypeError = true;
-              }
-              break;
-            case "boolean":
-              if (data.requestParams[key] === "true") data.requestParams[key] = true;
-              else data.requestParams[key] = false;
-              break;
-          }
-        });
-
-        // Remove Empty Fields from data.requestParams
-        for (const key in data.requestParams) {
-          const value = data.requestParams[key];
-
-          if (value === undefined || (typeof value === "string" && !value.trim())) {
-            delete data.requestParams[key];
-          }
-        }
-
-        if (!isTypeError) {
-          updateInstanceMutation.mutate({
-            params: {
-              path: {
-                serviceProviderId: offering?.serviceProviderId,
-                serviceKey: offering?.serviceURLKey,
-                serviceAPIVersion: offering?.serviceAPIVersion,
-                serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
-                serviceModelKey: offering?.serviceModelURLKey,
-                productTierKey: offering?.productTierURLKey,
-                resourceKey: resourceKey,
-                id: selectedInstance?.id,
-              },
-              query: {
-                subscriptionId: values.subscriptionId,
-              },
-            },
-            body: data,
+                break;
+              case "float64":
+                if (data.requestParams[key] === "") break;
+                const output = Number(data.requestParams[key]);
+                if (!Number.isNaN(output)) {
+                  data.requestParams[key] = Number(data.requestParams[key]);
+                } else {
+                  snackbar.showError(`Invalid data in ${key}`);
+                  isTypeError = true;
+                }
+                break;
+              case "boolean":
+                if (data.requestParams[key] === "true") data.requestParams[key] = true;
+                else data.requestParams[key] = false;
+                break;
+            }
           });
+
+          // Remove Empty Fields from data.requestParams
+          for (const key in data.requestParams) {
+            const value = data.requestParams[key];
+
+            if (value === undefined || (typeof value === "string" && !value.trim())) {
+              delete data.requestParams[key];
+            }
+          }
+
+          if (!isTypeError) {
+            updateInstanceMutation.mutate({
+              params: {
+                path: {
+                  serviceProviderId: offering?.serviceProviderId,
+                  serviceKey: offering?.serviceURLKey,
+                  serviceAPIVersion: offering?.serviceAPIVersion,
+                  serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
+                  serviceModelKey: offering?.serviceModelURLKey,
+                  productTierKey: offering?.productTierURLKey,
+                  resourceKey: resourceKey,
+                  id: selectedInstance?.id,
+                },
+                query: {
+                  subscriptionId: values.subscriptionId,
+                },
+              },
+              body: data,
+            });
+          }
         }
+      } catch (error) {
+        console.error("Error submitting form:", error);
+        snackbar.showError("An error occurred while submitting the form.");
+        return;
       }
     },
   });
@@ -607,7 +615,7 @@ const InstanceForm = ({
         if (formData.values.cloudProvider === "aws") {
           acc[param.key] = "m6i.large";
         } else if (formData.values.cloudProvider === "gcp") {
-          acc[param.key] = "e2-standard-2"
+          acc[param.key] = "e2-standard-2";
         }
       }
       return acc;

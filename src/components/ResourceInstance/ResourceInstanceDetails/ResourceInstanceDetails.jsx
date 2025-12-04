@@ -7,7 +7,7 @@ import InstanceLicenseStatusChip from "src/components/InstanceLicenseStatusChip/
 import { INTEGRATION_TYPE_LABEL_MAP } from "src/constants/productTierFeatures";
 import formatDateLocal from "src/utils/formatDateLocal";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
-
+import { extractAppVersion } from "src/utils/extractAppVersion";
 import NonOmnistrateIntegrationRow from "./NonOmnistrateIntegrationRow";
 import PropertyDetails from "./PropertyDetails";
 import TerraformDownloadURL from "./TerraformDownloadURL";
@@ -36,6 +36,7 @@ function ResourceInstanceDetails(props) {
     maintenanceTasks,
     licenseDetails,
     tierVersion,
+    versionDetails,
     customTags,
   } = props;
 
@@ -144,6 +145,11 @@ function ResourceInstanceDetails(props) {
       valueType: "custom",
       value: <CustomTagsCell customTags={customTags} displayNumber={2} sx={{ marginTop: "8px", flexWrap: "wrap" }} />,
     });
+    res.push({
+      dataTestId: "version-details",
+      label: "App Version",
+      value: extractAppVersion(versionDetails?.name) || "-",
+    });
     return res;
   }, [
     resourceInstanceId,
@@ -156,6 +162,7 @@ function ResourceInstanceDetails(props) {
     backupStatus,
     isCliManagedResource,
     tierVersion,
+    versionDetails,
     showVersion,
   ]);
 

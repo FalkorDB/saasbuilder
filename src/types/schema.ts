@@ -17222,6 +17222,7 @@ export interface components {
          *       "tierVersion": "1.0"
          *     } */
         DescribeResourceInstanceResult: {
+            productTierVersionDetail: any;
             /**
              * @description True if this resource instance has associated infrastructure deployed
              * @example true

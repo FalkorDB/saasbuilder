@@ -41,7 +41,6 @@ import { DisplayText } from "components/Typography/Typography";
 import { checkCustomDNSEndpoint, getTabs } from "./utils";
 import { connectToInstance } from "src/api/resourceInstance";
 import ConnectIcon from "src/components/Icons/Connect/Connect";
-import { any } from "prop-types";
 
 export type CurrentTab =
   | "Instance Details"

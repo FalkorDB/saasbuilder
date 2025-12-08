@@ -134,17 +134,23 @@ function ResourceInstanceDetails(props) {
 
     const versions = extractAppVersion(versionDetails?.name);
 
-    res.push({
-      dataTestId: "version",
-      label: "Cloud Version",
-      value: versions.cloudVersion || "-",
-    });
+    // Only show Cloud Version if it's not unknown
+    if (versions.cloudVersion !== "unknown") {
+      res.push({
+        dataTestId: "version",
+        label: "Cloud Version",
+        value: versions.cloudVersion,
+      });
+    }
 
-    res.push({
-      dataTestId: "version-details",
-      label: "FalkorDB Version",
-      value: versions.falkordbVersion || "-",
-    });
+    // Only show FalkorDB Version if it's not unknown
+    if (versions.falkordbVersion !== "unknown") {
+      res.push({
+        dataTestId: "version-details",
+        label: "FalkorDB Version",
+        value: versions.falkordbVersion,
+      });
+    }
 
     res.push({
       dataTestId: "custom-tags",

@@ -132,13 +132,11 @@ function ResourceInstanceDetails(props) {
       );
     }
 
-    if (showVersion) {
-      res.push({
-        dataTestId: "version",
-        label: "Plan Version",
-        value: tierVersion || "-",
-      });
-    }
+    res.push({
+      dataTestId: "version",
+      label: "Cloud Version",
+      value: tierVersion || "-",
+    });
     res.push({
       dataTestId: "custom-tags",
       label: "Tags",
@@ -147,7 +145,7 @@ function ResourceInstanceDetails(props) {
     });
     res.push({
       dataTestId: "version-details",
-      label: "App Version",
+      label: "FalkorDB Version",
       value: extractAppVersion(versionDetails?.name) || "-",
     });
     return res;

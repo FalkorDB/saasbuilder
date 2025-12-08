@@ -132,22 +132,27 @@ function ResourceInstanceDetails(props) {
       );
     }
 
+    const versions = extractAppVersion(versionDetails?.name);
+
     res.push({
       dataTestId: "version",
       label: "Cloud Version",
-      value: tierVersion || "-",
+      value: versions.cloudVersion || "-",
     });
+
+    res.push({
+      dataTestId: "version-details",
+      label: "FalkorDB Version",
+      value: versions.falkordbVersion || "-",
+    });
+
     res.push({
       dataTestId: "custom-tags",
       label: "Tags",
       valueType: "custom",
       value: <CustomTagsCell customTags={customTags} displayNumber={2} sx={{ marginTop: "8px", flexWrap: "wrap" }} />,
     });
-    res.push({
-      dataTestId: "version-details",
-      label: "FalkorDB Version",
-      value: extractAppVersion(versionDetails?.name) || "-",
-    });
+
     return res;
   }, [
     resourceInstanceId,

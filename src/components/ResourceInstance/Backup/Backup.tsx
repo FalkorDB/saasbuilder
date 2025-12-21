@@ -26,9 +26,9 @@ import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChi
 import useSnackbar from "src/hooks/useSnackbar";
 import { colors } from "src/themeConfig";
 import { NetworkType } from "src/types/common/enums";
-import formatDateLocal from "src/utils/formatDateLocal";
 import { SetState } from "src/types/common/reactGenerics";
 import { ServiceOffering } from "src/types/serviceOffering";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { roundNumberToTwoDecimals } from "src/utils/formatNumber";
 import RegionIcon from "components/Region/RegionIcon";
 
@@ -81,19 +81,19 @@ const Backup: FC<{
   setCurrentTab,
   customNetworkExists,
 }) => {
-    const snackbar = useSnackbar();
+  const snackbar = useSnackbar();
 
-    const [selectionModel, setSelectionModel] = useState<GridSelectionModel>([]);
-    const [searchText, setSearchText] = useState("");
-    const [restoredInstanceID, setRestoredInstanceID] = useState("");
+  const [selectionModel, setSelectionModel] = useState<GridSelectionModel>([]);
+  const [searchText, setSearchText] = useState("");
+  const [restoredInstanceID, setRestoredInstanceID] = useState("");
 
-    const [copySnapshotModalOpen, setCopySnapshotModalOpen] = useState(false);
-    const [snapshotCreationType, setSnapshotCreationType] = useState<SnapshotCreationType | null>(null);
+  const [copySnapshotModalOpen, setCopySnapshotModalOpen] = useState(false);
+  const [snapshotCreationType, setSnapshotCreationType] = useState<SnapshotCreationType | null>(null);
 
-    const [isRestoreInstanceModalOpen, setIsRestoreInstanceModalOpen] = useState(false);
-    const [restoreInstanceModalStep, setRestoreInstanceModalStep] = useState<
-      "custom-network" | "restore-confirmation" | "success" | null
-    >(null);
+  const [isRestoreInstanceModalOpen, setIsRestoreInstanceModalOpen] = useState(false);
+  const [restoreInstanceModalStep, setRestoreInstanceModalStep] = useState<
+    "custom-network" | "restore-confirmation" | "success" | null
+  >(null);
 
   const [isDeleteSnapshotDialogOpen, setIsDeleteSnapshotDialogOpen] = useState(false);
 
@@ -102,20 +102,20 @@ const Backup: FC<{
     setCopySnapshotModalOpen(true);
   };
 
-    const handleCloseCopySnapshotModal = () => {
-      setCopySnapshotModalOpen(false);
-      setSnapshotCreationType(null);
-    };
+  const handleCloseCopySnapshotModal = () => {
+    setCopySnapshotModalOpen(false);
+    setSnapshotCreationType(null);
+  };
 
-    const handleRestoreInstanceModalOpen = (step: "custom-network" | "restore-confirmation" | "success" | null) => {
-      setRestoreInstanceModalStep(step);
-      setIsRestoreInstanceModalOpen(true);
-    };
+  const handleRestoreInstanceModalOpen = (step: "custom-network" | "restore-confirmation" | "success" | null) => {
+    setRestoreInstanceModalStep(step);
+    setIsRestoreInstanceModalOpen(true);
+  };
 
-    const handleRestoreInstanceModalClose = () => {
-      setIsRestoreInstanceModalOpen(false);
-      setRestoreInstanceModalStep(null);
-    };
+  const handleRestoreInstanceModalClose = () => {
+    setIsRestoreInstanceModalOpen(false);
+    setRestoreInstanceModalStep(null);
+  };
 
   const handleDeleteSnapshotDialogOpen = () => {
     setIsDeleteSnapshotDialogOpen(true);
@@ -132,111 +132,60 @@ const Backup: FC<{
     return false;
   }, [backupStatus?.earliestRestoreTime]);
 
-    const restoreQuery = useBackup(
-      {
-        accessQueryParams,
-        instanceId,
-        isEnable,
-      },
-      {
-        refetchInterval: copySnapshotModalOpen || isRestoreInstanceModalOpen ? false : 60000,
-      }
-    );
-    const { data: restorequeryData, isRefetching, refetch, isFetching } = restoreQuery;
+  const restoreQuery = useBackup(
+    {
+      accessQueryParams,
+      instanceId,
+      isEnable,
+    },
+    {
+      refetchInterval: copySnapshotModalOpen || isRestoreInstanceModalOpen ? false : 60000,
+    }
+  );
+  const { data: restorequeryData, isRefetching, refetch, isFetching } = restoreQuery;
 
-    const { data: customNetworks = [], isFetching: isFetchingCustomNetworks } = useCustomNetworks({
-      enabled: customNetworkExists, // Fetch only if custom_network_id is present
-      refetchOnWindowFocus: true, // User can create a custom network and come back to this tab
-    });
+  const { data: customNetworks = [], isFetching: isFetchingCustomNetworks } = useCustomNetworks({
+    enabled: customNetworkExists, // Fetch only if custom_network_id is present
+    refetchOnWindowFocus: true, // User can create a custom network and come back to this tab
+  });
 
-    const restoreData = useMemo(() => {
-      if (tab === "snapshots") return restorequeryData?.filter((item) => item?.snapshotType === "ManualSnapshot") ?? [];
-      else if (tab === "backups")
-        return restorequeryData?.filter((item) => item?.snapshotType === "AutomatedSnapshot") ?? [];
+  const restoreData = useMemo(() => {
+    if (tab === "snapshots") return restorequeryData?.filter((item) => item?.snapshotType === "ManualSnapshot") ?? [];
+    else if (tab === "backups")
+      return restorequeryData?.filter((item) => item?.snapshotType === "AutomatedSnapshot") ?? [];
 
-      return restorequeryData ?? [];
-    }, [restorequeryData, tab]);
-    const [selectedDateRange, setSelectedDateRange] = useState<DateRange>(initialRangeState);
+    return restorequeryData ?? [];
+  }, [restorequeryData, tab]);
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRange>(initialRangeState);
 
-    const selectedSnapshot = useMemo(() => {
-      if (selectionModel.length > 0) {
-        return restoreData.find((snapshot) => snapshot.snapshotId === selectionModel[0]);
-      }
-      return null;
-    }, [selectionModel, restoreData]);
+  const selectedSnapshot = useMemo(() => {
+    if (selectionModel.length > 0) {
+      return restoreData.find((snapshot) => snapshot.snapshotId === selectionModel[0]);
+    }
+    return null;
+  }, [selectionModel, restoreData]);
 
-    const filteredsnapshots = useMemo(() => {
-      let filtered = restoreData;
-      if (searchText) {
-        filtered = filtered.filter((snapshot) => snapshot?.snapshotId.toLowerCase().includes(searchText.toLowerCase()));
-      }
-      if (selectedDateRange && selectedDateRange.startDate && selectedDateRange.endDate) {
-        const startDate = dayjs(selectedDateRange.startDate);
-        const endDate = dayjs(selectedDateRange.endDate);
+  const filteredsnapshots = useMemo(() => {
+    let filtered = restoreData;
+    if (searchText) {
+      filtered = filtered.filter((snapshot) => snapshot?.snapshotId.toLowerCase().includes(searchText.toLowerCase()));
+    }
+    if (selectedDateRange && selectedDateRange.startDate && selectedDateRange.endDate) {
+      const startDate = dayjs(selectedDateRange.startDate);
+      const endDate = dayjs(selectedDateRange.endDate);
 
-        filtered = filtered.filter((backup) => {
-          const backupDate = dayjs(backup.createdTime);
+      filtered = filtered.filter((backup) => {
+        const backupDate = dayjs(backup.createdTime);
 
-          return dayjs(backupDate).isSameOrAfter(startDate) && dayjs(backupDate).isSameOrBefore(endDate);
-        });
-      }
-      return filtered;
-    }, [restoreData, searchText, selectedDateRange]);
+        return dayjs(backupDate).isSameOrAfter(startDate) && dayjs(backupDate).isSameOrBefore(endDate);
+      });
+    }
+    return filtered;
+  }, [restoreData, searchText, selectedDateRange]);
 
-    const restoreMutation = useMutation({
-      mutationFn: async ({ customNetwork }: { customNetwork?: string }) => {
-        if (selectionModel?.length > 0) {
-          const snapshotId = selectionModel[0];
-          const {
-            serviceProviderId,
-            serviceKey,
-            serviceAPIVersion,
-            serviceEnvironmentKey,
-            serviceModelKey,
-            productTierKey,
-            resourceKey,
-            subscriptionId,
-          } = accessQueryParams ?? {};
-
-          const payload: { network_type: NetworkType; custom_network_id?: string } = {
-            network_type: networkType,
-          };
-
-          if (customNetwork) {
-            payload["custom_network_id"] = customNetwork;
-          }
-
-          return await postInstanceRestoreAccess(
-            serviceProviderId,
-            serviceKey,
-            serviceAPIVersion,
-            serviceEnvironmentKey,
-            serviceModelKey,
-            productTierKey,
-            resourceKey,
-            snapshotId,
-            subscriptionId,
-            payload
-          );
-        }
-      },
-      onSuccess: (response) => {
-        handleRestoreInstanceModalOpen("success");
-        setRestoredInstanceID(response?.data?.id);
-        snackbar.showSuccess(`Restore successfully`);
-      },
-    });
-
-    const handleRestoreInstanceClick = () => {
-      if (customNetworkExists) {
-        handleRestoreInstanceModalOpen("custom-network");
-      } else {
-        handleRestoreInstanceModalOpen("restore-confirmation");
-      }
-    };
-
-    const copySnapshotMutation = useMutation({
-      mutationFn: async ({ targetRegion }: { targetRegion: string }) => {
+  const restoreMutation = useMutation({
+    mutationFn: async ({ customNetwork }: { customNetwork?: string }) => {
+      if (selectionModel?.length > 0) {
         const snapshotId = selectionModel[0];
         const {
           serviceProviderId,
@@ -249,15 +198,15 @@ const Backup: FC<{
           subscriptionId,
         } = accessQueryParams ?? {};
 
-        const payload: { targetRegion: string; sourceSnapshotId?: string } = {
-          targetRegion,
+        const payload: { network_type: NetworkType; custom_network_id?: string } = {
+          network_type: networkType,
         };
 
-        if (snapshotCreationType === "copyFromExisting") {
-          payload["sourceSnapshotId"] = snapshotId as string;
+        if (customNetwork) {
+          payload["custom_network_id"] = customNetwork;
         }
 
-        return await copyResourceInstanceSnapshot(
+        return await postInstanceRestoreAccess(
           serviceProviderId,
           serviceKey,
           serviceAPIVersion,
@@ -265,225 +214,25 @@ const Backup: FC<{
           serviceModelKey,
           productTierKey,
           resourceKey,
-          instanceId,
-          payload,
-          {
-            subscriptionId,
-          }
+          snapshotId,
+          subscriptionId,
+          payload
         );
-      },
-      onSuccess: async () => {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        snackbar.showSuccess(
-          `Snapshot ${snapshotCreationType === "copyFromExisting" && tab === "snapshots" ? "copied" : "created"} successfully`
-        );
-        await refetch();
-        setCurrentTab("Snapshots");
-        setCopySnapshotModalOpen(false);
-      },
-    });
+      }
+    },
+    onSuccess: (response) => {
+      handleRestoreInstanceModalOpen("success");
+      setRestoredInstanceID(response?.data?.id);
+      snackbar.showSuccess(`Restore successfully`);
+    },
+  });
 
-    const columns = useMemo(
-      () => [
-        {
-          field: "snapshotId",
-          headerName: "ID",
-          flex: 1,
-          minWidth: 190,
-        },
-        {
-          field: "status",
-          headerName: "Status",
-          flex: 0.5,
-          renderCell: (params: { row: SnapshotBase }) => {
-            const status = params.row.status;
-            const statusStylesAndMap = getResourceInstanceStatusStylesAndLabel(status);
-            return <StatusChip status={status} {...statusStylesAndMap} />;
-          },
-          minWidth: 100,
-        },
-        {
-          field: "region",
-          headerName: "Region",
-          flex: 0.5,
-          renderCell: (params: { row: SnapshotBase }) => {
-            const region = params.row.region || "Global";
-            return <GridCellExpand value={region} startIcon={<RegionIcon />} />;
-          },
-          minWidth: 170,
-        },
-        {
-          field: "createdTime",
-          headerName: "Created On",
-          flex: 1,
-          minWidth: 170,
-          valueGetter: (params: { row: SnapshotBase }) => formatDateLocal(params.row.createdTime),
-        },
-        {
-          field: "completeTime",
-          headerName: "Completion Time",
-          flex: 1,
-          minWidth: 170,
-          valueGetter: (params: { row: SnapshotBase }) =>
-            params.row.status === "COMPLETE" ? formatDateLocal(params.row.completeTime) : "-",
-        },
-        {
-          field: "progress",
-          headerName: `Progress`,
-          flex: 1,
-          minWidth: 100,
-          renderCell: (params) => {
-            const progress = params.row.progress;
-            return (
-              <Stack direction="row" gap="8px" alignItems="center">
-                <Box width="100px">
-                  <LinearProgress variant="determinate" value={progress} />{" "}
-                </Box>
-                <Box component="span" sx={{ fontSize: 14 }}>
-                  {roundNumberToTwoDecimals(progress)}%
-                </Box>
-              </Stack>
-            );
-          },
-        },
-        {
-          field: "encrypted",
-          headerName: "Encryption Status",
-          flex: 0.7,
-          valueGetter: (params: { row: SnapshotBase }) => (params.row.encrypted ? "Encrypted" : "Not Encrypted"),
-          renderCell: (params: { row: SnapshotBase; value: "Encrypted" | "Not Encrypted" }) => {
-            const statusStylesAndMap = getResourceInstanceBackupStatusStylesAndLabel(params.value);
-            return <StatusChip status={params.value} {...statusStylesAndMap} />;
-          },
-          minWidth: 150,
-        },
-      ],
-      []
-    );
-
-    return (
-      <>
-        <Box mt="32px" display={"flex"} flexDirection={"column"} gap="32px">
-          {tab === "backups" ? (
-            <BackupSummary
-              backupPeriodInHours={backupStatus?.backupPeriodInHours}
-              backupRetentionInDays={backupStatus?.backupRetentionInDays}
-              earliestRestoreTime={backupStatus?.earliestRestoreTime}
-              lastBackupTime={backupStatus?.lastBackupTime}
-            />
-          ) : null}
-          <DataGrid
-            checkboxSelection
-            getRowId={(row: SnapshotBase) => row.snapshotId}
-            disableSelectionOnClick
-            columns={columns}
-            rows={filteredsnapshots}
-            components={{
-              Header: BackupsTableHeader,
-            }}
-            componentsProps={{
-              header: {
-                count: filteredsnapshots?.length,
-                refetch,
-                isRefetching,
-                restoreMutation,
-                searchText,
-                setSearchText,
-                resourceName,
-                selectedDateRange,
-                setSelectedDateRange,
-                handleOpenCopySnapshotModal,
-                cloudProvider,
-                copySnapshotMutation,
-                selectedSnapshot,
-                tab,
-                handleRestoreInstanceClick,
-              },
-            }}
-            getRowClassName={(params: { row: SnapshotBase }) => `${params.row.status}`}
-            sx={{
-              "& .node-ports": {
-                color: "#101828",
-                fontWeight: 500,
-              },
-              borderRadius: "8px",
-            }}
-            selectionModel={selectionModel}
-            onSelectionModelChange={(newSelection: GridSelectionModel) => {
-              selectSingleItem(newSelection, selectionModel, setSelectionModel);
-            }}
-            loading={isFetching}
-            noRowsText={`No ${tab === "snapshots" ? "snapshots" : "backups"}`}
-          />
-        </Box>
-        <TextConfirmationDialog
-          open={isRestoreInstanceModalOpen && restoreInstanceModalStep === "restore-confirmation"}
-          handleClose={handleRestoreInstanceModalClose}
-          onConfirm={async () => {
-            await restoreMutation.mutateAsync({});
-            return false;
-          }}
-          IconComponent={() => (
-            <Box
-              sx={{
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                p: "8px",
-                border: "1px solid #E9EAEB",
-                borderRadius: "10px",
-                boxShadow: " 0px 1px 2px 0px #0A0D120D, 0px -2px 0px 0px #0A0D120D inset",
-              }}
-            >
-              <RestoreInstanceIcon width={20} height={20} />
-            </Box>
-          )}
-          title={"Restore Instance"}
-          subtitle={`Are you sure you want to restore this instance?`}
-          confirmationText={"restore"}
-          buttonLabel={"Restore"}
-          buttonColor={colors.success600}
-          isLoading={restoreMutation.isPending}
-        />
-        <InformationDialogTopCenter
-          open={isRestoreInstanceModalOpen && restoreInstanceModalStep !== "restore-confirmation"}
-          handleClose={handleRestoreInstanceModalClose}
-          maxWidth={"550px"}
-        >
-          {restoreInstanceModalStep === "custom-network" && (
-            <CustomNetworkSelectionStep
-              handleClose={handleRestoreInstanceModalClose}
-              restoreInstanceMutation={restoreMutation}
-              cloudProvider={cloudProvider}
-              region={selectedSnapshot?.region}
-              customNetworks={customNetworks}
-              offering={offering}
-              isFetchingCustomNetworks={isFetchingCustomNetworks}
-              selectedSnapshot={selectedSnapshot}
-              open={isRestoreInstanceModalOpen}
-            />
-          )}
-          {restoreInstanceModalStep === "success" && (
-            <RestoreInstanceSuccessStep
-              handleClose={handleRestoreInstanceModalClose}
-              restoredInstanceID={restoredInstanceID}
-              tab={tab}
-            />
-          )}
-        </InformationDialogTopCenter>
-
-        <CopySnapshotModal
-          open={copySnapshotModalOpen}
-          handleClose={handleCloseCopySnapshotModal}
-          offering={offering}
-          cloudProvider={cloudProvider}
-          copySnapshotMutation={copySnapshotMutation}
-          snapshotCreationType={snapshotCreationType}
-          tab={tab}
-        />
-      </>
-    );
+  const handleRestoreInstanceClick = () => {
+    if (customNetworkExists) {
+      handleRestoreInstanceModalOpen("custom-network");
+    } else {
+      handleRestoreInstanceModalOpen("restore-confirmation");
+    }
   };
 
   const copySnapshotMutation = useMutation({

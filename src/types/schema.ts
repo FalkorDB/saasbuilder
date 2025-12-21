@@ -17945,7 +17945,6 @@ export interface components {
          *     }
          */
         DescribeResourceInstanceResult: {
-            productTierVersionDetail: any;
             /**
              * @description True if this resource instance has associated infrastructure deployed
              * @example true

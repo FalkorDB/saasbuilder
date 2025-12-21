@@ -24,12 +24,12 @@ const IDPAuthPage = () => {
   const state = searchParams?.get("state");
   const code = searchParams?.get("code");
   const snackbar = useSnackbar();
-  const isAPICallInprogress = useRef(false);
+  const hasAttemptedSignIn = useRef(false);
 
   const handleSignIn = useCallback(
     async (payload, destination) => {
       try {
-        isAPICallInprogress.current = true;
+        hasAttemptedSignIn.current = true;
         const response = await customerSignInWithIdentityProvider(payload);
         // @ts-ignore
         const jwtToken = response.data.jwtToken;
@@ -61,16 +61,18 @@ const IDPAuthPage = () => {
           }
 
           const decodedDestination = decodeURIComponent(destination);
+          hasAttemptedSignIn.current = false;
 
           // Redirect to the Destination URL
+          // Use window.location for full page reload to ensure middleware runs with fresh cookies
+          // This prevents race conditions where middleware might execute with stale cookies
           if (destination && checkRouteValidity(decodedDestination)) {
-            router.replace(decodedDestination, {}, { showProgressBar: true });
+            window.location.href = decodedDestination;
           } else {
-            router.replace(getInstancesRoute(), {}, { showProgressBar: true });
+            window.location.href = getInstancesRoute();
           }
         }
       } catch (error) {
-        isAPICallInprogress.current = false;
         sessionStorage.removeItem("authState");
         if (error.response && error.response.status === 409) {
           snackbar.showError(
@@ -78,6 +80,8 @@ const IDPAuthPage = () => {
           );
           router.replace("/signup");
         } else {
+          const errorMessage = error.response?.data?.message || "Something went wrong. Please try again";
+          snackbar.showError(errorMessage);
           router.replace("/signin?redirect_reason=idp_auth_error");
         }
       }
@@ -86,7 +90,7 @@ const IDPAuthPage = () => {
   );
 
   useEffect(() => {
-    if (state && code) {
+    if (state && code && hasAttemptedSignIn.current !== true) {
       try {
         //get local auth state from session storage and compare the nonce values
         const localAuthStateString = sessionStorage.getItem("authState");
@@ -113,9 +117,7 @@ const IDPAuthPage = () => {
           if (affiliateCode) {
             payload["attributes"] = { affiliateCode };
           }
-          if (isAPICallInprogress.current !== true) {
-            handleSignIn(payload, destination);
-          }
+          handleSignIn(payload, destination);
         }
       } catch (error) {
         console.log(error);

@@ -212,7 +212,7 @@ const InstanceDetailsPage = ({
   })?.[0]?.[0];
 
   const url = window.location.href;
-
+  
   return (
     <PageContainer>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -299,6 +299,7 @@ const InstanceDetailsPage = ({
             setIsOverlayOpen={setIsOverlayOpen}
             refetchData={refetchInstance}
           />
+        
         </Stack>
       </Stack>
       {currentTab === tabs.resourceInstanceDetails && (
@@ -331,6 +332,7 @@ const InstanceDetailsPage = ({
           maintenanceTasks={resourceInstanceData.maintenanceTasks}
           licenseDetails={resourceInstanceData?.subscriptionLicense}
           tierVersion={resourceInstanceData?.unprocessedData?.tierVersion}
+          versionDetails={resourceInstanceData?.unprocessedData?.productTierVersionDetail}
           customTags={resourceInstanceData?.customTags}
         />
       )}

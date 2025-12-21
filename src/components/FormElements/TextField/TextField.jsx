@@ -1,67 +1,7 @@
-import { forwardRef, useState } from "react";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import { forwardRef } from "react";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import SearchIcon from "@mui/icons-material/Search";
-import { Box, ButtonBase, IconButton, styled } from "@mui/material";
-import MuiInputAdornment from "@mui/material/InputAdornment";
+import { Box, styled } from "@mui/material";
 import MuiTextField from "@mui/material/TextField";
-import clipboard from "clipboardy";
-
-import Tooltip from "src/components/Tooltip/Tooltip";
-
-const CopyButton = (props) => {
-  const { textToCopy = "" } = props;
-  const [text, setText] = useState("Click to copy");
-
-  function handleClick() {
-    if (textToCopy) {
-      clipboard
-        .write(textToCopy)
-        .then(() => {
-          setText("Copied");
-        })
-        .catch(() => {
-          setText("Unable to copy to clipboard");
-        });
-    } else {
-      setText("Nothing to be copied!");
-    }
-  }
-
-  return (
-    <Tooltip
-      title={text}
-      onOpen={() => {
-        setText("Click to copy");
-      }}
-      placement="top"
-    >
-      <ButtonBase
-        sx={{
-          borderLeft: "1px solid #D0D5DD",
-          height: "100%",
-          paddingLeft: "18px",
-          paddingRight: "10px",
-          color: "#344054",
-          fontSize: "16px",
-          lineHeight: "24px",
-          fontWeight: 600,
-        }}
-        onClick={handleClick}
-      >
-        <ContentCopyIcon sx={{ fontSize: "16px", color: "#344054" }} />
-      </ButtonBase>
-    </Tooltip>
-  );
-};
-
-const InputAdornment = styled(MuiInputAdornment)({
-  height: "100%",
-  maxHeight: "none",
-  marginLeft: "0px",
-});
 
 const StyledTextField = styled(MuiTextField, {
   shouldForwardProp: (prop) => {
@@ -98,48 +38,14 @@ const StyledTextField = styled(MuiTextField, {
 }));
 
 const TextField = forwardRef(function StyledTextFieldRef(props, ref) {
-  const { copyButton, search, SelectProps, type, ...restProps } = props;
-  const textToCopy = props.value;
-
-  const [showPassword, setShowPassword] = useState(false);
-
-  let endAdornment = "";
-  let startAdornment = "";
-
-  if (copyButton) {
-    endAdornment = (
-      <InputAdornment position="end">
-        <CopyButton textToCopy={textToCopy} />
-      </InputAdornment>
-    );
-  }
-
-  if (search) {
-    startAdornment = (
-      <InputAdornment position="start">
-        <SearchIcon />
-      </InputAdornment>
-    );
-  }
-
-  if (type === "password") {
-    endAdornment = (
-      <InputAdornment position="end">
-        <IconButton showPassword={showPassword} setShowPassword={setShowPassword}>
-          {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-        </IconButton>
-      </InputAdornment>
-    );
-  }
+  const { SelectProps, ...restProps } = props;
 
   return (
     <Box display="flex">
       <StyledTextField
-        type={type === "password" && !showPassword ? "password" : "text"}
+        type="text"
         fullWidth
         InputProps={{
-          endAdornment,
-          startAdornment,
           inputRef: ref,
         }}
         SelectProps={{

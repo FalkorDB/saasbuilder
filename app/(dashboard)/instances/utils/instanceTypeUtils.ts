@@ -127,7 +127,6 @@ export const filterInstanceTypesByProvider = (
  * Get user-friendly label for instance type menu items
  */
 export const getInstanceTypeLabel = (instanceType: string, cloudProvider: CloudProvider): string => {
-  const category = getInstanceTypeCategory(instanceType, cloudProvider);
   const formattedType = formatInstanceType(instanceType, cloudProvider);
 
   // Return just the instance type for now

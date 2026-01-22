@@ -383,22 +383,44 @@ export const RadioField = ({ field, formData }) => {
 };
 
 export const SingleSelectAutocomplete = ({ field, formData }) => {
+  // Handle both string arrays and object arrays with {label, value}
+  const isObjectArray =
+    field.menuItems && field.menuItems.length > 0 && typeof field.menuItems[0] === "object";
+
+  const getCurrentOption = () => {
+    if (!field.value) return isObjectArray ? null : "";
+    if (isObjectArray) {
+      return field.menuItems.find((item) => item.value === field.value) || null;
+    }
+    return field.value;
+  };
+
   return (
     <Autocomplete
       data-testid={field.dataTestId ?? ""}
       options={field.menuItems || []}
       name={field.name}
-      value={field.value ?? ""}
+      value={getCurrentOption()}
       onChange={(e, newValue) => {
         field.onChange?.(e);
-        formData.setFieldValue(field.name, newValue);
+        const valueToSet = isObjectArray && newValue ? newValue.value : newValue;
+        formData.setFieldValue(field.name, valueToSet);
       }}
       onBlur={(e) => {
         field.onBlur?.(e);
         formData.setFieldTouched(field.name, true);
       }}
       disabled={field.disabled}
-      getOptionLabel={(option) => option}
+      getOptionLabel={(option) => {
+        if (!option) return "";
+        return isObjectArray ? option.label : option;
+      }}
+      isOptionEqualToValue={(option, value) => {
+        if (isObjectArray) {
+          return option.value === (value?.value || value);
+        }
+        return option === value;
+      }}
       error={Boolean(formData.touched[field.name] && formData.errors[field.name])}
     />
   );

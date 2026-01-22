@@ -673,28 +673,29 @@ export const getDeploymentConfigurationFields = (
         // labeledOptions format: { "2 vCPUs, 4GB memory (gcp)": "e2-medium", ... }
         const allItems = Object.entries(param.labeledOptions).map(([label, value]) => ({
           originalLabel: label,
-          label,
           value: value as string,
         }));
 
         // Filter by cloud provider if it's an instance type field
         if (param.key === "nodeInstanceType" && values.cloudProvider) {
-          menuItems = allItems.filter((item) => {
-            // Check if label includes cloud provider identifier
-            const labelLower = item.originalLabel.toLowerCase();
-            if (values.cloudProvider === "aws") {
-              return labelLower.includes("(aws)");
-            } else if (values.cloudProvider === "gcp") {
-              return labelLower.includes("(gcp)");
-            } else if (values.cloudProvider === "azure") {
-              return labelLower.includes("(azure)");
-            }
-            return true;
-          }).map((item) => ({
-            // Remove cloud provider tags from the displayed label
-            label: item.originalLabel.replace(/\s*\((aws|gcp|azure)\)\s*/gi, '').trim(),
-            value: item.value,
-          }));
+          menuItems = allItems
+            .filter((item) => {
+              // Check if label includes cloud provider identifier
+              const labelLower = item.originalLabel.toLowerCase();
+              if (values.cloudProvider === "aws") {
+                return labelLower.includes("(aws)");
+              } else if (values.cloudProvider === "gcp") {
+                return labelLower.includes("(gcp)");
+              } else if (values.cloudProvider === "azure") {
+                return labelLower.includes("(azure)");
+              }
+              return true;
+            })
+            .map((item) => ({
+              // Remove cloud provider tags from the displayed label
+              label: item.originalLabel.replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
+              value: item.value,
+            }));
 
           // Sort by vCPU count for sorting
           menuItems.sort((a, b) => {
@@ -706,8 +707,9 @@ export const getDeploymentConfigurationFields = (
             return getCpuCount(a.label) - getCpuCount(b.label);
           });
         } else {
+          // For non-instance-type fields or when no cloud provider is selected
           menuItems = allItems.map((item) => ({
-            label: item.originalLabel.replace(/\s*\((aws|gcp|azure)\)\s*/gi, '').trim(),
+            label: item.originalLabel.replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
             value: item.value,
           }));
         }

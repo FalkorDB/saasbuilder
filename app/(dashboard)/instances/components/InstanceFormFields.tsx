@@ -669,17 +669,17 @@ export const getDeploymentConfigurationFields = (
       let menuItems: { label: string; value: string }[] = [];
       let previewValue = values.requestParams[param.key];
 
-      if (param.labeledOptions) {
+      if (param.labeledOptions && typeof param.labeledOptions === "object") {
         // labeledOptions format: { "2 vCPUs, 4GB memory (gcp)": "e2-medium", ... }
-        const allItems = Object.entries(param.labeledOptions).map(([label, value]) => ({
-          originalLabel: label,
-          value: value as string,
-        }));
+        try {
+          const allItems = Object.entries(param.labeledOptions).map(([label, value]) => ({
+            originalLabel: label,
+            value: String(value),
+          }));
 
-        // Filter by cloud provider if it's an instance type field
-        if (param.key === "nodeInstanceType" && values.cloudProvider) {
-          menuItems = allItems
-            .filter((item) => {
+          // Filter by cloud provider if it's an instance type field
+          if (param.key === "nodeInstanceType" && values.cloudProvider) {
+            const filtered = allItems.filter((item) => {
               // Check if label includes cloud provider identifier
               const labelLower = item.originalLabel.toLowerCase();
               if (values.cloudProvider === "aws") {
@@ -690,52 +690,62 @@ export const getDeploymentConfigurationFields = (
                 return labelLower.includes("(azure)");
               }
               return true;
-            })
-            .map((item) => ({
+            });
+
+            menuItems = filtered.map((item) => ({
               // Remove cloud provider tags from the displayed label
               label: item.originalLabel.replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
               value: item.value,
             }));
 
-          // Sort by vCPU count for sorting
-          menuItems.sort((a, b) => {
-            // Extract vCPU count for sorting
-            const getCpuCount = (label: string) => {
-              const match = label.match(/(\d+)\s*vCPUs?/i);
-              return match ? parseInt(match[1]) : 0;
-            };
-            return getCpuCount(a.label) - getCpuCount(b.label);
-          });
-        } else {
-          // For non-instance-type fields or when no cloud provider is selected
-          menuItems = allItems.map((item) => ({
-            label: item.originalLabel.replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
-            value: item.value,
-          }));
-        }
+            // Sort by vCPU count
+            menuItems.sort((a, b) => {
+              const getCpuCount = (label: string) => {
+                const match = label.match(/(\d+)\s*vCPUs?/i);
+                return match ? parseInt(match[1]) : 0;
+              };
+              return getCpuCount(a.label) - getCpuCount(b.label);
+            });
+          } else {
+            // For non-instance-type fields or when no cloud provider is selected
+            menuItems = allItems.map((item) => ({
+              label: item.originalLabel.replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
+              value: item.value,
+            }));
+          }
 
-        // For preview, show the label without cloud provider tags
-        if (values.requestParams[param.key]) {
-          const selectedItem = menuItems.find((item) => item.value === values.requestParams[param.key]);
-          previewValue = selectedItem?.label || values.requestParams[param.key];
+          // For preview, show the label without cloud provider tags
+          if (values.requestParams[param.key]) {
+            const selectedItem = menuItems.find((item) => item.value === values.requestParams[param.key]);
+            previewValue = selectedItem?.label || values.requestParams[param.key];
+          }
+        } catch (error) {
+          console.error("Error processing labeledOptions:", error);
+          // Fallback to empty menu items
+          menuItems = [];
         }
-      } else if (param.options) {
+      } else if (param.options && Array.isArray(param.options)) {
         // Simple options format: ["e2-medium", "t2.medium", ...]
-        if (param.key === "nodeInstanceType" && values.cloudProvider) {
-          // Filter instance types for the selected cloud provider
-          const filteredTypes = filterInstanceTypesByProvider(param.options, values.cloudProvider);
-          // Sort them in a logical order
-          const sortedTypes = sortInstanceTypes(filteredTypes, values.cloudProvider);
-          // Map to menu items with user-friendly labels
-          menuItems = sortedTypes.map((type) => ({
-            label: getInstanceTypeLabel(type, values.cloudProvider),
-            value: type,
-          }));
-        } else {
-          menuItems = param.options.map((option) => ({
-            label: option,
-            value: option,
-          }));
+        try {
+          if (param.key === "nodeInstanceType" && values.cloudProvider) {
+            // Filter instance types for the selected cloud provider
+            const filteredTypes = filterInstanceTypesByProvider(param.options, values.cloudProvider);
+            // Sort them in a logical order
+            const sortedTypes = sortInstanceTypes(filteredTypes, values.cloudProvider);
+            // Map to menu items with user-friendly labels
+            menuItems = sortedTypes.map((type) => ({
+              label: getInstanceTypeLabel(type, values.cloudProvider),
+              value: type,
+            }));
+          } else {
+            menuItems = param.options.map((option) => ({
+              label: String(option),
+              value: String(option),
+            }));
+          }
+        } catch (error) {
+          console.error("Error processing options:", error);
+          menuItems = [];
         }
       }
 

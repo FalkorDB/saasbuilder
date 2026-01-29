@@ -1,12 +1,16 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Box } from "@mui/material";
 import FullScreenDrawer from "app/(dashboard)/components/FullScreenDrawer/FullScreenDrawer";
 
 import { $api } from "src/api/query";
 import GenerateTokenDialog from "src/components/GenerateToken/GenerateTokenDialog";
 import DeleteCircleIcon from "src/components/Icons/DeleteCircle/DeleteCircleIcon";
+import LockIcon from "src/components/Icons/Lock/LockIcon";
 import RebootCircleIcon from "src/components/Icons/Reboot/RebootCircleIcon";
 import StopCircleIcon from "src/components/Icons/Stop/StopCircleIcon";
+import UnlockIcon from "src/components/Icons/Unlock/UnlockIcon";
+import OverlappingCirclesIconWrapper from "src/components/OverlappingCirclesIconWrapper/OverlappingCirclesIconWrapper";
 import CreateInstanceModal from "src/components/ResourceInstance/CreateInstanceModal/CreateInstanceModal";
 import AccessSideRestoreInstance from "src/components/RestoreInstance/AccessSideRestoreInstance";
 import TextConfirmationDialog from "src/components/TextConfirmationDialog/TextConfirmationDialog";
@@ -23,6 +27,7 @@ import { Overlay } from "../page";
 import { getMainResourceFromInstance } from "../utils";
 
 import InstanceForm from "./InstanceForm";
+import SnapshotBeforeDeletionConfirmation from "./SnapshotBeforeDeletionConfirmation";
 
 type InstanceDialogsProps = {
   variant: "instances-page" | "details-page";
@@ -65,6 +70,22 @@ const DIALOG_DATA = {
     buttonLabel: "Stop",
     buttonColor: "#D92D20",
   },
+  "enable-deletion-protection-dialog": {
+    icon: () => <OverlappingCirclesIconWrapper IconComponent={LockIcon} />,
+    title: "Enable Delete Protection",
+    subtitle: "Are you sure you want to enable delete protection for",
+    confirmationText: "enable",
+    buttonLabel: "Enable",
+    buttonColor: colors.success600,
+  },
+  "disable-deletion-protection-dialog": {
+    icon: () => <OverlappingCirclesIconWrapper IconComponent={UnlockIcon} />,
+    title: "Disable Delete Protection",
+    subtitle: "Are you sure you want to disable delete protection for",
+    confirmationText: "disable",
+    buttonLabel: "Disable",
+    buttonColor: colors.success600,
+  },
 };
 
 const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
@@ -86,6 +107,8 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
     instanceId?: string;
     isCustomDNS?: boolean;
   }>({});
+  const [takeFinalSnapshot, setTakeFinalSnapshot] = useState(true);
+  const showSnapshotBeforeDeleteOption = Boolean(instance?.snapshotBeforeDeletionEnabled);
   const snackbar = useSnackbar();
 
   // Resource of the Selected Instance
@@ -115,6 +138,8 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
         setSelectedRows([]);
         refetchData();
         setIsOverlayOpen(false);
+        setTakeFinalSnapshot(true);
+
         snackbar.showSuccess("Deleting deployment instance...");
 
         if (variant === "details-page") {
@@ -144,6 +169,22 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
         refetchData();
         setSelectedRows([]);
         snackbar.showSuccess("Restarting deployment instance...");
+      },
+    }
+  );
+
+  const updateInstanceMetadataMutation = $api.useMutation(
+    "patch",
+    "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}/{id}/metadata",
+    {
+      onSuccess: async () => {
+        refetchData();
+        setSelectedRows([]);
+        if (overlayType === "enable-deletion-protection-dialog") {
+          snackbar.showSuccess("Delete protection enabled successfully");
+        } else {
+          snackbar.showSuccess("Delete protection disabled successfully");
+        }
       },
     }
   );
@@ -186,6 +227,7 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
       />
 
       <TextConfirmationDialog
+        maxWidth={overlayType === "delete-dialog" && showSnapshotBeforeDeleteOption ? "595px" : "521px"}
         open={isOverlayOpen && Object.keys(DIALOG_DATA).includes(overlayType)}
         handleClose={() => setIsOverlayOpen(false)}
         onConfirm={async () => {
@@ -217,6 +259,8 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
               path: pathData,
               query: {
                 subscriptionId: subscription.id,
+                skipFinalSnapshot:
+                  overlayType === "delete-dialog" && showSnapshotBeforeDeleteOption ? !takeFinalSnapshot : undefined,
               },
             },
           };
@@ -225,6 +269,16 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
             await deleteInstanceMutation.mutateAsync(body);
           } else if (overlayType === "reboot-dialog") {
             await restartInstanceMutation.mutateAsync(body);
+          } else if (
+            overlayType === "enable-deletion-protection-dialog" ||
+            overlayType === "disable-deletion-protection-dialog"
+          ) {
+            await updateInstanceMetadataMutation.mutateAsync({
+              ...body,
+              body: {
+                deletionProtection: overlayType === "enable-deletion-protection-dialog" ? true : false,
+              },
+            });
           } else {
             await stopInstanceMutation.mutateAsync(body);
           }
@@ -233,12 +287,27 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
         }}
         IconComponent={DIALOG_DATA[overlayType]?.icon}
         title={DIALOG_DATA[overlayType]?.title}
-        subtitle={`${DIALOG_DATA[overlayType]?.subtitle} - ${selectedInstanceData?.id}?`}
+        subtitle={
+          <>
+            {`${DIALOG_DATA[overlayType]?.subtitle} - ${selectedInstanceData?.id}?`}
+            {overlayType === "delete-dialog" && showSnapshotBeforeDeleteOption && (
+              <Box marginTop="16px">
+                <SnapshotBeforeDeletionConfirmation
+                  takeFinalSnapshot={takeFinalSnapshot}
+                  setTakeFinalSnapshot={setTakeFinalSnapshot}
+                />
+              </Box>
+            )}
+          </>
+        }
         confirmationText={DIALOG_DATA[overlayType]?.confirmationText}
         buttonLabel={DIALOG_DATA[overlayType]?.buttonLabel}
         buttonColor={DIALOG_DATA[overlayType]?.buttonColor}
         isLoading={
-          deleteInstanceMutation.isPending || stopInstanceMutation.isPending || restartInstanceMutation.isPending
+          deleteInstanceMutation.isPending ||
+          stopInstanceMutation.isPending ||
+          restartInstanceMutation.isPending ||
+          updateInstanceMetadataMutation.isPending
         }
       />
 

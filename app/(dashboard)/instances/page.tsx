@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Box, Tooltip } from "@mui/material";
 import { createColumnHelper } from "@tanstack/react-table";
 
+import DeleteProtectionIcon from "src/components/Icons/DeleteProtection/DeleteProtection";
 import InstanceHealthStatusChip, {
   getInstanceHealthStatus,
 } from "src/components/InstanceHealthStatusChip/InstanceHealthStatusChip";
@@ -13,7 +15,6 @@ import { ResourceInstance, ResourceInstanceNetworkTopology } from "src/types/res
 import { isCloudAccountInstance } from "src/utils/access/byoaResource";
 import formatDateLocal from "src/utils/formatDateLocal";
 import { getInstanceDetailsRoute } from "src/utils/routes";
-import DataGridText from "components/DataGrid/DataGridText";
 import DataTable from "components/DataTable/DataTable";
 import GridCellExpand from "components/GridCellExpand/GridCellExpand";
 import RegionIcon from "components/Region/RegionIcon";
@@ -27,14 +28,7 @@ import InstancesOverview from "./components/InstancesOverview";
 import InstancesTableHeader from "./components/InstancesTableHeader";
 import StatusCell from "./components/StatusCell";
 import useInstances from "./hooks/useInstances";
-import {
-  FilterCategorySchema,
-  getFilteredInstances,
-  getInstanceFiltersObject,
-  getIntialFiltersObject,
-  getMainResourceFromInstance,
-  getRowBorderStyles,
-} from "./utils";
+import { getMainResourceFromInstance, getRowBorderStyles } from "./utils";
 
 const columnHelper = createColumnHelper<ResourceInstance>();
 export type Overlay =
@@ -46,12 +40,15 @@ export type Overlay =
   | "generate-token-dialog"
   | "reboot-dialog"
   | "stop-dialog"
-  | "create-instance-dialog";
+  | "create-instance-dialog"
+  | "enable-deletion-protection-dialog"
+  | "disable-deletion-protection-dialog";
 
 const InstancesPage = () => {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [overlayType, setOverlayType] = useState<Overlay>("create-instance-form");
   const [isOverlayOpen, setIsOverlayOpen] = useState<boolean>(false);
+  const [filteredInstances, setFilteredInstances] = useState<ResourceInstance[]>([]);
 
   const {
     subscriptionsObj,
@@ -61,8 +58,13 @@ const InstancesPage = () => {
     setShowGlobalProviderError,
   } = useGlobalData();
 
-  const [selectedFilters, setSelectedFilters] =
-    useState<Record<string, FilterCategorySchema>>(getIntialFiltersObject());
+  const {
+    data: instances = [],
+    isPending: isLoadingInstances,
+    isFetching: isFetchingInstances,
+    refetch: refetchInstances,
+    isError: isInstancesError,
+  } = useInstances();
 
   const dataTableColumns = useMemo(() => {
     return [
@@ -73,6 +75,10 @@ const InstancesPage = () => {
           const { id: instanceId, subscriptionId, resourceID } = data.row.original;
           const { serviceId, productTierId } = subscriptionsObj[subscriptionId as string] || {};
 
+          const deletionProtectionFeatureEnabled =
+            data.row.original?.resourceInstanceMetadata?.deletionProtection !== undefined;
+          const isDeleteProtected = data.row.original?.resourceInstanceMetadata?.deletionProtection;
+
           const resourceInstanceUrlLink = getInstanceDetailsRoute({
             serviceId,
             servicePlanId: productTierId,
@@ -82,22 +88,26 @@ const InstancesPage = () => {
           });
 
           return (
-            <DataGridText
-              color="primary"
-              showCopyButton
-              linkProps={{
-                href: resourceInstanceUrlLink,
-              }}
-              style={{
-                fontWeight: 600,
-              }}
-            >
-              {instanceId}
-            </DataGridText>
+            <GridCellExpand
+              href={resourceInstanceUrlLink}
+              value={instanceId as string}
+              copyButton
+              endIcon={
+                deletionProtectionFeatureEnabled && (
+                  <Box sx={{ marginRight: "-2px", marginTop: "-7px" }}>
+                    <Tooltip title={isDeleteProtected ? "Delete protection enabled" : "Delete protection disabled"}>
+                      <span>
+                        <DeleteProtectionIcon disabled={!isDeleteProtected} />
+                      </span>
+                    </Tooltip>
+                  </Box>
+                )
+              }
+            />
           );
         },
         meta: {
-          minWidth: 240,
+          minWidth: 250,
         },
       }),
       columnHelper.accessor("result_params.name", {
@@ -287,14 +297,6 @@ const InstancesPage = () => {
     ];
   }, [subscriptionsObj, serviceOfferingsObj]);
 
-  const {
-    data: instances = [],
-    isPending: isLoadingInstances,
-    isFetching: isFetchingInstances,
-    refetch: refetchInstances,
-    isError: isInstancesError,
-  } = useInstances({ retry: 3 });
-
   useEffect(() => {
     if (isInstancesError) {
       setShowGlobalProviderError(true);
@@ -306,28 +308,19 @@ const InstancesPage = () => {
     return instances.filter((instance) => !isCloudAccountInstance(instance));
   }, [instances]);
 
-  const filterOptionsMap = useMemo(
-    () => getInstanceFiltersObject(nonBYOAInstances, subscriptionsObj),
-    [nonBYOAInstances, subscriptionsObj]
-  );
-
-  const filteredInstances = useMemo(
-    () => getFilteredInstances(nonBYOAInstances, selectedFilters, subscriptionsObj),
-    [nonBYOAInstances, selectedFilters, subscriptionsObj]
-  );
   const failedInstances = useMemo(() => {
-    return nonBYOAInstances?.filter((instance) => instance.status === "FAILED");
-  }, [nonBYOAInstances]);
+    return filteredInstances?.filter((instance) => instance.status === "FAILED");
+  }, [filteredInstances]);
 
   const overloadedInstances = useMemo(() => {
-    return nonBYOAInstances?.filter((instance) =>
+    return filteredInstances?.filter((instance) =>
       //@ts-ignore
       ["POD_OVERLOAD", "LOAD_OVERLOADED"].includes(instance.instanceLoadStatus)
     );
-  }, [nonBYOAInstances]);
+  }, [filteredInstances]);
 
   const unhealthyInstances = useMemo(() => {
-    return nonBYOAInstances?.filter((instance) => {
+    return filteredInstances?.filter((instance) => {
       const instanceHealthStatus = getInstanceHealthStatus(
         (instance?.detailedNetworkTopology ?? {}) as Record<string, ResourceInstanceNetworkTopology>,
 
@@ -337,11 +330,11 @@ const InstancesPage = () => {
 
       return false;
     });
-  }, [nonBYOAInstances]);
+  }, [filteredInstances]);
 
   const selectedInstance = useMemo(() => {
-    return nonBYOAInstances.find((instance) => instance.id === selectedRows[0]);
-  }, [selectedRows, nonBYOAInstances]);
+    return filteredInstances.find((instance) => instance.id === selectedRows[0]);
+  }, [selectedRows, filteredInstances]);
 
   // Subscription of the Selected Instance
   const selectedInstanceSubscription = useMemo(() => {
@@ -359,64 +352,14 @@ const InstancesPage = () => {
       {
         title: "Failed Deployments",
         count: failedInstances?.length,
-        handleClick: () => {
-          setSelectedFilters((prev) => {
-            return {
-              ...getIntialFiltersObject(),
-              lifecycleStatus: {
-                ...prev["lifecycleStatus"],
-                options: [
-                  {
-                    value: "FAILED",
-                    label: "Failed",
-                  },
-                ],
-              },
-            };
-          });
-        },
       },
       {
         title: "Unhealthy Deployments",
         count: unhealthyInstances?.length,
-
-        handleClick: () => {
-          setSelectedFilters((prev) => {
-            return {
-              ...getIntialFiltersObject(),
-              healthStatus: {
-                ...prev["healthStatus"],
-                options: [
-                  {
-                    value: "UNHEALTHY",
-                    label: "Unhealthy",
-                  },
-                ],
-              },
-            };
-          });
-        },
       },
       {
         title: "Overload Deployments",
         count: overloadedInstances?.length,
-
-        handleClick: () => {
-          setSelectedFilters((prev) => {
-            return {
-              ...getIntialFiltersObject(),
-              load: {
-                ...prev["load"],
-                options: [
-                  {
-                    value: "High",
-                    label: "High",
-                  },
-                ],
-              },
-            };
-          });
-        },
       },
     ],
     [failedInstances, overloadedInstances, unhealthyInstances]
@@ -441,9 +384,8 @@ const InstancesPage = () => {
             selectedInstanceSubscription,
             refetchInstances,
             isFetchingInstances,
-            filterOptionsMap,
-            selectedFilters,
-            setSelectedFilters,
+            instances: nonBYOAInstances,
+            setFilteredInstances,
             isLoadingInstances,
           }}
           isLoading={isLoadingInstances || isFetchingSubscriptions || isFetchingServiceOfferings}

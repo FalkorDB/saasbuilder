@@ -17,9 +17,11 @@ import {
   getCostExplorerRoute,
   getCustomNetworksRoute,
   getEventsRoute,
+  getInstanceSnapshotsRoute,
   getInstancesRoute,
   getNotificationsRoute,
   getSettingsRoute,
+  getSnapshotDetailsRoute,
   getSubscriptionsRoute,
 } from "src/utils/routes";
 import APIDocsIcon from "components/Icons/SideNavbar/APIDocs/APIDocsIcon";
@@ -156,8 +158,9 @@ const Sidebar = () => {
       setExpandedMenus((prev) => ({
         ...prev,
         Deployments:
-          [getCustomNetworksRoute({}), getCloudAccountsRoute({})].includes(currentPath) ||
-          currentPath.startsWith("/instances"),
+          [getCustomNetworksRoute({}), getCloudAccountsRoute({}), getInstanceSnapshotsRoute()].includes(currentPath) ||
+          currentPath.startsWith("/instances") ||
+          currentPath.startsWith(getSnapshotDetailsRoute("")),
         "Governance Hub": [getAccessControlRoute(), getEventsRoute(), getNotificationsRoute()].includes(currentPath),
         "Account Management": [
           getSettingsRoute(),
@@ -251,6 +254,7 @@ const Sidebar = () => {
         isExpandible: true,
         subItems: [
           { name: "Instances", href: getInstancesRoute() },
+          { name: "Instance Snapshots", href: getInstanceSnapshotsRoute() },
           {
             name: "Customer Networks",
             href: getCustomNetworksRoute({}),

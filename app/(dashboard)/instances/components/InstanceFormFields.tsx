@@ -23,9 +23,11 @@ import { TierVersionSet } from "src/types/tier-version-set";
 
 import CloudProviderRadio from "../../components/CloudProviderRadio/CloudProviderRadio";
 import SubscriptionPlanRadio from "../../components/SubscriptionPlanRadio/SubscriptionPlanRadio";
+import { REQUEST_PARAMS_FIELDS_TO_FILTER } from "../constants";
 import {
   filterSchemaByCloudProvider,
   getCustomNetworksMenuItems,
+  getJsonValue,
   getRegionMenuItems,
   getResourceMenuItems,
   getServiceMenuItems,
@@ -569,16 +571,7 @@ export const getDeploymentConfigurationFields = (
   if (!resourceSchema?.inputParameters) return fields;
 
   const filteredSchema = filterSchemaByCloudProvider(resourceSchema?.inputParameters || [], values.cloudProvider)
-    .filter(
-      (param) =>
-        param.key !== "cloud_provider" &&
-        param.key !== "region" &&
-        param.key !== "custom_network_id" &&
-        param.key !== "custom_availability_zone" &&
-        param.key !== "subscriptionId" &&
-        param.key !== "cloud_provider_native_network_id" &&
-        param.key !== "custom_dns_configuration"
-    )
+    .filter((param) => !REQUEST_PARAMS_FIELDS_TO_FILTER.includes(param.key))
     .sort((a, b) => {
       if (a.tabIndex === undefined || b.tabIndex === undefined) {
         return 0;
@@ -595,7 +588,7 @@ export const getDeploymentConfigurationFields = (
         name: `requestParams.${param.key}`,
         value: values.requestParams[param.key] || "",
         type: "password",
-        required: formMode !== "modify" && param.required,
+        required: param.required,
         showPasswordGenerator: true,
         previewValue: values.requestParams[param.key] ? "********" : "",
         disabled: formMode !== "create" && param.custom && !param.modifiable,
@@ -787,6 +780,19 @@ export const getDeploymentConfigurationFields = (
         disabled: formMode !== "create",
         previewValue: cloudAccountInstances.find((config) => config.id === values.requestParams[param.key])?.label,
         emptyMenuText: "No cloud accounts available",
+      });
+    } else if (param.type?.toUpperCase() === "ANY") {
+      // Handle JSON type fields
+      fields.push({
+        dataTestId: `${param.key}-input`,
+        label: param.displayName || param.key,
+        subLabel: param.description,
+        disabled: formMode !== "create" && param.custom && !param.modifiable,
+        name: `requestParams.${param.key}`,
+        value: getJsonValue(values.requestParams[param.key]),
+        type: "text-multiline",
+        required: param.required,
+        previewValue: getJsonValue(values.requestParams[param.key]),
       });
     } else {
       if (param.key === "cloud_provider_account_config_id") {

@@ -21,10 +21,10 @@ import LoadingSpinnerSmall from "../CircularProgress/CircularProgress";
 import DeleteCircleIcon from "../Icons/DeleteCircle/DeleteCircleIcon";
 import { Text } from "../Typography/Typography";
 
-const Dialog = styled(MuiDialog)(() => ({
+const Dialog = styled(MuiDialog)(({ maxWidth }) => ({
   [`& .MuiPaper-root `]: {
     width: "100%",
-    maxWidth: "521px",
+    maxWidth: maxWidth ? maxWidth : "521px",
     padding: "24px",
   },
 }));
@@ -35,6 +35,8 @@ const DialogTitle = styled(MuiDialogTitle)(() => ({
 
 const DialogContent = styled(MuiDialogContent)(() => ({
   padding: 0,
+  marginLeft: "12px",
+  marginRight: "12px",
 }));
 
 const DialogActions = styled(MuiDialogActions)(() => ({
@@ -54,6 +56,8 @@ const TextConfirmationDialog = (props) => {
     buttonColor = "#D92D20",
     isLoading,
     IconComponent = DeleteCircleIcon,
+    maxWidth = 521,
+    ...rest
   } = props;
 
   const message = props.message || `To confirm, please enter <b>${confirmationText}</b>, in the field below:`;
@@ -77,14 +81,13 @@ const TextConfirmationDialog = (props) => {
     validateOnChange: false,
   });
 
+  const onClose = () => {
+    handleClose();
+    formData.resetForm();
+  };
+
   return (
-    <Dialog
-      open={open}
-      onClose={() => {
-        handleClose();
-        formData.resetForm();
-      }}
-    >
+    <Dialog open={open} onClose={onClose} maxWidth={maxWidth} {...rest}>
       <Form onSubmit={formData.handleSubmit}>
         <DialogTitle>
           <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -94,7 +97,7 @@ const TextConfirmationDialog = (props) => {
                 {title}
               </Text>
             </Stack>
-            <IconButton onClick={handleClose} sx={{ alignSelf: "flex-start" }}>
+            <IconButton onClick={onClose} sx={{ alignSelf: "flex-start" }}>
               <CloseIcon />
             </IconButton>
           </Stack>
@@ -119,7 +122,7 @@ const TextConfirmationDialog = (props) => {
           />
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" size="large" disabled={isLoading} onClick={handleClose}>
+          <Button variant="outlined" size="large" disabled={isLoading} onClick={onClose}>
             Cancel
           </Button>
           <Button

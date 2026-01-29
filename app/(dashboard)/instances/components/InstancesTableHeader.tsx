@@ -1,12 +1,15 @@
 import { useMemo } from "react";
 import { CircularProgress } from "@mui/material";
-import useBillingStatus from "app/(dashboard)/billing/hooks/useBillingStatus";
 
 import { connectToInstance } from "src/api/resourceInstance";
 import { $api } from "src/api/query";
 import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
 import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
 import useSnackbar from "src/hooks/useSnackbar";
+import { SetState } from "src/types/common/reactGenerics";
+import { ResourceInstance } from "src/types/resourceInstance";
+import { ServiceOffering } from "src/types/serviceOffering";
+import { Subscription } from "src/types/subscription";
 import {
   getEnumFromUserRoleString,
   isOperationAllowedByRBAC,
@@ -17,13 +20,12 @@ import Button from "components/Button/Button";
 import DataGridHeaderTitle from "components/Headers/DataGridHeaderTitle";
 import RefreshWithToolTip from "components/RefreshWithTooltip/RefreshWithToolTip";
 
-import { icons } from "../constants";
+import { Overlay } from "../page";
 import { getMainResourceFromInstance } from "../utils";
 
-import AddInstanceFilters from "./AddInstanceFilters";
-import EditInstanceFilters from "./EditInstanceFilters";
 import { useMutation } from "@tanstack/react-query";
 import InstanceActionMenu from "./InstanceActionMenu";
+import InstancesFilters from "./InstancesFilters";
 
 type Action = {
   dataTestId?: string;
@@ -35,7 +37,22 @@ type Action = {
   disabledMessage?: string;
 };
 
-const InstancesTableHeader = ({
+type InstancesTableHeaderProps = {
+  count: number;
+  selectedInstance: ResourceInstance | undefined;
+  setSelectedRows: SetState<ResourceInstance[]>;
+  setOverlayType: SetState<Overlay>;
+  setIsOverlayOpen: SetState<boolean>;
+  selectedInstanceOffering: ServiceOffering;
+  selectedInstanceSubscription?: Subscription;
+  refetchInstances: () => void;
+  isFetchingInstances: boolean;
+  instances: ResourceInstance[];
+  setFilteredInstances: SetState<ResourceInstance[]>;
+  isLoadingInstances: boolean;
+};
+
+const InstancesTableHeader: React.FC<InstancesTableHeaderProps> = ({
   count,
   selectedInstance,
   setSelectedRows,
@@ -45,17 +62,11 @@ const InstancesTableHeader = ({
   selectedInstanceSubscription,
   refetchInstances,
   isFetchingInstances,
-  filterOptionsMap,
-  selectedFilters,
-  setSelectedFilters,
-
+  instances,
+  setFilteredInstances,
   isLoadingInstances,
-  isLoadingPaymentConfiguration,
 }) => {
   const snackbar = useSnackbar();
-  const billingStatusQuery = useBillingStatus();
-
-  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled);
 
   const stopInstanceMutation = $api.useMutation(
     "post",
@@ -98,7 +109,7 @@ const InstancesTableHeader = ({
   const mainActions = useMemo(() => {
     const actions: Action[] = [];
     const status = selectedInstance?.status;
-
+    const isDeleteProtected = selectedInstance?.resourceInstanceMetadata?.deletionProtection === true;
     // Check if the user has permission to perform the operation - Role from Subscription
     const role = getEnumFromUserRoleString(selectedInstanceSubscription?.roleType);
     const isUpdateAllowedByRBAC = isOperationAllowedByRBAC(operationEnum.Update, role, viewEnum.Access_Resources);
@@ -112,7 +123,7 @@ const InstancesTableHeader = ({
       serviceModelKey: selectedInstanceOffering?.serviceModelURLKey,
       productTierKey: selectedInstanceOffering?.productTierURLKey,
       resourceKey: selectedResource?.urlKey as string,
-      id: selectedInstance?.id,
+      id: selectedInstance?.id as string,
     };
 
     actions.push({
@@ -121,12 +132,7 @@ const InstancesTableHeader = ({
       actionType: "secondary",
       isLoading: stopInstanceMutation.isPending,
       isDisabled:
-        !selectedInstance ||
-        status !== "RUNNING" ||
-        status === "DISCONNECTED" ||
-        isComplexResource ||
-        isProxyResource ||
-        !isUpdateAllowedByRBAC,
+        !selectedInstance || status !== "RUNNING" || isComplexResource || isProxyResource || !isUpdateAllowedByRBAC,
       onClick: () => {
         if (!selectedInstance) return snackbar.showError("Please select an instance");
         setOverlayType("stop-dialog");
@@ -134,10 +140,10 @@ const InstancesTableHeader = ({
       },
       disabledMessage: !selectedInstance
         ? "Please select an instance"
-        : status !== "RUNNING"
-          ? "Instance must be running to stop it"
-          : status === "DISCONNECTED"
-            ? "Instance is disconnected"
+        : status === "DISCONNECTED"
+          ? "Instance is disconnected"
+          : status !== "RUNNING"
+            ? "Instance must be running to stop it"
             : isComplexResource || isProxyResource
               ? "System manages instances cannot be stopped"
               : !isUpdateAllowedByRBAC
@@ -151,12 +157,7 @@ const InstancesTableHeader = ({
       actionType: "secondary",
       isLoading: startInstanceMutation.isPending,
       isDisabled:
-        !selectedInstance ||
-        status !== "STOPPED" ||
-        status === "DISCONNECTED" ||
-        isComplexResource ||
-        isProxyResource ||
-        !isUpdateAllowedByRBAC,
+        !selectedInstance || status !== "STOPPED" || isComplexResource || isProxyResource || !isUpdateAllowedByRBAC,
       onClick: () => {
         if (!selectedInstance) return snackbar.showError("Please select an instance");
         if (!selectedInstanceOffering) return snackbar.showError("Product not found");
@@ -171,10 +172,10 @@ const InstancesTableHeader = ({
       },
       disabledMessage: !selectedInstance
         ? "Please select an instance"
-        : status !== "STOPPED"
-          ? "Instances must be stopped before starting"
-          : status === "DISCONNECTED"
-            ? "Instance is disconnected"
+        : status === "DISCONNECTED"
+          ? "Instance is disconnected"
+          : status !== "STOPPED"
+            ? "Instances must be stopped before starting"
             : isComplexResource || isProxyResource
               ? "System managed instances cannot be started"
               : !isUpdateAllowedByRBAC
@@ -189,7 +190,6 @@ const InstancesTableHeader = ({
       isDisabled:
         !selectedInstance ||
         (status !== "RUNNING" && status !== "FAILED" && status !== "COMPLETE") ||
-        status === "DISCONNECTED" ||
         isProxyResource ||
         !isUpdateAllowedByRBAC,
       onClick: () => {
@@ -199,10 +199,10 @@ const InstancesTableHeader = ({
       },
       disabledMessage: !selectedInstance
         ? "Please select an instance"
-        : status !== "RUNNING" && status !== "FAILED"
-          ? "Instance must be running or failed to modify"
-          : status === "DISCONNECTED"
-            ? "Instance is disconnected"
+        : status === "DISCONNECTED"
+          ? "Instance is disconnected"
+          : status !== "RUNNING" && status !== "FAILED"
+            ? "Instance must be running or failed to modify"
             : isProxyResource
               ? "System managed instances cannot be modified"
               : !isUpdateAllowedByRBAC
@@ -219,7 +219,8 @@ const InstancesTableHeader = ({
         status === "DELETING" ||
         status === "DISCONNECTED" ||
         isProxyResource ||
-        !isDeleteAllowedByRBAC,
+        !isDeleteAllowedByRBAC ||
+        isDeleteProtected,
       onClick: () => {
         if (!selectedInstance) return snackbar.showError("Please select an instance");
         setOverlayType("delete-dialog");
@@ -233,9 +234,11 @@ const InstancesTableHeader = ({
             ? "Instance is disconnected"
             : isProxyResource
               ? "System managed instances cannot be deleted"
-              : !isDeleteAllowedByRBAC
-                ? "Unauthorized to delete instances"
-                : "",
+              : isDeleteProtected
+                ? "Instance is delete protected"
+                : !isDeleteAllowedByRBAC
+                  ? "Unauthorized to delete instances"
+                  : "",
     });
 
     if (!isComplexResource && !isProxyResource) {
@@ -245,15 +248,15 @@ const InstancesTableHeader = ({
         isDisabled:
           !selectedInstance || (status !== "RUNNING" && status !== "FAILED" && selectedInstance.network_type !== "INTERNAL"),
         onClick: () => {
-          const resourceKey = Object.entries(selectedInstance.detailedNetworkTopology).filter(([_, v]) => {
+          const resourceKey = Object.entries(selectedInstance?.detailedNetworkTopology ?? {}).filter(([_, v]) => {
             return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
           })[0][0];
-          connectInstanceMutation.mutate({
+          selectedInstance && connectInstanceMutation.mutate({
             host: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterEndpoint,
             port: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterPorts?.[0],
             region: selectedInstance.region,
-            username: selectedInstance.result_params.falkordbUser,
-            tls: selectedInstance.result_params.enableTLS,
+            username: (selectedInstance.result_params as any)?.falkordbUser ?? '',
+            tls: (selectedInstance.result_params as any)?.enableTLS ?? false,
           });
         },
         disabledMessage: !selectedInstance
@@ -270,7 +273,7 @@ const InstancesTableHeader = ({
       dataTestId: "create-button",
       label: "Create",
       actionType: "primary",
-      isDisabled: isLoadingInstances || (isBillingEnabled && isLoadingPaymentConfiguration),
+      isDisabled: isLoadingInstances,
       onClick: () => {
         setSelectedRows([]); // To make selectedInstance becomes undefined. See page.tsx
         setOverlayType("create-instance-form");
@@ -332,7 +335,6 @@ const InstancesTableHeader = ({
           <RefreshWithToolTip refetch={refetchInstances} disabled={isFetchingInstances} />
 
           {mainActions.map((action, index) => {
-            const Icon = icons[action.label];
             return (
               <Button
                 data-testid={action.dataTestId || action.label}
@@ -340,7 +342,6 @@ const InstancesTableHeader = ({
                 variant={action.actionType === "primary" ? "contained" : "outlined"}
                 disabled={action.isDisabled || action.isLoading}
                 onClick={action.onClick}
-                startIcon={<Icon disabled={action.isDisabled || action.isLoading} />}
                 disabledMessage={action.disabledMessage}
               >
                 {action.label}
@@ -364,18 +365,8 @@ const InstancesTableHeader = ({
         </div>
       </div>
 
-      <div className="px-6 py-4 border-b-[1px] flex justify-start items-center gap-4">
-        <div className="shrink-0">
-          <AddInstanceFilters
-            setSelectedFilters={setSelectedFilters}
-            filterOptionsMap={filterOptionsMap}
-            selectedFilters={selectedFilters}
-          />
-        </div>
-
-        <div className="flex-1">
-          <EditInstanceFilters selectedFilters={selectedFilters} setSelectedFilters={setSelectedFilters} />
-        </div>
+      <div className="px-6 py-4 border-b-[1px]">
+        <InstancesFilters instances={instances} setFilteredInstances={setFilteredInstances} />
       </div>
     </div>
   );

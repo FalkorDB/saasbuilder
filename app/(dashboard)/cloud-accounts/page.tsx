@@ -75,6 +75,11 @@ const CloudAccountsPage = () => {
   const [isAccountCreation, setIsAccountCreation] = useState(false);
   const [clickedInstance, setClickedInstance] = useState<ResourceInstance>();
 
+  const awsCloudFormationTemplateUrl = useMemo(() => {
+    const result_params: any = clickedInstance?.result_params;
+    return result_params?.cloudformation_url;
+  }, [clickedInstance]);
+
   const gcpBootstrapShellCommand = useMemo(() => {
     const result_params: any = clickedInstance?.result_params;
     if (result_params?.gcp_bootstrap_shell_script) {
@@ -528,6 +533,12 @@ const CloudAccountsPage = () => {
         }, 1700);
       }
     },
+    onError: async () => {
+      setSelectedRows([]);
+      setIsOverlayOpen(false);
+      await refetchInstances();
+      snackbar.showError("Something went wrong. Please try again.");
+    },
   });
 
   // const deleteAccountConfigMutation = $api.useMutation("delete", "/2022-09-01-00/accountconfig/{id}", {
@@ -651,8 +662,11 @@ const CloudAccountsPage = () => {
 
       <DeleteAccountConfigConfirmationDialog
         open={isOverlayOpen && overlayType === "delete-dialog"}
-        onClose={() => {
+        onClose={async () => {
           setIsOverlayOpen(false);
+          setSelectedRows([]);
+          setClickedInstance(undefined);
+          await refetchInstances();
         }}
         isDeleteInstanceMutationPending={deleteCloudAccountInstanceMutation.isPending}
         // isDeletingAccountConfig={deleteAccountConfigMutation.isPending}
@@ -715,7 +729,7 @@ const CloudAccountsPage = () => {
         }}
         accountConfigId={clickedInstance?.id}
         selectedAccountConfig={clickedInstance}
-        cloudFormationTemplateUrl={clickedInstanceOffering?.assets?.cloudFormationURL}
+        cloudFormationTemplateUrl={awsCloudFormationTemplateUrl}
         isAccountCreation={isAccountCreation}
         gcpBootstrapShellCommand={gcpBootstrapShellCommand}
         azureBootstrapShellCommand={azureBootstrapShellCommand}

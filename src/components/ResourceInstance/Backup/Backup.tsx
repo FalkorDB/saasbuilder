@@ -27,7 +27,7 @@ import { colors } from "src/themeConfig";
 import { NetworkType } from "src/types/common/enums";
 import { SetState } from "src/types/common/reactGenerics";
 import { ServiceOffering } from "src/types/serviceOffering";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { roundNumberToTwoDecimals } from "src/utils/formatNumber";
 import RegionIcon from "components/Region/RegionIcon";
 
@@ -326,7 +326,7 @@ const Backup: FC<{
         headerName: "Created On",
         flex: 1,
         minWidth: 170,
-        valueGetter: (params: { row: SnapshotBase }) => formatDateUTC(params.row.createdTime),
+        valueGetter: (params: { row: SnapshotBase }) => formatDateLocal(params.row.createdTime),
       },
       {
         field: "completeTime",
@@ -334,7 +334,7 @@ const Backup: FC<{
         flex: 1,
         minWidth: 170,
         valueGetter: (params: { row: SnapshotBase }) =>
-          params.row.status === "COMPLETE" ? formatDateUTC(params.row.completeTime) : "-",
+          params.row.status === "COMPLETE" ? formatDateLocal(params.row.completeTime) : "-",
       },
       {
         field: "progress",

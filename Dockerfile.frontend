@@ -22,7 +22,16 @@ RUN yarn install --frozen-lockfile --production=false --network-timeout 1000000
 COPY --link . .
 
 # Build application
-RUN yarn run build
+RUN --mount=type=cache,target=/root/.cache/yarn \
+    yarn run build:frontend
+
+# Remove development dependencies
+RUN --mount=type=cache,target=/root/.cache/yarn \
+    yarn install --production=true --network-timeout 1000000
+
+# Remove development dependencies
+RUN --mount=type=cache,target=/root/.cache/yarn \
+    yarn install --production=true --network-timeout 1000000
 
 # Final stage for app image
 FROM base

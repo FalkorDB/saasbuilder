@@ -32,6 +32,8 @@ export const getTabs = (
     tabs["customDNS"] = "Custom DNS";
   }
 
+  tabs["importExportRDB"] = "Import/Export RDB";
+
   return tabs;
 };
 

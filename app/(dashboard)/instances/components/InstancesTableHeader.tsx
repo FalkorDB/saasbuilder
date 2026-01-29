@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { CircularProgress } from "@mui/material";
 
+import { connectToInstance } from "src/api/resourceInstance";
 import { $api } from "src/api/query";
 import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
 import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
@@ -22,6 +23,7 @@ import RefreshWithToolTip from "components/RefreshWithTooltip/RefreshWithToolTip
 import { Overlay } from "../page";
 import { getMainResourceFromInstance } from "../utils";
 
+import { useMutation } from "@tanstack/react-query";
 import InstanceActionMenu from "./InstanceActionMenu";
 import InstancesFilters from "./InstancesFilters";
 
@@ -89,6 +91,13 @@ const InstancesTableHeader: React.FC<InstancesTableHeaderProps> = ({
       },
     }
   );
+
+  const connectInstanceMutation = useMutation({
+    mutationFn: connectToInstance,
+    onSuccess: async () => {
+      snackbar.showSuccess("Connecting to resource instance...");
+    },
+  });
 
   const selectedResource = useMemo(() => {
     return getMainResourceFromInstance(selectedInstance, selectedInstanceOffering);
@@ -232,6 +241,35 @@ const InstancesTableHeader: React.FC<InstancesTableHeaderProps> = ({
                   : "",
     });
 
+    if (!isComplexResource && !isProxyResource) {
+      actions.push({
+        label: "Connect",
+        isLoading: connectInstanceMutation.isPending,
+        isDisabled:
+          !selectedInstance || (status !== "RUNNING" && status !== "FAILED" && selectedInstance.network_type !== "INTERNAL"),
+        onClick: () => {
+          if (!selectedInstance) return; 
+          const resourceKey = Object.entries(selectedInstance?.detailedNetworkTopology ?? {}).filter(([_, v]) => {
+            return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
+          })[0][0];
+          connectInstanceMutation.mutate({
+            host: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterEndpoint,
+            port: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterPorts?.[0],
+            region: selectedInstance.region,
+            username: (selectedInstance.result_params as any)?.falkordbUser ?? '',
+            tls: (selectedInstance.result_params as any)?.enableTLS ?? false,
+          });
+        },
+        disabledMessage: !selectedInstance
+          ? "Please select an instance"
+          : selectedInstance.network_type == "INTERNAL" ?
+            "This instance is deployed in an internal network"
+            : status !== "RUNNING"
+              ? "Instance must be running to connect"
+              : "",
+      });
+    }
+
     actions.push({
       dataTestId: "create-button",
       label: "Create",
@@ -245,7 +283,27 @@ const InstancesTableHeader: React.FC<InstancesTableHeaderProps> = ({
       disabledMessage: "Please wait for the instances to load",
     });
 
-    return actions;
+    const other: Action[] = [];
+
+    if (selectedInstance?.kubernetesDashboardEndpoint?.dashboardEndpoint) {
+      other.push({
+        dataTestId: "generate-token-button",
+        label: "Generate Token",
+        isDisabled: !selectedInstance || status === "DISCONNECTED",
+        disabledMessage: !selectedInstance
+          ? "Please select an instance"
+          : status === "DISCONNECTED"
+            ? "Cloud account is disconnected"
+            : "",
+        onClick: () => {
+          if (!selectedInstance) return snackbar.showError("Please select an instance");
+          setOverlayType("generate-token-dialog");
+          setIsOverlayOpen(true);
+        },
+      });
+    }
+
+    return [...actions, ...other];
   }, [
     snackbar,
     setOverlayType,
@@ -254,6 +312,7 @@ const InstancesTableHeader: React.FC<InstancesTableHeaderProps> = ({
     selectedInstance,
     stopInstanceMutation,
     startInstanceMutation,
+    connectInstanceMutation,
     selectedInstanceOffering,
     isComplexResource,
     isProxyResource,

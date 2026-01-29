@@ -15,6 +15,7 @@ import checkRouteValidity from "src/utils/route/checkRouteValidity";
 import { getInstancesRoute } from "src/utils/routes";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import { Text } from "components/Typography/Typography";
+import { IDENTITY_PROVIDER_TYPES } from "app/(public)/(main-image)/signin/constants";
 
 const IDPAuthPage = () => {
   const environmentType = useEnvironmentType();
@@ -34,7 +35,11 @@ const IDPAuthPage = () => {
         const jwtToken = response.data.jwtToken;
         sessionStorage.removeItem("authState");
         if (jwtToken) {
-          Cookies.set("token", jwtToken, { sameSite: "Lax", secure: true });
+          Cookies.set("token", jwtToken, {
+            sameSite: "Lax",
+            secure: true,
+            domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+          });
           axios.defaults.headers["Authorization"] = "Bearer " + jwtToken;
 
           try {
@@ -42,6 +47,19 @@ const IDPAuthPage = () => {
           } catch (error) {
             console.warn("Failed to set SSO state:", error);
           }
+
+          try {
+            const user = await axios.get("/user").then(response => response.data)
+            const identity = {
+              "username": user.email,
+              "type": payload.identityProviderName === IDENTITY_PROVIDER_TYPES.Google ? "gmail" : payload.identityProviderName === IDENTITY_PROVIDER_TYPES.GitHub ? "github" : "other",
+              "firstname": user.name?.split(' ')[0],
+            }
+            window['Reo']?.identify?.call(identity);
+          } catch (error) {
+            console.error(error);
+          }
+
           const decodedDestination = decodeURIComponent(destination);
           hasAttemptedSignIn.current = false;
 

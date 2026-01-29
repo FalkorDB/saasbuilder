@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
-import { Box, CircularProgress, Collapse, Stack } from "@mui/material";
+import { Collapse, Stack, Box, CircularProgress } from "@mui/material";
 import PageContainer from "app/(dashboard)/components/Layout/PageContainer";
 import NoServiceFoundUI from "app/(dashboard)/components/NoServiceFoundUI/NoServiceFoundUI";
 import InstanceActionMenu from "app/(dashboard)/instances/components/InstanceActionMenu";
@@ -32,14 +32,15 @@ import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import AuditLogs from "components/ResourceInstance/AuditLogs/AuditLogs";
 import Backup from "components/ResourceInstance/Backup/Backup";
 import Connectivity from "components/ResourceInstance/Connectivity/Connectivity";
-import Logs from "components/ResourceInstance/Logs/Logs";
-import Metrics from "components/ResourceInstance/Metrics/Metrics";
 import NodesTable from "components/ResourceInstance/NodesTable/NodesTable";
 import ResourceInstanceDetails from "components/ResourceInstance/ResourceInstanceDetails/ResourceInstanceDetails";
 import ResourceInstanceOverview from "components/ResourceInstance/ResourceInstanceOverview/ResourceInstanceOverview";
+import ResourceImportExportRDB from "components/ResourceInstance/ImportExportRDB/ResourceImportExportRDB";
 import { DisplayText } from "components/Typography/Typography";
 
 import { checkCustomDNSEndpoint, getTabs } from "./utils";
+import { connectToInstance } from "src/api/resourceInstance";
+import ConnectIcon from "src/components/Icons/Connect/Connect";
 
 export type CurrentTab =
   | "Instance Details"
@@ -131,8 +132,8 @@ const InstanceDetailsPage = ({
   const tabs = useMemo(
     () =>
       getTabs(
-        resourceInstanceData?.isMetricsEnabled,
-        resourceInstanceData?.isLogsEnabled,
+        offering.productTierName !== "FalkorDB Free", // resourceInstanceData?.isMetricsEnabled,
+        false,
         resourceInstanceData?.active,
         isResourceBYOA,
         isCliManagedResource,
@@ -204,7 +205,12 @@ const InstanceDetailsPage = ({
       cloudProvider = resourceInstanceData?.resultParameters?.cloud_provider;
     }
   }
+  const componentName = Object.entries(resourceInstanceData.detailedNetworkTopology).filter(([_, v]) => {
+    return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
+  })?.[0]?.[0];
 
+  const url = window.location.href;
+  
   return (
     <PageContainer>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -260,6 +266,28 @@ const InstanceDetailsPage = ({
         <Stack direction="row" alignItems="center" gap="16px">
           <div className="flex items-center">{resourceInstanceQuery.isFetching && <CircularProgress size={20} />}</div>
           <RefreshWithToolTip disabled={resourceInstanceQuery.isFetching} refetch={refetchInstance} />
+          {resourceInstanceData.networkType !== "INTERNAL" && <Button
+            variant="contained"
+            size="common"
+            disabled={resourceInstanceData.status !== "RUNNING"}
+            disabledMessage="Instance must be running to connect"
+            onClick={() =>
+              connectToInstance({
+                host: (resourceInstanceData.detailedNetworkTopology[componentName] as any)?.clusterEndpoint,
+                port: (resourceInstanceData.detailedNetworkTopology[componentName] as any).clusterPorts?.[0],
+                username: (resourceInstanceData.resultParameters as any)?.falkordbUser,
+                region: resourceInstanceData.region,
+                tls: (resourceInstanceData.resultParameters as any)?.enableTLS,
+              })
+            }
+          >
+            <ConnectIcon
+              color="white"
+              disabled={resourceInstanceData.status !== "RUNNING"}
+              style={{ marginRight: "8px" }}
+            />
+            Connect
+          </Button>}
           <InstanceActionMenu
             variant="details-page"
             instance={resourceInstanceData?.unprocessedData}
@@ -269,6 +297,7 @@ const InstanceDetailsPage = ({
             setIsOverlayOpen={setIsOverlayOpen}
             refetchData={refetchInstance}
           />
+        
         </Stack>
       </Stack>
       {currentTab === tabs.resourceInstanceDetails && (
@@ -301,6 +330,7 @@ const InstanceDetailsPage = ({
           maintenanceTasks={resourceInstanceData.maintenanceTasks}
           licenseDetails={resourceInstanceData?.subscriptionLicense}
           tierVersion={resourceInstanceData?.unprocessedData?.tierVersion}
+          versionDetails={resourceInstanceData?.unprocessedData?.productTierVersionDetail}
           customTags={resourceInstanceData?.customTags}
         />
       )}
@@ -335,18 +365,41 @@ const InstanceDetailsPage = ({
         />
       )}
       {currentTab === tabs.metrics && (
-        <Metrics
-          resourceInstanceId={instanceId}
-          nodes={resourceInstanceData.nodes}
-          socketBaseURL={resourceInstanceData.metricsSocketURL}
-          instanceStatus={resourceInstanceData.status}
-          resourceKey={resourceInstanceData.resourceKey}
-          customMetrics={resourceInstanceData.customMetrics || []}
-          mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
-          productTierType={offering.productTierType}
-        />
+        // <Metrics
+        //   resourceInstanceId={instanceId}
+        //   nodes={resourceInstanceData.nodes}
+        //   socketBaseURL={resourceInstanceData.metricsSocketURL}
+        //   instanceStatus={resourceInstanceData.status}
+        //   resourceKey={resourceInstanceData.resourceKey}
+        //   customMetrics={resourceInstanceData.customMetrics || []}
+        //   mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
+        //   productTierType={offering.productTierType}
+        // />
+
+        <Stack
+          marginTop="16px"
+          sx={{
+            //marginTop: "46px",
+            flexDirection: "row",
+            justifyContent: "space-between",
+          }}
+          alignItems="center"
+        >
+          {url.includes("falkordb.cloud") ? (
+            <iframe
+              width="100%"
+              style={{
+                minHeight: "700px",
+              }}
+              src={process.env.NEXT_PUBLIC_GRAFANA_URL + "/d/" + instanceId + "?orgId=" + subscription.id}
+            />
+          ) : (
+            <DisplayText>You must be on FalkorDB Cloud to view metrics.</DisplayText>
+          )}
+        </Stack>
       )}
-      {currentTab === tabs.logs && (
+
+      {/* {currentTab === tabs.logs && (
         <Logs
           resourceInstanceId={instanceId}
           nodes={resourceInstanceData.nodes}
@@ -355,7 +408,7 @@ const InstanceDetailsPage = ({
           resourceKey={resourceInstanceData.resourceKey}
           mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
         />
-      )}
+      )} */}
 
       {currentTab === tabs.auditLogs && <AuditLogs instanceId={instanceId} subscriptionId={subscriptionId} />}
       {currentTab === tabs.backups && (
@@ -404,7 +457,7 @@ const InstanceDetailsPage = ({
           refetchInstance={resourceInstanceQuery.refetch}
         />
       )}
-
+      {currentTab === tabs.importExportRDB && <ResourceImportExportRDB instanceId={instanceId} status={resourceInstanceData.status} />}
       <InstanceDialogs
         variant="details-page"
         isOverlayOpen={isOverlayOpen}
@@ -417,7 +470,7 @@ const InstanceDetailsPage = ({
         subscription={subscription}
         refetchData={refetchInstance}
       />
-    </PageContainer>
+    </PageContainer >
   );
 };
 

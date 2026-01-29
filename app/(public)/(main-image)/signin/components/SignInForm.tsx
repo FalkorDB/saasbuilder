@@ -55,6 +55,16 @@ const SignInForm: FC<SignInFormProps> = ({
 
   const reCaptchaRef = useRef<ReCAPTCHA | null>(null);
 
+  const formik = useFormik({
+    initialValues: {
+      email: email || "",
+      password: "",
+    },
+    // enableReinitialize: true,
+    onSubmit: handleFormSubmit,
+    validationSchema: createSigninValidationSchema,
+  });
+
   useEffect(() => {
     if (redirect_reason === "idp_auth_error") {
       snackbar.showError("Something went wrong. Please retry");
@@ -67,7 +77,11 @@ const SignInForm: FC<SignInFormProps> = ({
 
   function handlePasswordSignInSuccess(jwtToken) {
     if (jwtToken) {
-      Cookies.set("token", jwtToken, { sameSite: "Lax", secure: true });
+      Cookies.set("token", jwtToken, {
+        sameSite: "Lax",
+        secure: true,
+        domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+      });
 
       try {
         localStorage.removeItem("loggedInUsingSSO");
@@ -96,6 +110,13 @@ const SignInForm: FC<SignInFormProps> = ({
       setLoginMethod({
         methodType: "Password",
       });
+
+      const identity = {
+        "username": formik.values.email,
+        "type": "email",
+      }
+      window['Reo']?.identify?.call(identity);
+
       /*eslint-disable-next-line no-use-before-define*/
       formik.setFieldValue("password", "");
       /*eslint-disable-next-line no-use-before-define*/
@@ -126,16 +147,6 @@ const SignInForm: FC<SignInFormProps> = ({
 
     passwordSignInMutation.mutate(data);
   }
-
-  const formik = useFormik({
-    initialValues: {
-      email: email || "",
-      password: "",
-    },
-    // enableReinitialize: true,
-    onSubmit: handleFormSubmit,
-    validationSchema: createSigninValidationSchema,
-  });
 
   return (
     <>

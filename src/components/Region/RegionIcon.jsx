@@ -1,4 +1,11 @@
+import { fromProvider } from "cloud-regions-country-flags";
+
 const RegionIcon = (props) => {
+  if (props.region && props.provider) {
+    const region = fromProvider(props.region, props.provider.toUpperCase());
+    return region.flag;
+  }
+
   return (
     <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
       <g filter="url(#filter0_dii_3965_186)">

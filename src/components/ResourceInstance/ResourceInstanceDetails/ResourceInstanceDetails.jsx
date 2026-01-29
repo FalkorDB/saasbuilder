@@ -5,9 +5,9 @@ import { Base64 } from "js-base64";
 
 import InstanceLicenseStatusChip from "src/components/InstanceLicenseStatusChip/InstanceLicenseStatusChip";
 import { INTEGRATION_TYPE_LABEL_MAP } from "src/constants/productTierFeatures";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
-
+import { extractAppVersion } from "src/utils/extractAppVersion";
 import NonOmnistrateIntegrationRow from "./NonOmnistrateIntegrationRow";
 import PropertyDetails from "./PropertyDetails";
 import TerraformDownloadURL from "./TerraformDownloadURL";
@@ -36,6 +36,7 @@ function ResourceInstanceDetails(props) {
     maintenanceTasks,
     licenseDetails,
     tierVersion,
+    versionDetails,
     customTags,
   } = props;
 
@@ -100,12 +101,12 @@ function ResourceInstanceDetails(props) {
       {
         dataTestId: "created-at",
         label: "Created at",
-        value: formatDateUTC(createdAt),
+        value: formatDateLocal(createdAt),
       },
       {
         dataTestId: "modified-at",
         label: "Modified at",
-        value: formatDateUTC(modifiedAt),
+        value: formatDateLocal(modifiedAt),
       },
       {
         dataTestId: "high-availability-status",
@@ -131,19 +132,33 @@ function ResourceInstanceDetails(props) {
       );
     }
 
-    if (showVersion) {
+    const versions = extractAppVersion(versionDetails?.name);
+
+    // Only show Cloud Version if it's not unknown
+    if (versions.cloudVersion !== "unknown") {
       res.push({
         dataTestId: "version",
-        label: "Plan Version",
-        value: tierVersion || "-",
+        label: "Cloud Version",
+        value: versions.cloudVersion,
       });
     }
+
+    // Only show FalkorDB Version if it's not unknown
+    if (versions.falkordbVersion !== "unknown") {
+      res.push({
+        dataTestId: "version-details",
+        label: "FalkorDB Version",
+        value: versions.falkordbVersion,
+      });
+    }
+
     res.push({
       dataTestId: "custom-tags",
       label: "Tags",
       valueType: "custom",
       value: <CustomTagsCell customTags={customTags} displayNumber={2} sx={{ marginTop: "8px", flexWrap: "wrap" }} />,
     });
+
     return res;
   }, [
     resourceInstanceId,
@@ -156,6 +171,7 @@ function ResourceInstanceDetails(props) {
     backupStatus,
     isCliManagedResource,
     tierVersion,
+    versionDetails,
     showVersion,
   ]);
 
@@ -168,7 +184,7 @@ function ResourceInstanceDetails(props) {
       },
       {
         label: "License Expiry Date",
-        value: formatDateUTC(licenseDetails?.expirationDate),
+        value: formatDateLocal(licenseDetails?.expirationDate),
       },
       {
         label: "Download License",
@@ -191,12 +207,12 @@ function ResourceInstanceDetails(props) {
       },
       {
         label: "Earliest Restore Time",
-        value: backupStatus?.earliestRestoreTime ? formatDateUTC(backupStatus?.earliestRestoreTime) : "-",
+        value: backupStatus?.earliestRestoreTime ? formatDateLocal(backupStatus?.earliestRestoreTime) : "-",
         valueType: backupStatus?.earliestRestoreTime ? "text" : "custom",
       },
       {
         label: "Last Backup Time",
-        value: backupStatus?.lastBackupTime ? formatDateUTC(backupStatus?.lastBackupTime) : "-",
+        value: backupStatus?.lastBackupTime ? formatDateLocal(backupStatus?.lastBackupTime) : "-",
         valueType: backupStatus?.lastBackupTime ? "text" : "custom",
       },
       {

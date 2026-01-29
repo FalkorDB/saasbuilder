@@ -23,7 +23,7 @@ export default async function handleSignup(nextRequest, nextResponse) {
       }
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP || "";
 
@@ -32,13 +32,13 @@ export default async function handleSignup(nextRequest, nextResponse) {
         "SaaSBuilder-IP": saasBuilderIP,
       });
 
-      nextResponse.status(200).send();
+      return nextResponse.status(200).send();
     } catch (error) {
       console.error(error?.response);
       const defaultErrorMessage = "Something went wrong. Please retry";
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
-        nextResponse.status(500).send({
+        return nextResponse.status(500).send({
           message: defaultErrorMessage,
         });
       } else {
@@ -49,15 +49,15 @@ export default async function handleSignup(nextRequest, nextResponse) {
           responseErrorMessage?.toLowerCase() ===
             "tenant with a valid token already exists, wait for the current token to expire"
         ) {
-          nextResponse.status(200).send();
+          return nextResponse.status(200).send();
         }
-        nextResponse.status(error.response?.status || 500).send({
+        return nextResponse.status(error.response?.status || 500).send({
           message: responseErrorMessage || defaultErrorMessage,
         });
       }
     }
   } else {
-    nextResponse.status(404).json({
+    return nextResponse.status(404).json({
       message: "Endpoint not found",
     });
   }

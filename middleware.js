@@ -46,7 +46,8 @@ export async function middleware(request) {
       return redirectToSignIn();
     }
 
-    if (request.nextUrl.pathname.startsWith("/signin")) {
+    console.log(request.nextUrl.pathname);
+    if (request.nextUrl.pathname.startsWith("/signin") || request.nextUrl.pathname.startsWith("/redirect")) {
       let destination = request.nextUrl.searchParams.get("destination");
 
       if (!destination || !PAGE_TITLE_MAP[destination]) {
@@ -80,6 +81,6 @@ export async function middleware(request) {
 
 export const config = {
   matcher: [
-    "/((?!api/action|api/signup|api/signin|api/reset-password|api/provider-details|idp-auth|api/sign-in-with-idp|privacy-policy|cookie-policy|terms-of-use|favicon.ico|_next/image|_next/static|static|validate-token).*)",
+    "/((?!api/action|api/signup|api/signin|api/reset-password|api/provider-details|idp-auth|api/sign-in-with-idp|privacy-policy|cookie-policy|terms-of-use|favicon.ico|_next/image|_next/static|static|validate-token|mail).*)",
   ],
 };

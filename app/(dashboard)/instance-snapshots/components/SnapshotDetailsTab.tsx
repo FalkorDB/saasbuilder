@@ -9,7 +9,7 @@ import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 import { CloudProvider } from "src/types/common/enums";
 import { InstanceSnapshot } from "src/types/instance-snapshot";
 import { ResourceInstance } from "src/types/resourceInstance";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { getInstanceDetailsRoute, getSubscriptionsRoute } from "src/utils/routes";
 
 type SnapshotDetailsTabProps = {
@@ -85,12 +85,12 @@ const SnapshotDetailsTab: React.FC<SnapshotDetailsTabProps> = ({ snapshot, insta
       },
       {
         label: "Created At",
-        value: createdTime ? formatDateUTC(createdTime) : "-",
+        value: createdTime ? formatDateLocal(createdTime) : "-",
         valueType: "text",
       },
       {
         label: "Completion Time",
-        value: completeTime && completeTime !== "0001-01-01T00:00:00Z" ? formatDateUTC(completeTime) : "-",
+        value: completeTime && completeTime !== "0001-01-01T00:00:00Z" ? formatDateLocal(completeTime) : "-",
         valueType: "text",
       },
       {

@@ -254,8 +254,8 @@ const PropertyDetails: FC<PropertyTableProps> = ({ rows, ...otherProps }) => {
           } else if (textType.includes(valueType)) {
             value = (
               <>
-                <Tooltip title={row.value}>
-                  <Box maxWidth="calc(100% - 36px)">
+                <Tooltip title={row.value} placement="top">
+                  <Box maxWidth="100%">
                     <Text ellipsis size="small" weight="medium" color="#535862">
                       {row.value ? row.value : "-"}
                     </Text>

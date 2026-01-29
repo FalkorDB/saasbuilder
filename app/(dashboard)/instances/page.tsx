@@ -1,29 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Box, Stack } from "@mui/material";
+import { Box, Tooltip } from "@mui/material";
 import { createColumnHelper } from "@tanstack/react-table";
 
 import DeleteProtectionIcon from "src/components/Icons/DeleteProtection/DeleteProtection";
-import LoadIndicatorHigh from "src/components/Icons/LoadIndicator/LoadIndicatorHigh";
-import LoadIndicatorIdle from "src/components/Icons/LoadIndicator/LoadIndicatorIdle";
-import LoadIndicatorNormal from "src/components/Icons/LoadIndicator/LoadIndicatorNormal";
 import InstanceHealthStatusChip, {
   getInstanceHealthStatus,
 } from "src/components/InstanceHealthStatusChip/InstanceHealthStatusChip";
-import InstanceLicenseStatusChip from "src/components/InstanceLicenseStatusChip/InstanceLicenseStatusChip";
-import Tooltip from "src/components/Tooltip/Tooltip";
 import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { ResourceInstance, ResourceInstanceNetworkTopology } from "src/types/resourceInstance";
 import { isCloudAccountInstance } from "src/utils/access/byoaResource";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { getInstanceDetailsRoute } from "src/utils/routes";
 import DataTable from "components/DataTable/DataTable";
 import GridCellExpand from "components/GridCellExpand/GridCellExpand";
 import RegionIcon from "components/Region/RegionIcon";
-import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithLogo";
 import StatusChip from "components/StatusChip/StatusChip";
 
 import PageContainer from "../components/Layout/PageContainer";
@@ -34,7 +28,6 @@ import InstancesOverview from "./components/InstancesOverview";
 import InstancesTableHeader from "./components/InstancesTableHeader";
 import StatusCell from "./components/StatusCell";
 import useInstances from "./hooks/useInstances";
-import { loadStatusMap } from "./constants";
 import { getMainResourceFromInstance, getRowBorderStyles } from "./utils";
 
 const columnHelper = createColumnHelper<ResourceInstance>();
@@ -117,7 +110,17 @@ const InstancesPage = () => {
           minWidth: 250,
         },
       }),
-
+      columnHelper.accessor("result_params.name", {
+        id: "name",
+        header: "Name",
+        cell: (data) => {
+          const { result_params } = data.row.original;
+          return (result_params as any).name ?? "";
+        },
+        meta: {
+          minWidth: 240,
+        },
+      }),
       columnHelper.accessor("customTags", {
         id: "Tags",
         header: "Tags",
@@ -129,26 +132,32 @@ const InstancesPage = () => {
           minWidth: 200,
         },
       }),
-      columnHelper.accessor(
-        (row) => {
-          const subscription = subscriptionsObj[row.subscriptionId as string];
-          return subscription?.serviceName;
-        },
-        {
-          id: "serviceName",
-          header: "Product Name",
-          cell: (data) => {
-            const subscription = subscriptionsObj[data.row.original.subscriptionId as string];
-            const serviceName = subscription?.serviceName;
-            const serviceLogoURL = subscription?.serviceLogoURL;
+      // columnHelper.accessor(
+      //   (row) => {
+      //     const subscription = subscriptionsObj[row.subscriptionId as string];
+      //     return subscription?.serviceName;
+      //   },
+      //   {
+      //     id: "serviceName",
+      //     header: "Service Name",
+      //     cell: (data) => {
+      //       const subscription =
+      //         subscriptionsObj[data.row.original.subscriptionId as string];
+      //       const serviceName = subscription?.serviceName;
+      //       const serviceLogoURL = subscription?.serviceLogoURL;
 
-            return <ServiceNameWithLogo serviceName={serviceName} serviceLogoURL={serviceLogoURL} />;
-          },
-          meta: {
-            minWidth: 230,
-          },
-        }
-      ),
+      //       return (
+      //         <ServiceNameWithLogo
+      //           serviceName={serviceName}
+      //           serviceLogoURL={serviceLogoURL}
+      //         />
+      //       );
+      //     },
+      //     meta: {
+      //       minWidth: 230,
+      //     },
+      //   }
+      // ),
       columnHelper.accessor(
         (row) => {
           const subscription = subscriptionsObj[row.subscriptionId as string];
@@ -163,16 +172,16 @@ const InstancesPage = () => {
           header: "Resource Name",
         }
       ),
-      columnHelper.accessor(
-        (row) => {
-          const subscription = subscriptionsObj[row.subscriptionId as string];
-          return subscription?.productTierName;
-        },
-        {
-          id: "subscriptionPlan",
-          header: "Subscription Plan",
-        }
-      ),
+      // columnHelper.accessor(
+      //   (row) => {
+      //     const subscription = subscriptionsObj[row.subscriptionId as string];
+      //     return subscription?.productTierName;
+      //   },
+      //   {
+      //     id: "subscriptionPlan",
+      //     header: "Subscription Plan",
+      //   }
+      // ),
       columnHelper.accessor("status", {
         id: "status",
         header: "Lifecycle Status",
@@ -230,76 +239,11 @@ const InstancesPage = () => {
           },
         }
       ),
-      columnHelper.accessor((row) => loadStatusMap[row.instanceLoadStatus || "UNKNOWN"] || "Unknown", {
-        id: "instanceLoadStatus",
-        header: "Load",
-        cell: (data) => {
-          const instanceLoadStatus = loadStatusMap[data.row.original.instanceLoadStatus || "UNKNOWN"] || "Unknown";
-
-          return (
-            <Stack direction="row" alignItems="center" gap="4px">
-              {(instanceLoadStatus === "STOPPED" || instanceLoadStatus === "N/A") && (
-                <StatusChip status="UNKNOWN" label="Unknown" />
-              )}
-              {instanceLoadStatus === "Unknown" && <Box>-</Box>}
-
-              {instanceLoadStatus === "Low" && (
-                <Tooltip title="Idle">
-                  <span style={{ display: "flex", alignItems: "center" }}>
-                    <LoadIndicatorIdle />
-                  </span>
-                </Tooltip>
-              )}
-              {instanceLoadStatus === "Medium" && (
-                <Tooltip title="Normal">
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      marginBottom: "-2px",
-                    }}
-                  >
-                    <LoadIndicatorNormal />
-                  </span>
-                </Tooltip>
-              )}
-              {instanceLoadStatus === "High" && (
-                <Tooltip title="High">
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      marginBottom: "-4px",
-                    }}
-                  >
-                    <LoadIndicatorHigh />
-                  </span>
-                </Tooltip>
-              )}
-            </Stack>
-          );
-        },
-        meta: {
-          minWidth: 120,
-          disableBrowserTooltip: true,
-        },
-      }),
-      columnHelper.accessor("subscriptionLicense", {
-        id: "subscriptionLicense",
-        header: "License Status",
-        cell: (data) => {
-          const licenseDetails = data.cell.getValue();
-          const licenseExpirationDate = licenseDetails?.expirationDate;
-
-          return <InstanceLicenseStatusChip expirationDate={licenseExpirationDate} showExpirationDateTooltip={true} />;
-        },
-      }),
-
-      columnHelper.accessor((row) => formatDateUTC(row.created_at), {
+      columnHelper.accessor((row) => formatDateLocal(row.created_at), {
         id: "created_at",
         header: "Created On",
         cell: (data) => {
-          return data.row.original.created_at ? formatDateUTC(data.row.original.created_at) : "-";
+          return data.row.original.created_at ? formatDateLocal(data.row.original.created_at) : "-";
         },
         meta: {
           minWidth: 225,
@@ -322,7 +266,12 @@ const InstancesPage = () => {
         id: "region",
         header: "Region",
         cell: (data) => {
-          return <GridCellExpand value={data.row.original.region || "Global"} startIcon={<RegionIcon />} />;
+          return (
+            <GridCellExpand
+              value={data.row.original.region || "Global"}
+              startIcon={<RegionIcon region={data.row.original.region} provider={data.row.original.cloud_provider} />}
+            />
+          );
         },
       }),
       columnHelper.accessor(
@@ -335,11 +284,11 @@ const InstancesPage = () => {
           header: "Subscription Owner",
         }
       ),
-      columnHelper.accessor((row) => formatDateUTC(row.last_modified_at), {
+      columnHelper.accessor((row) => formatDateLocal(row.last_modified_at), {
         id: "last_modified_at",
         header: "Last Modified",
         cell: (data) => {
-          return data.row.original.last_modified_at ? formatDateUTC(data.row.original.last_modified_at) : "-";
+          return data.row.original.last_modified_at ? formatDateLocal(data.row.original.last_modified_at) : "-";
         },
         meta: {
           minWidth: 225,

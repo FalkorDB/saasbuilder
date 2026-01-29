@@ -25,7 +25,7 @@ import {
   getGcpBootstrapShellCommand,
   getGcpShellScriptOffboardCommand,
 } from "src/utils/accountConfig/accountConfig";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { getCloudAccountsRoute } from "src/utils/routes";
 import CloudProviderAccountOrgIdModal from "components/CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
 import DataGridText from "components/DataGrid/DataGridText";
@@ -417,11 +417,11 @@ const CloudAccountsPage = () => {
           header: "Subscription Owner",
         }
       ),
-      columnHelper.accessor((row) => formatDateUTC(row.created_at), {
+      columnHelper.accessor((row) => formatDateLocal(row.created_at), {
         id: "created_at",
         header: "Created On",
         cell: (data) => {
-          return data.row.original.created_at ? formatDateUTC(data.row.original.created_at) : "-";
+          return data.row.original.created_at ? formatDateLocal(data.row.original.created_at) : "-";
         },
         meta: {
           minWidth: 225,

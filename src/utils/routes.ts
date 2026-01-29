@@ -8,6 +8,14 @@ export const getInstancesRoute = () => {
   return "/instances";
 };
 
+export const getInstanceSnapshotsRoute = () => {
+  return "/instance-snapshots";
+};
+
+export const getSnapshotDetailsRoute = (snapshotId: string): string => {
+  return `/instance-snapshots/${snapshotId}`;
+};
+
 type InstanceDetailsRouteParams = {
   serviceId: string;
   servicePlanId: string;

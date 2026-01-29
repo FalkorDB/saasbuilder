@@ -5,7 +5,7 @@ const verifyEnvironmentVariables = require("./src/server/utils/verifyEnvironment
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
-const port = 3005;
+const port = dev ? 3000 : 8080;
 // when using middleware `hostname` and `port` must be provided below
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();

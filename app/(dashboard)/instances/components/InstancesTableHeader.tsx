@@ -248,10 +248,11 @@ const InstancesTableHeader: React.FC<InstancesTableHeaderProps> = ({
         isDisabled:
           !selectedInstance || (status !== "RUNNING" && status !== "FAILED" && selectedInstance.network_type !== "INTERNAL"),
         onClick: () => {
+          if (!selectedInstance) return; 
           const resourceKey = Object.entries(selectedInstance?.detailedNetworkTopology ?? {}).filter(([_, v]) => {
             return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
           })[0][0];
-          selectedInstance && connectInstanceMutation.mutate({
+          connectInstanceMutation.mutate({
             host: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterEndpoint,
             port: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterPorts?.[0],
             region: selectedInstance.region,

@@ -77,11 +77,16 @@ const SignInForm: FC<SignInFormProps> = ({
 
   function handlePasswordSignInSuccess(jwtToken) {
     if (jwtToken) {
-      Cookies.set("token", jwtToken, {
+      const cookieOptions: { sameSite: "Lax"; secure: boolean; domain?: string } = {
         sameSite: "Lax",
-        secure: true,
-        domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
-      });
+        secure: window.location.protocol === "https:",
+      };
+
+      if (process.env.NEXT_PUBLIC_COOKIE_DOMAIN) {
+        cookieOptions.domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN;
+      }
+
+      Cookies.set("token", jwtToken, cookieOptions);
 
       try {
         localStorage.removeItem("loggedInUsingSSO");
@@ -93,12 +98,16 @@ const SignInForm: FC<SignInFormProps> = ({
       const decodedDestination = decodeURIComponent(destination || "");
 
       // Redirect to the Destination URL
+      // Use full page navigation to ensure middleware reads fresh auth cookies.
       if (destination && checkRouteValidity(decodedDestination)) {
-        router.replace(decodedDestination, {}, { showProgressBar: true });
+        window.location.href = decodedDestination;
       } else {
-        router.replace(getInstancesRoute(), {}, { showProgressBar: true });
+        window.location.href = getInstancesRoute();
       }
+      return;
     }
+
+    snackbar.showError("Something went wrong. Please retry");
   }
 
   const passwordSignInMutation = useMutation({
@@ -111,11 +120,15 @@ const SignInForm: FC<SignInFormProps> = ({
         methodType: "Password",
       });
 
-      const identity = {
-        "username": formik.values.email,
-        "type": "email",
+      try {
+        const identity = {
+          username: formik.values.email,
+          type: "email",
+        };
+        window["Reo"]?.identify?.call(identity);
+      } catch (error) {
+        console.warn("Failed to identify user for analytics:", error);
       }
-      window['Reo']?.identify?.call(identity);
 
       /*eslint-disable-next-line no-use-before-define*/
       formik.setFieldValue("password", "");

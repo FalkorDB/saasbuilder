@@ -1,7 +1,13 @@
 {
   "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "types": ["node"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "types": [
+      "node"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
@@ -15,13 +21,27 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "src/*": ["src/*"],
-      "components/*": ["src/components/*"],
-      "hooks/*": ["src/hooks/*"],
-      "utils/*": ["src/utils/*"],
-      "public/*": ["public/*"],
-      "lib/*": ["lib/*"],
-      "@/components/*": ["components/*"]
+      "src/*": [
+        "src/*"
+      ],
+      "components/*": [
+        "src/components/*"
+      ],
+      "hooks/*": [
+        "src/hooks/*"
+      ],
+      "utils/*": [
+        "src/utils/*"
+      ],
+      "public/*": [
+        "public/*"
+      ],
+      "lib/*": [
+        "lib/*"
+      ],
+      "@/components/*": [
+        "components/*"
+      ]
     },
     "target": "es5",
     "forceConsistentCasingInFileNames": true,
@@ -41,5 +61,7 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

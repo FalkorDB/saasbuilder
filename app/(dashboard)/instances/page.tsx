@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Box, Tooltip } from "@mui/material";
+import { Stack, Tooltip } from "@mui/material";
 import { createColumnHelper } from "@tanstack/react-table";
 
 import DeleteProtectionIcon from "src/components/Icons/DeleteProtection/DeleteProtection";

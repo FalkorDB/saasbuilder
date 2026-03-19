@@ -60,7 +60,7 @@ export async function middleware(request) {
     }
   } catch (error) {
     console.log("Middleware Error", error?.response?.data);
-    redirectToSignIn();
+    return redirectToSignIn();
   }
 
   const response = NextResponse.next();

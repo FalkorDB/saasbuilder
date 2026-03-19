@@ -1,4 +1,5 @@
 import { FC, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next-nprogress-bar";
 import { Stack } from "@mui/material";
@@ -6,11 +7,13 @@ import { useMutation } from "@tanstack/react-query";
 import { useFormik } from "formik";
 import Cookies from "js-cookie";
 import ReCAPTCHA from "react-google-recaptcha";
-import Link from "next/link";
 
 import { customerUserSignin } from "src/api/customer-user";
 import axios from "src/axios";
+import { Text } from "src/components/Typography/Typography";
+import useEnvironmentType from "src/hooks/useEnvironmentType";
 import useSnackbar from "src/hooks/useSnackbar";
+import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
 import { IdentityProvider } from "src/types/identityProvider";
 import checkRouteValidity from "src/utils/route/checkRouteValidity";
 import { getInstancesRoute } from "src/utils/routes";
@@ -20,9 +23,6 @@ import { useLastLoginDetails } from "../hooks/useLastLoginDetails";
 
 import EmailStep from "./EmailStep";
 import LoginMethodStep from "./LoginMethodStep";
-import { Text } from "src/components/Typography/Typography";
-import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
-import useEnvironmentType from "src/hooks/useEnvironmentType";
 
 type SignInFormProps = {
   isPasswordLoginEnabled: boolean;
@@ -77,11 +77,16 @@ const SignInForm: FC<SignInFormProps> = ({
 
   function handlePasswordSignInSuccess(jwtToken) {
     if (jwtToken) {
-      Cookies.set("token", jwtToken, {
+      const cookieOptions: { sameSite: "Lax"; secure: boolean; domain?: string } = {
         sameSite: "Lax",
-        secure: true,
-        domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
-      });
+        secure: window.location.protocol === "https:",
+      };
+
+      if (process.env.NEXT_PUBLIC_COOKIE_DOMAIN) {
+        cookieOptions.domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN;
+      }
+
+      Cookies.set("token", jwtToken, cookieOptions);
 
       try {
         localStorage.removeItem("loggedInUsingSSO");
@@ -93,12 +98,16 @@ const SignInForm: FC<SignInFormProps> = ({
       const decodedDestination = decodeURIComponent(destination || "");
 
       // Redirect to the Destination URL
+      // Use full page navigation to ensure middleware reads fresh auth cookies.
       if (destination && checkRouteValidity(decodedDestination)) {
-        router.replace(decodedDestination, {}, { showProgressBar: true });
+        window.location.href = decodedDestination;
       } else {
-        router.replace(getInstancesRoute(), {}, { showProgressBar: true });
+        window.location.href = getInstancesRoute();
       }
+      return;
     }
+
+    snackbar.showError("Something went wrong. Please retry");
   }
 
   const passwordSignInMutation = useMutation({
@@ -111,11 +120,15 @@ const SignInForm: FC<SignInFormProps> = ({
         methodType: "Password",
       });
 
-      const identity = {
-        "username": formik.values.email,
-        "type": "email",
+      try {
+        const identity = {
+          username: formik.values.email,
+          type: "email",
+        };
+        window["Reo"]?.identify?.call(identity);
+      } catch (error) {
+        console.warn("Failed to identify user for analytics:", error);
       }
-      window['Reo']?.identify?.call(identity);
 
       /*eslint-disable-next-line no-use-before-define*/
       formik.setFieldValue("password", "");
@@ -158,7 +171,7 @@ const SignInForm: FC<SignInFormProps> = ({
           shouldRememberLoginDetails={shouldRememberLoginDetails}
         />
       )}
-      <Stack component="form" gap="32px" mt="44px">
+      <Stack component="form" gap="24px" mt="32px">
         {currentStep === 1 && (
           <LoginMethodStep
             formData={formik}

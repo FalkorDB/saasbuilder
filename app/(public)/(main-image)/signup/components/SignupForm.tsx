@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -15,7 +16,6 @@ import FieldContainer from "components/NonDashboardComponents/FormElementsV2/Fie
 import FieldLabel from "components/NonDashboardComponents/FormElementsV2/FieldLabel";
 import PasswordField from "components/NonDashboardComponents/FormElementsV2/PasswordField";
 import SubmitButton from "components/NonDashboardComponents/FormElementsV2/SubmitButton";
-import Link from "next/link";
 
 import { handleIDPButtonClick } from "../../shared/idp-utils";
 import IDPButton from "../../shared/IDPButton";
@@ -26,7 +26,7 @@ const FormGrid = styled(Box)(() => ({
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
   columnGap: "22px",
-  rowGap: "27px",
+  rowGap: "22px",
   "@media (max-width: 1280px)": {
     gridTemplateColumns: "1fr",
     rowGap: "22px",
@@ -77,13 +77,15 @@ const SignupForm: React.FC<SignupFormProps> = ({
     isPasswordLoginEnabled ? false : true
   );
   const [hasLoadedParams, setHasLoadedParams] = useState(false);
+  const [affiliateCodeFieldVisible, setAffiliateCodeFieldVisible] = useState(
+    formData.values.affiliateCode || affiliateCode ? true : false
+  );
   const router = useRouter();
 
   useEffect(() => {
     // Mark params as loaded after initial render
     setHasLoadedParams(true);
   }, []);
-  
 
   function onIDPButtonClick(idp: IdentityProvider) {
     handleIDPButtonClick({
@@ -95,8 +97,8 @@ const SignupForm: React.FC<SignupFormProps> = ({
     });
   }
 
-  const primaryIdp = identityProviders.length > 0 ? identityProviders[0] : null;
-  const otherIdps = identityProviders.slice(1);
+  const topTwoIDPOptions = identityProviders.slice(0, 2);
+  const otherIDPOptions = identityProviders.slice(2);
 
   const passwordSignupAllowed = isPasswordLoginEnabled && !hasIDPWithMatchingDomain;
 
@@ -161,16 +163,21 @@ const SignupForm: React.FC<SignupFormProps> = ({
           mb={passwordSignupAllowed ? 0 : "8px"}
           mt={!passwordSignupAllowed ? "24px" : 0}
         >
-          {primaryIdp && (
-            <IDPButton
-              idp={primaryIdp}
-              onClick={onIDPButtonClick}
-              data-testid={`idp-signup-button-${primaryIdp.name}`}
-            />
+          {topTwoIDPOptions.length > 0 && (
+            <Stack gap="12px">
+              {topTwoIDPOptions.map((idp) => (
+                <IDPButton
+                  key={idp.name}
+                  idp={idp}
+                  onClick={onIDPButtonClick}
+                  data-testid={`idp-signup-button-${idp.name}`}
+                />
+              ))}
+            </Stack>
           )}
           <Collapse in={areOtherSigninOptionsExpanded} timeout={300}>
             <Stack gap="12px" mt="12px">
-              {otherIdps.map((idp) => (
+              {otherIDPOptions.map((idp) => (
                 <IDPButton
                   key={idp.name}
                   idp={idp}
@@ -180,7 +187,7 @@ const SignupForm: React.FC<SignupFormProps> = ({
               ))}
             </Stack>
           </Collapse>
-          {otherIdps.length > 0 && passwordSignupAllowed && (
+          {otherIDPOptions.length > 0 && passwordSignupAllowed && (
             <Button
               variant="text"
               disableRipple
@@ -204,8 +211,8 @@ const SignupForm: React.FC<SignupFormProps> = ({
       {hasLoadedParams && passwordSignupAllowed && !areOtherSigninOptionsExpanded && (
         <Collapse in={passwordSignupAllowed && !areOtherSigninOptionsExpanded}>
           {passwordSignupAllowed && isSSOEnabled && (
-            <div className="max-w-[390px] mx-auto mb-8">
-              <div className="relative flex items-center mt-4">
+            <div className="max-w-[390px] mx-auto mb-4">
+              <div className="relative flex items-center mt-3">
                 <div className="flex-grow border-t border-[#E9EAEB]" />
                 <Text size="small" weight="medium" color="#535862" sx={{ mx: "8px", background: "white" }}>
                   OR
@@ -214,6 +221,7 @@ const SignupForm: React.FC<SignupFormProps> = ({
               </div>
             </div>
           )}
+
           <FormGrid>
             <FieldContainer>
               <FieldLabel required>Name</FieldLabel>
@@ -294,19 +302,31 @@ const SignupForm: React.FC<SignupFormProps> = ({
               />
               <FieldError sx={{ paddingLeft: "13px" }}>{touched.confirmPassword && errors.confirmPassword}</FieldError>
             </FieldContainer>
-            <FieldContainer>
-              <FieldLabel>Affiliation Code</FieldLabel>
-              {/* @ts-ignore */}
-              <TextField
-                id="affiliateCode"
-                name="affiliateCode"
-                placeholder="Affiliation Code"
-                value={values.affiliateCode}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                error={touched.affiliateCode && errors.affiliateCode}
-              />
-            </FieldContainer>
+            <Box>
+              <Box
+                onClick={() => {
+                  setAffiliateCodeFieldVisible((prev) => !prev);
+                }}
+              >
+                <FieldLabel>Have Affiliation Code?</FieldLabel>{" "}
+                {affiliateCodeFieldVisible ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </Box>
+
+              <Collapse in={affiliateCodeFieldVisible}>
+                <FieldContainer>
+                  {/* @ts-ignore */}
+                  <TextField
+                    id="affiliateCode"
+                    name="affiliateCode"
+                    placeholder="Enter your affiliation code"
+                    value={values.affiliateCode}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={touched.affiliateCode && errors.affiliateCode}
+                  />
+                </FieldContainer>
+              </Collapse>
+            </Box>
           </FormGrid>
           <Stack mt="32px" maxWidth="360px" mx="auto">
             <SubmitButton type="submit" onClick={onSubmit} disabled={isSubmitDisabled} loading={isSubmitLoading}>

@@ -1,14 +1,8 @@
-import React from "react";
 import Link from "next/link";
 import SubscriptionMenu from "app/(dashboard)/components/SubscriptionMenu/SubscriptionMenu";
 import { fromProvider } from "cloud-regions-country-flags";
 
 import { Field } from "src/components/DynamicForm/types";
-import {
-  filterInstanceTypesByProvider,
-  getInstanceTypeLabel,
-  sortInstanceTypes,
-} from "../utils/instanceTypeUtils";
 import StatusChip from "src/components/StatusChip/StatusChip";
 import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 import { productTierTypes } from "src/constants/servicePlan";
@@ -24,6 +18,7 @@ import { TierVersionSet } from "src/types/tier-version-set";
 import CloudProviderRadio from "../../components/CloudProviderRadio/CloudProviderRadio";
 import SubscriptionPlanRadio from "../../components/SubscriptionPlanRadio/SubscriptionPlanRadio";
 import { REQUEST_PARAMS_FIELDS_TO_FILTER } from "../constants";
+import { ResourceSummary } from "../hooks/useResources";
 import {
   filterSchemaByCloudProvider,
   getCustomNetworksMenuItems,
@@ -33,7 +28,9 @@ import {
   getServiceMenuItems,
   getValidSubscriptionForInstanceCreation,
   getVersionSetResourceMenuItems,
+  normalizeCustomDnsValue,
 } from "../utils";
+import { filterInstanceTypesByProvider, getInstanceTypeLabel, sortInstanceTypes } from "../utils/instanceTypeUtils";
 
 import AccountConfigDescription from "./AccountConfigDescription";
 import CustomNetworkDescription from "./CustomNetworkDescription";
@@ -138,8 +135,9 @@ export const getStandardInformationFields = (
         } else if (cloudProvider === "gcp") {
           setFieldValue("region", offering.gcpRegions?.[0] || "");
         } else if (cloudProvider === "azure") {
-          // @ts-ignore
           setFieldValue("region", offering.azureRegions?.[0] || "");
+        } else if (cloudProvider === "oci") {
+          setFieldValue("region", offering.ociRegions?.[0] || "");
         }
 
         const resources = getResourceMenuItems(offering);
@@ -188,8 +186,9 @@ export const getStandardInformationFields = (
             } else if (cloudProvider === "gcp") {
               setFieldValue("region", offering.gcpRegions?.[0] || "");
             } else if (cloudProvider === "azure") {
-              // @ts-ignore
               setFieldValue("region", offering.azureRegions?.[0] || "");
+            } else if (cloudProvider === "oci") {
+              setFieldValue("region", offering.ociRegions?.[0] || "");
             }
 
             const resources = getResourceMenuItems(offering);
@@ -350,8 +349,9 @@ export const getStandardInformationFields = (
               setFieldValue("region", offering.gcpRegions?.[0] || "");
               setFieldValue("requestParams.nodeInstanceType", "e2-standard-2");
             } else if (newCloudProvider === "azure") {
-              // @ts-ignore
               setFieldValue("region", offering.azureRegions?.[0] || "");
+            } else if (newCloudProvider === "oci") {
+              setFieldValue("region", offering.ociRegions?.[0] || "");
             }
           }}
           disabled={formMode !== "create"}
@@ -383,9 +383,7 @@ export const getStandardInformationFields = (
       disabled: formMode !== "create",
       previewValue:
         values.region && values.cloudProvider
-          ? () => {
-              return `${fromProvider(values.region, values.cloudProvider.toUpperCase()).flag} ${values.region}`;
-            }
+          ? `${fromProvider(values.region, values.cloudProvider.toUpperCase()).flag} ${values.region}`
           : null,
     });
   }
@@ -429,9 +427,11 @@ export const getStandardInformationFields = (
 
 export const getNetworkConfigurationFields = (
   formMode: FormMode,
+  formData,
   values,
   resourceSchema: APIEntity,
   serviceOfferingsObj: Record<string, Record<string, ServiceOffering>>,
+  resources: ResourceSummary[],
   customNetworks: CustomNetwork[],
   isFetchingCustomNetworks: boolean
 ) => {
@@ -449,6 +449,39 @@ export const getNetworkConfigurationFields = (
   const customNetworkFieldExists = inputParametersObj["custom_network_id"];
   const cloudProviderNativeNetworkIdFieldExists = inputParametersObj["cloud_provider_native_network_id"];
   const customDNSFieldExists = inputParametersObj["custom_dns_configuration"];
+
+  const getCustomDnsInputValue = (resourceKey: string): string => {
+    const customDnsConfiguration = values?.requestParams?.custom_dns_configuration;
+
+    if (!resourceKey) {
+      return "";
+    }
+
+    if (
+      customDnsConfiguration &&
+      typeof customDnsConfiguration === "object" &&
+      !Array.isArray(customDnsConfiguration)
+    ) {
+      const configuredValue = customDnsConfiguration[resourceKey];
+
+      if (typeof configuredValue !== "string") {
+        return "";
+      }
+
+      try {
+        const parsedValue = JSON.parse(configuredValue);
+        return parsedValue?.[resourceKey] ?? configuredValue;
+      } catch {
+        return configuredValue;
+      }
+    }
+
+    if (typeof customDnsConfiguration === "string") {
+      return normalizeCustomDnsValue(resourceKey, customDnsConfiguration);
+    }
+
+    return "";
+  };
 
   const networkTypeFieldExists =
     cloudProviderFieldExists && !isMultiTenancy && offering?.supportsPublicNetwork && customNetworkFieldExists;
@@ -495,7 +528,9 @@ export const getNetworkConfigurationFields = (
           ? offering.awsRegions || []
           : values.cloudProvider === "gcp"
             ? offering.gcpRegions || []
-            : offering.azureRegions || [],
+            : values.cloudProvider === "azure"
+              ? offering.azureRegions || []
+              : offering.ociRegions || [],
         values.region
       ),
       emptyMenuText: "No customer networks available",
@@ -543,17 +578,39 @@ export const getNetworkConfigurationFields = (
 
   if (customDNSFieldExists) {
     const param = inputParametersObj["custom_dns_configuration"];
-    fields.push({
-      dataTestId: `${param.key}-input`,
-      label: param.displayName || param.key,
-      subLabel: param.description,
-      disabled: formMode !== "create",
-      name: `requestParams.${param.key}`,
-      value: values.requestParams[param.key] || "",
-      type: "text-multiline",
-      required: formMode !== "modify" && param.required,
-      previewValue: values.requestParams[param.key],
-    });
+    const customDnsResources = (resources || []).filter((resource) => resource?.customDNS === true);
+
+    if (customDnsResources.length) {
+      customDnsResources.forEach((resource) => {
+        const resourceKey = resource?.key || resource?.id;
+        if (!resourceKey) {
+          return;
+        }
+
+        fields.push({
+          dataTestId: `${param.key}.${resourceKey}`,
+          label: `${resource?.name || resourceKey} Custom DNS`,
+          subLabel: `Enter custom DNS value for ${resource?.name || resourceKey}`,
+          disabled: formMode !== "create",
+          name: `requestParams.${param.key}.${resourceKey}`,
+          value: getCustomDnsInputValue(resourceKey),
+          type: "text-multiline",
+          required: formMode !== "modify" && param.required,
+          previewValue: getCustomDnsInputValue(resourceKey),
+          skipFormikHandleChange: true,
+          onChange: (event) => {
+            const currentConfig = values?.requestParams?.custom_dns_configuration;
+            const normalizedConfig =
+              currentConfig && typeof currentConfig === "object" && !Array.isArray(currentConfig) ? currentConfig : {};
+
+            formData.setFieldValue("requestParams.custom_dns_configuration", {
+              ...normalizedConfig,
+              [resourceKey]: event.target.value,
+            });
+          },
+        });
+      });
+    }
   }
 
   return fields;

@@ -1,9 +1,9 @@
-import { FC, useEffect, useRef, useState } from "react";
 import { Stack, styled, SxProps, Theme } from "@mui/material";
 import MuiTableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import { useMutation } from "@tanstack/react-query";
 import { useFormik } from "formik";
+import { FC, useEffect, useRef, useState } from "react";
 import * as Yup from "yup";
 
 import {
@@ -40,7 +40,6 @@ type ResourceConnectivityEndpointProps = {
   containerStyles: SxProps<Theme>;
   resourceKey: string;
   resourceId: string;
-  resourceHasCompute: boolean;
   customDNSData?: {
     enabled: boolean;
     dnsName?: string;
@@ -63,14 +62,7 @@ type ResourceConnectivityEndpointProps = {
 };
 
 const ResourceConnectivityCustomDNS: FC<ResourceConnectivityEndpointProps> = (props) => {
-  const {
-    customDNSData = { enabled: false },
-    queryData,
-    resourceKey,
-    resourceId,
-    refetchInstance,
-    resourceHasCompute,
-  } = props;
+  const { customDNSData = { enabled: false }, queryData, resourceKey, resourceId, refetchInstance } = props;
 
   const [showDeleteConfirmationDialog, setShowDeleteConfirmationDialog] = useState(false);
   const [deleteMessage, setDeleteMessage] = useState("");
@@ -78,7 +70,7 @@ const ResourceConnectivityCustomDNS: FC<ResourceConnectivityEndpointProps> = (pr
   const [shouldShowConfigDialog, setShouldShowConfigDialog] = useState(false);
   const [isVerifyingDNSRemoval, setIsVerifyingDNSRemoval] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const textfieldRef = useRef<HTMLInputElement>();
+  const textfieldRef = useRef<HTMLInputElement>(null);
   const timeoutID = useRef<any>(null);
   const pollCount = useRef(0);
 
@@ -241,7 +233,7 @@ const ResourceConnectivityCustomDNS: FC<ResourceConnectivityEndpointProps> = (pr
 
   return (
     <>
-      {resourceHasCompute && customDNSData?.enabled && (
+      {customDNSData?.enabled && (
         <>
           <TableRow>
             <TableCell align="center" sx={{ paddingRight: "8px" }}>

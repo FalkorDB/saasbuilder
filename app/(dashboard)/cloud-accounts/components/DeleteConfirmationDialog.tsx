@@ -4,18 +4,19 @@ import CloseIcon from "@mui/icons-material/Close";
 import { Box, Dialog, IconButton, Stack, styled } from "@mui/material";
 import { useFormik } from "formik";
 
+import Button from "components/Button/Button";
+import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
+import DeleteCircleIcon from "components/Icons/DeleteCircle/DeleteCircleIcon";
+import { Text } from "components/Typography/Typography";
 import TextField from "src/components/FormElementsv2/TextField/TextField";
 import OffboardConfirmationIcon from "src/components/Icons/OffboardConfirmatiion/OffboardConfirmation";
 import { Step, StepLabel, Stepper } from "src/components/Stepper/Stepper";
 import useSnackbar from "src/hooks/useSnackbar";
 import { AccountConfig } from "src/types/account-config";
-import Button from "components/Button/Button";
-import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
-import DeleteCircleIcon from "components/Icons/DeleteCircle/DeleteCircleIcon";
-import { Text } from "components/Typography/Typography";
 
 import { cloudAccountOffboardingSteps } from "../constants";
 
+import { deriveDeleteDialogState } from "./deleteDialogState";
 import { OffboardingInstructions, OffboardInstructionDetails } from "./OffboardingInstructions";
 
 const StyledForm = styled(Box)({
@@ -66,7 +67,7 @@ const LastInstanceConfirmationMessage: FC<{
           You are about to delete the last cloud account instance linked to this cloud account. This will begin the
           deletion process and mark the account for offboarding.
         </Text>
-        <Box marginLeft="10px" marginTop="20px" borderLeft="2px solid #F79009" paddingLeft="10px">
+        <Box marginLeft="10px" marginTop="20px" borderLeft="3px solid #f91202" paddingLeft="10px">
           <Text size="small" weight="medium" color="#414651">
             <b>Note:</b> Deletion may take a few minutes and will run in the background. You can safely close this popup
             and return later to complete the off-boarding step.
@@ -99,8 +100,9 @@ const ConfirmationMessage = () => {
 
 type DeleteAccountConfigConfirmationDialogProps = {
   accountConfig: AccountConfig | undefined;
+
   instanceStatus: string | undefined;
-  isLoadingAccountConfig: boolean;
+  isPollingActive?: boolean;
   open: boolean;
   onClose: () => void;
   isDeleteInstanceMutationPending: boolean;
@@ -118,6 +120,7 @@ const DeleteAccountConfigConfirmationDialog: FC<DeleteAccountConfigConfirmationD
     // isDeletingAccountConfig,
     accountConfig,
     instanceStatus,
+    isPollingActive = false,
     offboardingInstructionDetails,
     onClose,
     onInstanceDeleteClick,
@@ -139,7 +142,7 @@ const DeleteAccountConfigConfirmationDialog: FC<DeleteAccountConfigConfirmationD
   //for the duration till the instance status is refetched, this variable is used to show the spinner
   const [hasRequestedDeletion, setHasRequestedDeletion] = useState(false);
 
-  let isDeletingInstance = false;
+  // Spinner should persist if dialog is reopened for same instance in deleting state
   const showStepper = isMultiStepDialog;
   let step: "delete" | "offboard" = "delete";
 
@@ -152,25 +155,17 @@ const DeleteAccountConfigConfirmationDialog: FC<DeleteAccountConfigConfirmationD
     title = "Delete and Offboard Account";
   }
 
-  if (showStepper) {
-    //if instance status is DELETING and if the account config status is READY_TO_OFFBOARD, then we show the offboard step else we show the delete step
-    //if instance status is FAILED and it's the last instance, go directly to offboard step
-    if (instanceStatus === "FAILED" && isLastInstance) {
-      step = "offboard";
-      buttonText = "Offboard";
-    } else if (instanceStatus === "DELETING" && accountConfig?.status === "READY_TO_OFFBOARD") {
-      step = "offboard";
-      buttonText = "Offboard";
-    } else if (
-      (instanceStatus === "DELETING" && accountConfig?.status !== "READY_TO_OFFBOARD") ||
-      isDeleteInstanceMutationPending ||
-      hasRequestedDeletion
-    ) {
-      step = "delete";
-      buttonText = "Deleting";
-      isDeletingInstance = true;
-    }
-  }
+  const deleteDialogState = deriveDeleteDialogState({
+    isMultiStepDialog: showStepper,
+    isLastInstance,
+    accountConfigStatus: accountConfig?.status,
+    instanceStatus,
+    isDeleteInstanceMutationPending,
+    hasRequestedDeletion,
+  });
+
+  step = deleteDialogState.step as "delete" | "offboard";
+  buttonText = deleteDialogState.buttonText;
 
   useEffect(() => {
     if (step === "offboard" && hasRequestedDeletion) {
@@ -190,7 +185,7 @@ const DeleteAccountConfigConfirmationDialog: FC<DeleteAccountConfigConfirmationD
 
   const activeStepIndex = step === "offboard" ? 1 : 0;
 
-  const isLoading = isDeleteInstanceMutationPending || isDeletingInstance || hasRequestedDeletion;
+  const isLoading = deleteDialogState.isLoading || (step === "offboard" && isPollingActive);
 
   const formData = useFormik({
     initialValues: {
@@ -214,7 +209,8 @@ const DeleteAccountConfigConfirmationDialog: FC<DeleteAccountConfigConfirmationD
         if (values.confirmationText === "offboard") {
           await onOffboardClick();
           formData.resetForm();
-          handleClose();
+          // Don't call handleClose() here — the parent's onSuccess handler closes the dialog
+          // synchronously after the offboard API call succeeds.
         } else {
           snackbar.showError(`Please enter offboard to confirm`);
         }

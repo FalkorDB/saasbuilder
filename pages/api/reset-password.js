@@ -2,6 +2,7 @@ import axios from "src/axios";
 import { customerUserResetPassword } from "src/server/api/customer-user";
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
 import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
+import { isRateLimited, recordAttempt, resetAttempts } from "src/server/utils/rateLimiter";
 import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
 
 export default async function handleResetPassword(nextRequest, nextResponse) {
@@ -11,6 +12,14 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
       //get the first IP (client IP)
       const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
+
+      // Check rate limiting per IP
+      if (isRateLimited(clientIP)) {
+        return nextResponse.status(429).json({
+          message: "Too many password reset attempts. Please try again later.",
+        });
+      }
+
       const saasBuilderIP = process.env.POD_IP || "";
       const requestBody = nextRequest.body || {};
       const isReCaptchaSetup = checkReCaptchaSetup();
@@ -29,8 +38,19 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
         "Client-IP": clientIP,
         "SaaSBuilder-IP": saasBuilderIP,
       });
+
+      // Reset rate limiting on successful request
+      resetAttempts(clientIP);
+
       return nextResponse.status(200).send();
     } catch (error) {
+      // Extract IP for error handling
+      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
+      const clientIP = xForwardedForHeader.split(",").shift().trim();
+
+      // Record failed attempt for rate limiting
+      recordAttempt(clientIP);
+
       const defaultErrorMessage = "Something went wrong. Please retry";
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {

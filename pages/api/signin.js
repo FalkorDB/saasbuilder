@@ -2,6 +2,7 @@ import _ from "lodash";
 
 const { customerUserSignIn } = require("src/server/api/customer-user");
 const { getEnvironmentType } = require("src/server/utils/getEnvironmentType");
+const { isRateLimited, recordAttempt, resetAttempts } = require("src/server/utils/rateLimiter");
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
 import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
 import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
@@ -18,6 +19,18 @@ export default async function handleSignIn(nextRequest, nextResponse) {
   if (nextRequest.method === "POST") {
     let environmentType;
     try {
+      //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
+      //get the first IP (client IP)
+      const xForwardedForHeader = nextRequest.get?.("X-Forwarded-For") || "";
+      const clientIP = xForwardedForHeader.split(",").shift().trim();
+
+      // Check rate limiting per IP
+      if (isRateLimited(clientIP)) {
+        return nextResponse.status(429).json({
+          message: "Too many login attempts. Please try again later.",
+        });
+      }
+
       const requestBody = nextRequest.body || {};
       const requiresReCaptachValidation = checkReCaptchaSetup() && checkRequiresReCaptcha(nextRequest.get?.("X-Api-Key") || "");
       if (requiresReCaptachValidation) {
@@ -31,16 +44,16 @@ export default async function handleSignIn(nextRequest, nextResponse) {
         ...nextRequest.body,
         environmentType: environmentType,
       };
-      //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
-      //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get?.("X-Forwarded-For") || "";
-      const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP || "";
 
       const response = await customerUserSignIn(payload, {
         "Client-IP": clientIP,
         "SaaSBuilder-IP": saasBuilderIP,
       });
+
+      // Reset rate limiting on successful login
+      resetAttempts(clientIP);
+
       const delayInMilliseconds = _.random(0, 150);
 
       //Wait for a random duration b/w 0ms and 150ms to mask the difference b/w response times of api when a user is present vs not present
@@ -53,6 +66,13 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       const responseData = response?.data || {};
       return nextResponse.status(200).send({ ...responseData });
     } catch (error) {
+      // Extract IP again for error handling (in case of early errors)
+      const xForwardedForHeader = nextRequest.get?.("X-Forwarded-For") || "";
+      const clientIP = xForwardedForHeader.split(",").shift().trim();
+
+      // Record failed attempt for rate limiting
+      recordAttempt(clientIP);
+
       console.error("Error in sign in", error);
       const defaultErrorMessage = "Failed to sign in. Either the credentials are incorrect or the user does not exist";
 

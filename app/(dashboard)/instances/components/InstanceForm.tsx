@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useCustomNetworks from "app/(dashboard)/custom-networks/hooks/useCustomNetworks";
 import { useFormik } from "formik";
 import _, { cloneDeep } from "lodash";
@@ -15,8 +15,10 @@ import useSnackbar from "src/hooks/useSnackbar";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { colors } from "src/themeConfig";
 import { CloudProvider } from "src/types/common/enums";
+import { ResourceInstance } from "src/types/resourceInstance";
 import { APIEntity } from "src/types/serviceOffering";
 import { isCloudAccountInstance } from "src/utils/access/byoaResource";
+import { checkBYOADeploymentInstance } from "src/utils/instance";
 import Button from "components/Button/Button";
 import CardWithTitle from "components/Card/CardWithTitle";
 import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
@@ -27,6 +29,7 @@ import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import { Text } from "components/Typography/Typography";
 
 import useCustomerVersionSets from "../hooks/useCustomerVersionSets";
+import useResources from "../hooks/useResources";
 import useResourceSchema from "../hooks/useResourceSchema";
 import { filterSchemaByCloudProvider, getInitialValues } from "../utils";
 
@@ -87,18 +90,62 @@ const InstanceForm = ({
     "post",
     "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}",
     {
-      onSuccess: (response) => {
+      onSuccess: async (response) => {
+        const instanceId = response?.id;
+
+        snackbar.showSuccess("Instance created successfully");
+        setIsOverlayOpen(false);
+        formData.resetForm();
+
+        let isBYOAInstance = false;
+        let isFirstInstanceInRegion = false;
+        let lifecycleStatus = "DEPLOYING";
+
+        try {
+          const instancesQueryResponse = await refetchInstances();
+
+          const instances: ResourceInstance[] = instancesQueryResponse?.data || [];
+          const createdInstance = instances.find((instance) => instance.id === instanceId);
+
+          if (createdInstance) {
+            lifecycleStatus = createdInstance?.status || "DEPLOYING";
+            isBYOAInstance = checkBYOADeploymentInstance(createdInstance);
+            if (isBYOAInstance) {
+              isFirstInstanceInRegion =
+                instances.filter((instance) => {
+                  const isBYOAInstance = checkBYOADeploymentInstance(instance);
+                  if (!isBYOAInstance) return false;
+                  const instanceAccountId =
+                    instance?.awsAccountID ||
+                    instance?.gcpProjectID ||
+                    instance?.azureSubscriptionID ||
+                    instance?.ociTenancyID;
+                  const createdInstanceAccountId =
+                    createdInstance?.awsAccountID ||
+                    createdInstance?.gcpProjectID ||
+                    createdInstance?.azureSubscriptionID ||
+                    createdInstance?.ociTenancyID;
+
+                  const isFromSameAccount =
+                    instanceAccountId && createdInstanceAccountId && instanceAccountId === createdInstanceAccountId;
+                  const isFromSameRegion = instance.region === createdInstance.region;
+
+                  return isFromSameAccount && isFromSameRegion;
+                }).length === 1;
+            }
+          }
+        } catch {}
+
+        setCreateInstanceModalData({
+          isCustomDNS: formData.values.requestParams?.custom_dns_configuration,
+          instanceId: response?.id as string,
+          isFirstInstanceInRegion: isFirstInstanceInRegion,
+          lifecycleStatus: lifecycleStatus as string,
+        });
+
         // Show the Create Instance Dialog
         setIsOverlayOpen(true);
         setOverlayType("create-instance-dialog");
-        setCreateInstanceModalData({
-          isCustomDNS: formData.values.requestParams?.custom_dns_configuration,
-          instanceId: response?.id,
-        });
-
-        snackbar.showSuccess("Instance created successfully");
-        refetchInstances();
-        formData.resetForm();
       },
     }
   );
@@ -453,6 +500,12 @@ const InstanceForm = ({
     productTierVersion: allowCustomerVersionOverride ? values.productTierVersion : "",
   });
 
+  const { data: resources = [] } = useResources({
+    serviceId: values.serviceId,
+    productTierId: values.servicePlanId,
+    productTierVersion: allowCustomerVersionOverride ? values.productTierVersion : "",
+  });
+
   const resourceCreateSchema = resourceSchemaData?.apis?.find((api) => api.verb === "CREATE") as APIEntity;
   const resourceModifySchema = resourceSchemaData?.apis?.find((api) => api.verb === "UPDATE") as APIEntity;
 
@@ -513,6 +566,12 @@ const InstanceForm = ({
                 if (Array.isArray(value)) {
                   if (value.length === 0) return true;
                   return value.every((item) => !item || regex.test(item));
+                }
+
+                if (value && typeof value === "object") {
+                  return Object.values(value as Record<string, unknown>).every(
+                    (item) => !item || regex.test(String(item))
+                  );
                 }
 
                 // Handle single values
@@ -594,6 +653,12 @@ const InstanceForm = ({
                 if (Array.isArray(value)) {
                   if (value.length === 0) return true;
                   return value.every((item) => !item || regex.test(item));
+                }
+
+                if (value && typeof value === "object") {
+                  return Object.values(value as Record<string, unknown>).every(
+                    (item) => !item || regex.test(String(item))
+                  );
                 }
 
                 // Handle single values
@@ -730,6 +795,8 @@ const InstanceForm = ({
             return values.cloudProvider === "aws";
           } else if (instance.result_params?.azure_subscription_id) {
             return values.cloudProvider === "azure";
+          } else if (instance.result_params?.oci_tenancy_id) {
+            return values.cloudProvider === "oci";
           }
         })
         .filter((instance) => ["READY", "RUNNING"].includes(instance.status))
@@ -739,7 +806,9 @@ const InstanceForm = ({
             ? `${instance.id} (Project ID - ${instance.result_params?.gcp_project_id})`
             : instance.result_params?.aws_account_id
               ? `${instance.id} (Account ID - ${instance.result_params?.aws_account_id})`
-              : `${instance.id} (Subscription ID - ${instance.result_params?.azure_subscription_id})`,
+              : instance.result_params?.oci_tenancy_id
+                ? `${instance.id} (Tenancy ID - ${instance.result_params?.oci_tenancy_id})`
+                : `${instance.id} (Subscription ID - ${instance.result_params?.azure_subscription_id})`,
         })),
     [instances, values.cloudProvider]
   );
@@ -776,13 +845,23 @@ const InstanceForm = ({
   const networkConfigurationFields = useMemo(() => {
     return getNetworkConfigurationFields(
       formMode,
+      formData,
       formData.values,
       resourceCreateSchema,
       serviceOfferingsObj,
+      resources,
       customNetworks,
       isFetchingCustomNetworks
     );
-  }, [formMode, formData.values, resourceCreateSchema, serviceOfferingsObj, customNetworks, isFetchingCustomNetworks]);
+  }, [
+    formMode,
+    formData.values,
+    resourceCreateSchema,
+    serviceOfferingsObj,
+    resources,
+    customNetworks,
+    isFetchingCustomNetworks,
+  ]);
 
   const deploymentConfigurationFields = useMemo(() => {
     return getDeploymentConfigurationFields(

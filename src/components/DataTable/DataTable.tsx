@@ -84,6 +84,9 @@ type DataTableProps<TData> = {
   getRowClassName?: (rowData: TData) => string;
   statusColumn?: ColumnDef<TData>;
   hidePagination?: boolean;
+  checkboxContainerStyles?: SxProps;
+  //eslint-disable-next-line no-use-before-define
+  checkboxColumnMeta?: ColumnCustomFeatures;
 };
 
 const DEFAULT_COLUMN_MIN_WIDTH = 150;
@@ -108,6 +111,8 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
     getRowClassName,
     statusColumn,
     hidePagination = false,
+    checkboxContainerStyles = {},
+    checkboxColumnMeta = {},
   } = props;
 
   const [expanded, setExpanded] = useState<ExpandedState>({});
@@ -137,21 +142,31 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
       id: "selection",
       header: "",
       cell: ({ row }) => (
-        <div className="flex items-center justify-center">
+        <Box className="flex items-center justify-center" sx={checkboxContainerStyles}>
           <CustomCheckbox
             // @ts-ignore
             checked={selectedRows.includes(String(row.original[rowId]))}
             onChange={() => handleSelectionChange(String(row.original[rowId]))}
           />
-        </div>
+        </Box>
       ),
       meta: {
         width: 36,
+        ...checkboxColumnMeta,
       },
     };
 
     return [...(statusColumn ? [statusColumn] : []), selectionColumn, ...columns];
-  }, [statusColumn, columns, selectionMode, onRowSelectionChange, selectedRows, rowId]);
+  }, [
+    statusColumn,
+    columns,
+    selectionMode,
+    onRowSelectionChange,
+    selectedRows,
+    rowId,
+    checkboxContainerStyles,
+    checkboxColumnMeta,
+  ]);
 
   const table = useReactTable({
     data: rows,
@@ -176,7 +191,8 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
     },
     getSubRows: getSubRows,
     paginateExpandedRows: false,
-    getRowId: (row) => String(row[rowId]),
+    autoResetPageIndex: false,
+    getRowId: (row, index) => (row[rowId] != null ? String(row[rowId]) : String(index)), // Use the specified rowId property or fallback to index if not available
   });
 
   const rowData = table.getRowModel().rows;
@@ -267,6 +283,7 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
                   {headerGroup.headers.map((header) => {
                     const sortDirection = header.column.getIsSorted();
                     const columnAlignment = header.column.columnDef.meta?.align || "left";
+                    const headerStyles = header.column.columnDef.meta?.headerStyles || {};
                     return (
                       <TableCell
                         align={columnAlignment}
@@ -282,6 +299,7 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
                               display: "inline-flex",
                             },
                           },
+                          ...(headerStyles as Record<string, unknown>),
                         }}
                       >
                         <Stack display="inline-flex" direction="row" gap="8px" alignItems="center">
@@ -389,9 +407,11 @@ interface ColumnCustomFeatures {
   flex?: number;
   width?: number;
   minWidth?: number;
+  maxWidth?: number;
   align?: "center" | "left" | "right";
   disableBrowserTooltip?: boolean;
   styles?: CSSProperties;
+  headerStyles?: SxProps;
 }
 declare module "@tanstack/react-table" {
   /*eslint-disable-next-line*/

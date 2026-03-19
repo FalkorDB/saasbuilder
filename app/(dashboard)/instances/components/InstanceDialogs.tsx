@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Box } from "@mui/material";
 import FullScreenDrawer from "app/(dashboard)/components/FullScreenDrawer/FullScreenDrawer";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 
 import { $api } from "src/api/query";
 import GenerateTokenDialog from "src/components/GenerateToken/GenerateTokenDialog";
@@ -11,7 +11,9 @@ import RebootCircleIcon from "src/components/Icons/Reboot/RebootCircleIcon";
 import StopCircleIcon from "src/components/Icons/Stop/StopCircleIcon";
 import UnlockIcon from "src/components/Icons/Unlock/UnlockIcon";
 import OverlappingCirclesIconWrapper from "src/components/OverlappingCirclesIconWrapper/OverlappingCirclesIconWrapper";
-import CreateInstanceModal from "src/components/ResourceInstance/CreateInstanceModal/CreateInstanceModal";
+import CreateInstanceModal, {
+  CreateInstanceModalData,
+} from "src/components/ResourceInstance/CreateInstanceModal/CreateInstanceModal";
 import AccessSideRestoreInstance from "src/components/RestoreInstance/AccessSideRestoreInstance";
 import TextConfirmationDialog from "src/components/TextConfirmationDialog/TextConfirmationDialog";
 import UpgradeDialog from "src/components/Upgrade/UpgradeDialog";
@@ -23,6 +25,7 @@ import { ServiceOffering } from "src/types/serviceOffering";
 import { Subscription } from "src/types/subscription";
 import { getInstancesRoute } from "src/utils/routes";
 
+import useInstancesDescribe from "../hooks/useInstancesDescribe";
 import { Overlay } from "../page";
 import { getMainResourceFromInstance } from "../utils";
 
@@ -103,10 +106,7 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
   refetchData,
 }) => {
   const router = useRouter();
-  const [createInstanceModalData, setCreateInstanceModalData] = useState<{
-    instanceId?: string;
-    isCustomDNS?: boolean;
-  }>({});
+  const [createInstanceModalData, setCreateInstanceModalData] = useState<CreateInstanceModalData | null>(null);
   const [takeFinalSnapshot, setTakeFinalSnapshot] = useState(true);
   const showSnapshotBeforeDeleteOption = Boolean(instance?.snapshotBeforeDeletionEnabled);
   const snackbar = useSnackbar();
@@ -129,6 +129,11 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
       subscriptionId: subscription?.id,
     };
   }, [instance, serviceOffering, subscription, selectedResource]);
+
+  const { data: selectedInstance } = useInstancesDescribe({
+    ...selectedInstanceData,
+    enabled: Boolean(instance && serviceOffering && subscription && selectedResource),
+  }) as { data?: DescribeResourceInstanceResponse };
 
   const deleteInstanceMutation = $api.useMutation(
     "delete",
@@ -208,7 +213,7 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
           <InstanceForm
             instances={instances}
             formMode={overlayType === "create-instance-form" ? "create" : "modify"}
-            selectedInstance={instance}
+            selectedInstance={selectedInstance}
             refetchInstances={refetchData}
             setCreateInstanceModalData={setCreateInstanceModalData}
             setIsOverlayOpen={setIsOverlayOpen}
@@ -221,7 +226,7 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
         open={isOverlayOpen && overlayType === "upgrade-dialog"}
         onClose={() => setIsOverlayOpen(false)}
         refetchInstances={refetchData}
-        instance={instance}
+        instance={selectedInstance}
         subscription={subscription}
         serviceOffering={serviceOffering}
       />

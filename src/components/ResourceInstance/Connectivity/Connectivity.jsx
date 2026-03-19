@@ -70,12 +70,12 @@ function Connectivity(props) {
     if (primaryResourceName && primaryResourceEndpoint) {
       res.push(
         <ResourceConnectivityEndpoint
+          key="primary"
           isPrimaryResource={true}
           endpointURL={primaryResourceEndpoint}
           resourceName={primaryResourceName}
           viewType="endpoint"
           ports={primaryResourcePorts?.ports}
-          resourceHasCompute={globalEndpoints?.primary?.resourceHasCompute}
           customDNSData={globalEndpoints?.primary?.customDNSEndpoint}
           publiclyAccessible={globalEndpoints?.primary?.publiclyAccessible}
         />
@@ -112,7 +112,6 @@ function Connectivity(props) {
     otherResourceFilteredPorts,
     globalEndpoints?.primary?.customDNSEndpoint,
     globalEndpoints?.primary?.publiclyAccessible,
-    globalEndpoints?.primary?.resourceHasCompute,
   ]);
 
   const connectivitySummaryData = useMemo(() => {

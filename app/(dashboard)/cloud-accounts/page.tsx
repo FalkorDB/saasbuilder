@@ -1,14 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Box, Stack } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { createColumnHelper } from "@tanstack/react-table";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import CloudProviderAccountOrgIdModal from "components/CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
+import DataTable from "components/DataTable/DataTable";
+import GridCellExpand from "components/GridCellExpand/GridCellExpand";
+import ViewInstructionsIcon from "components/Icons/AccountConfig/ViewInstrcutionsIcon";
+import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithLogo";
+import StatusChip from "components/StatusChip/StatusChip";
+import Tooltip from "components/Tooltip/Tooltip";
+import { $api } from "src/api/query";
 import { deleteResourceInstance, getResourceInstanceDetails } from "src/api/resourceInstance";
 import ConnectAccountConfigDialog from "src/components/AccountConfigDialog/ConnectAccountConfigDialog";
 import DisconnectAccountConfigDialog from "src/components/AccountConfigDialog/DisconnectAccountConfigDialog";
+import DeleteProtectionIcon from "src/components/Icons/DeleteProtection/DeleteProtection";
+import TextConfirmationDialog from "src/components/TextConfirmationDialog/TextConfirmationDialog";
 import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 import { chipCategoryColors } from "src/constants/statusChipStyles";
 import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
@@ -24,39 +34,44 @@ import {
   getAzureShellScriptOffboardCommand,
   getGcpBootstrapShellCommand,
   getGcpShellScriptOffboardCommand,
+  getOciShellScriptOffboardCommand,
 } from "src/utils/accountConfig/accountConfig";
 import formatDateLocal from "src/utils/formatDateLocal";
 import { getCloudAccountsRoute } from "src/utils/routes";
-import CloudProviderAccountOrgIdModal from "components/CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
-import DataGridText from "components/DataGrid/DataGridText";
-import DataTable from "components/DataTable/DataTable";
-import ViewInstructionsIcon from "components/Icons/AccountConfig/ViewInstrcutionsIcon";
-import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithLogo";
-import StatusChip from "components/StatusChip/StatusChip";
-import Tooltip from "components/Tooltip/Tooltip";
 
 import FullScreenDrawer from "../components/FullScreenDrawer/FullScreenDrawer";
 import CloudAccountsIcon from "../components/Icons/CloudAccountsIcon";
 import PageContainer from "../components/Layout/PageContainer";
 import PageTitle from "../components/Layout/PageTitle";
-import useInstances from "../instances/hooks/useInstances";
+import useInstancesDescribe from "../instances/hooks/useInstancesDescribe";
+import useInstancesListWithDescribe from "../instances/hooks/useInstancesListWithDescribe";
 
 import CloudAccountForm from "./components/CloudAccountForm";
 import CloudAccountsTableHeader from "./components/CloudAccountsTableHeader";
 import DeleteAccountConfigConfirmationDialog from "./components/DeleteConfirmationDialog";
+import {
+  INSTANCE_STATUS_POLL_INTERVAL_MS,
+  MAX_POLL_COUNT,
+  shouldPollInstanceStatus,
+  shouldResetDeleteMutationOnClose,
+} from "./components/deleteDialogState";
 import { OffboardInstructionDetails } from "./components/OffboardingInstructions";
+import { DIALOG_DATA } from "./constants";
+import useAccountConfig from "./hooks/useAccountConfig";
 import { getOffboardReadiness } from "./utils";
 
 const columnHelper = createColumnHelper<ResourceInstance>();
 
-type Overlay =
+export type Overlay =
   | "delete-dialog"
   | "create-instance-form"
   | "view-instance-form"
   | "view-instructions-dialog"
   | "connect-dialog"
   | "disconnect-dialog"
-  | "offboard-dialog";
+  | "offboard-dialog"
+  | "enable-deletion-protection-dialog"
+  | "disable-deletion-protection-dialog";
 
 const CloudAccountsPage = () => {
   const snackbar = useSnackbar();
@@ -74,6 +89,7 @@ const CloudAccountsPage = () => {
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const [isAccountCreation, setIsAccountCreation] = useState(false);
   const [clickedInstance, setClickedInstance] = useState<ResourceInstance>();
+  const [hasRequestedDeleteForPolling, setHasRequestedDeleteForPolling] = useState(false);
 
   const awsCloudFormationTemplateUrl = useMemo(() => {
     const result_params: any = clickedInstance?.result_params;
@@ -115,6 +131,12 @@ const CloudAccountsPage = () => {
         azureSubscriptionID: result_params?.azure_subscription_id,
         azureTenantID: result_params?.azure_tenant_id,
       };
+    } else if (result_params?.oci_tenancy_id) {
+      details = {
+        ociTenancyID: result_params?.oci_tenancy_id,
+        ociDomainID: result_params?.oci_domain_id,
+        ociBootstrapShellCommand: result_params?.oci_bootstrap_shell_script,
+      };
     }
     return details;
   }, [clickedInstance]);
@@ -124,7 +146,7 @@ const CloudAccountsPage = () => {
     isPending: isInstancesPending,
     isFetching: isFetchingInstances,
     refetch: refetchInstances,
-  } = useInstances();
+  } = useInstancesListWithDescribe({ describeInstances: true, onlyCloudAccounts: true });
 
   const accountConfigIds = useMemo(() => {
     const ids = new Set<string>();
@@ -169,7 +191,9 @@ const CloudAccountsPage = () => {
           // @ts-ignore
           instance.result_params?.aws_account_id?.toLowerCase().includes(searchText.toLowerCase()) ||
           // @ts-ignore
-          instance.result_params?.azure_subscription_id?.toLowerCase().includes(searchText.toLowerCase())
+          instance.result_params?.azure_subscription_id?.toLowerCase().includes(searchText.toLowerCase()) ||
+          // @ts-ignore
+          instance.result_params?.oci_tenancy_id?.toLowerCase().includes(searchText.toLowerCase())
       );
     }
 
@@ -178,6 +202,43 @@ const CloudAccountsPage = () => {
 
   const dataTableColumns = useMemo(() => {
     return [
+      columnHelper.display({
+        id: "delete_protection",
+        header: "",
+        cell: (data) => {
+          const isDeleteProtectionSupported =
+            data.row.original.resourceInstanceMetadata?.deletionProtection !== undefined;
+          const isDeleteProtected = data.row.original?.resourceInstanceMetadata?.deletionProtection;
+
+          return (
+            <Tooltip
+              title={
+                !isDeleteProtectionSupported
+                  ? "Delete protection not supported"
+                  : isDeleteProtected
+                    ? "Delete protection enabled"
+                    : "Delete protection disabled"
+              }
+            >
+              <span>
+                <DeleteProtectionIcon disabled={!isDeleteProtected} />
+              </span>
+            </Tooltip>
+          );
+        },
+        meta: {
+          width: 25,
+          minWidth: 25,
+          headerStyles: {
+            paddingLeft: "8px",
+            paddingRight: "4px",
+          },
+          styles: {
+            paddingLeft: "8px",
+            paddingRight: "4px",
+          },
+        },
+      }),
       columnHelper.accessor(
         (row) =>
           // @ts-ignore
@@ -186,6 +247,8 @@ const CloudAccountsPage = () => {
           row.result_params?.aws_account_id ||
           // @ts-ignore
           row.result_params?.azure_subscription_id ||
+          // @ts-ignore
+          row.result_params?.oci_tenancy_id ||
           "-",
         {
           id: "account_id",
@@ -198,18 +261,11 @@ const CloudAccountsPage = () => {
               data.row.original.result_params?.aws_account_id ||
               // @ts-ignore
               data.row.original.result_params?.azure_subscription_id ||
+              // @ts-ignore
+              data.row.original.result_params?.oci_tenancy_id ||
               "-";
 
-            return (
-              <DataGridText
-                showCopyButton={value !== "-"}
-                style={{
-                  fontWeight: 600,
-                }}
-              >
-                {value}
-              </DataGridText>
-            );
+            return <GridCellExpand value={value} copyButton={value !== "-"} />;
           },
           meta: {
             minWidth: 200,
@@ -388,6 +444,8 @@ const CloudAccountsPage = () => {
           else if (result_params?.gcp_project_id) cloudProvider = "gcp";
           // @ts-ignore
           else if (result_params?.azure_subscription_id) cloudProvider = "azure";
+          // @ts-ignore
+          else if (result_params?.oci_tenancy_id) cloudProvider = "oci";
           return cloudProvider;
         },
         {
@@ -402,6 +460,8 @@ const CloudAccountsPage = () => {
             else if (result_params?.gcp_project_id) cloudProvider = "gcp";
             // @ts-ignore
             else if (result_params?.azure_subscription_id) cloudProvider = "azure";
+            // @ts-ignore
+            else if (result_params?.oci_tenancy_id) cloudProvider = "oci";
 
             return cloudProvider ? cloudProviderLongLogoMap[cloudProvider] : "-";
           },
@@ -457,7 +517,10 @@ const CloudAccountsPage = () => {
   }, [instances, isFetchingInstances]);
 
   const offboardingInstructionDetails: OffboardInstructionDetails = useMemo(() => {
-    const result_params: any = selectedInstance?.result_params;
+    // Use clickedInstance as a stable fallback: the describe-query refetch that runs
+    // during polling briefly sets instances=[] (new query key), making selectedInstance
+    // undefined. clickedInstance holds a snapshot captured when the dialog opened.
+    const result_params: any = (selectedInstance || clickedInstance)?.result_params;
     let details: any = {};
     if (result_params?.aws_account_id) {
       details = {
@@ -469,7 +532,9 @@ const CloudAccountsPage = () => {
         gcpProjectNumber: result_params?.gcp_project_number,
       };
       if (result_params?.cloud_provider_account_config_id) {
-        details.gcpOffboardCommand = getGcpShellScriptOffboardCommand(result_params?.cloud_provider_account_config_id);
+        details.gcpOffboardCommand =
+          selectedAccountConfig?.gcpOffboardShellCommand ||
+          getGcpShellScriptOffboardCommand(result_params?.cloud_provider_account_config_id);
       }
     } else if (result_params?.azure_subscription_id) {
       details = {
@@ -477,13 +542,23 @@ const CloudAccountsPage = () => {
         azureTenantID: result_params?.azure_tenant_id,
       };
       if (result_params?.cloud_provider_account_config_id) {
-        details.azureOffboardCommand = getAzureShellScriptOffboardCommand(
-          result_params?.cloud_provider_account_config_id
-        );
+        details.azureOffboardCommand =
+          selectedAccountConfig?.azureOffboardShellCommand ||
+          getAzureShellScriptOffboardCommand(result_params?.cloud_provider_account_config_id);
+      }
+    } else if (result_params?.oci_tenancy_id) {
+      details = {
+        ociTenancyID: result_params?.oci_tenancy_id,
+        ociDomainID: result_params?.oci_domain_id,
+      };
+      if (result_params?.cloud_provider_account_config_id) {
+        details.ociOffboardCommand =
+          selectedAccountConfig?.ociOffboardShellCommand ||
+          getOciShellScriptOffboardCommand(result_params?.cloud_provider_account_config_id);
       }
     }
     return details;
-  }, [selectedInstance]);
+  }, [selectedInstance, clickedInstance, selectedAccountConfig]);
 
   // Subscription of the Selected Instance
   const selectedInstanceSubscription = useMemo(() => {
@@ -502,6 +577,11 @@ const CloudAccountsPage = () => {
       resource.resourceId.startsWith("r-injectedaccountconfig")
     );
   }, [selectedInstanceOffering?.resourceParameters]);
+
+  // Local state for polled data used only by the delete dialog
+  const [polledInstanceStatus, setPolledInstanceStatus] = useState<string | undefined>();
+  const [polledAccountConfig, setPolledAccountConfig] = useState<AccountConfig | undefined>();
+  const pollCountRef = useRef(0);
 
   const deleteCloudAccountInstanceMutation = useMutation({
     mutationFn: () => {
@@ -528,18 +608,196 @@ const CloudAccountsPage = () => {
         await refetchInstances();
         // refetchAccountConfigs();
       } else {
-        setTimeout(async () => {
+        // Use polled data (if available) for offboard readiness check — selectedAccountConfig
+        // may be stale (e.g. already deleted by the offboard API call before onSuccess runs).
+        const currentInstanceStatus = polledInstanceStatus ?? selectedInstance?.status;
+        const currentAccountConfigStatus = polledAccountConfig?.status ?? selectedAccountConfig?.status;
+        const isOffboardReady = getOffboardReadiness(currentInstanceStatus, currentAccountConfigStatus);
+
+        if (isOffboardReady || currentInstanceStatus === "FAILED") {
+          // Offboard step 2 completed — close dialog immediately and refresh the list.
+          // The offboard API call is the final action; no polling is needed.
+          setIsOverlayOpen(false);
+          setSelectedRows([]);
           await refetchInstances();
-        }, 1700);
+        } else {
+          // Instance is transitioning to DELETING — start polling to track progress
+          // and keep the dialog in loading state until offboard is ready.
+          setHasRequestedDeleteForPolling(true);
+        }
       }
     },
     onError: async () => {
       setSelectedRows([]);
       setIsOverlayOpen(false);
-      await refetchInstances();
+
       snackbar.showError("Something went wrong. Please try again.");
     },
   });
+
+  const showDeleteDialog = isOverlayOpen && overlayType === "delete-dialog";
+
+  // Derive the account config ID for the selected instance
+  const selectedAccountConfigId = useMemo(() => {
+    const resultParams = selectedInstance?.result_params as Record<string, any> | undefined;
+    return resultParams?.cloud_provider_account_config_id;
+  }, [selectedInstance]);
+
+  // Use polled data when available, otherwise fall back to the original data.
+  // These merged values drive both the dialog display and the polling stop condition.
+  const deleteDialogInstanceStatus = polledInstanceStatus ?? selectedInstance?.status;
+  const deleteDialogAccountConfig = polledAccountConfig ?? selectedAccountConfig;
+
+  const isLastInstance =
+    !deleteDialogAccountConfig?.byoaInstanceIDs || deleteDialogAccountConfig?.byoaInstanceIDs?.length === 1;
+  const isMultiStepDialog = Boolean(isLastInstance && deleteDialogAccountConfig);
+
+  const shouldPollDeleteDialogStatus = shouldPollInstanceStatus({
+    open: showDeleteDialog,
+    instanceStatus: deleteDialogInstanceStatus,
+    accountConfigStatus: deleteDialogAccountConfig?.status,
+    isMultiStepDialog,
+    hasRequestedDeletion: hasRequestedDeleteForPolling,
+  });
+
+  // Instance describe query — disabled by default, refetched manually during polling.
+  const describeQuery = useInstancesDescribe({
+    serviceProviderId: selectedInstanceOffering?.serviceProviderId ?? "",
+    serviceKey: selectedInstanceOffering?.serviceURLKey ?? "",
+    serviceAPIVersion: selectedInstanceOffering?.serviceAPIVersion ?? "",
+    serviceEnvironmentKey: selectedInstanceOffering?.serviceEnvironmentURLKey ?? "",
+    serviceModelKey: selectedInstanceOffering?.serviceModelURLKey ?? "",
+    productTierKey: selectedInstanceOffering?.productTierURLKey ?? "",
+    resourceKey: selectedResource?.urlKey ?? "",
+    id: selectedInstance?.id ?? "",
+    subscriptionId: selectedInstance?.subscriptionId,
+    ignoreGlobalError: true,
+    enabled: Boolean(showDeleteDialog && selectedInstance?.id),
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
+    retry: false,
+  });
+
+  // Derive account config ID from describe query data (polled) or fall back to selected instance
+  const describeResultParams = (describeQuery.data as any)?.result_params;
+  const polledAccountConfigId = describeResultParams?.cloud_provider_account_config_id as string | undefined;
+
+  // Account config query — disabled by default, refetched manually during polling.
+  const accountConfigQuery = useAccountConfig({
+    accountConfigId: polledAccountConfigId ?? selectedAccountConfigId ?? "",
+    enabled: Boolean(showDeleteDialog && (polledAccountConfigId || selectedAccountConfigId)),
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
+    retry: false,
+  });
+
+  // Reset polled state when dialog opens/closes
+  useEffect(() => {
+    if (!showDeleteDialog) {
+      setPolledInstanceStatus(undefined);
+      setPolledAccountConfig(undefined);
+      pollCountRef.current = 0;
+      if (hasRequestedDeleteForPolling) {
+        setHasRequestedDeleteForPolling(false);
+      }
+    }
+  }, [showDeleteDialog, hasRequestedDeleteForPolling]);
+
+  // Reset the step-1 deletion polling flag when the dialog naturally transitions to the
+  // offboard step (offboard-ready condition met), so the spinner doesn't persist on step 2.
+  useEffect(() => {
+    if (!hasRequestedDeleteForPolling) return;
+    const isOffboardReady =
+      deleteDialogAccountConfig?.status === "READY_TO_OFFBOARD" || deleteDialogInstanceStatus === "FAILED";
+    if (isOffboardReady) {
+      setHasRequestedDeleteForPolling(false);
+    }
+  }, [hasRequestedDeleteForPolling, deleteDialogAccountConfig?.status, deleteDialogInstanceStatus]);
+
+  // Polling: fetch instance describe + account config to track deletion progress.
+  // Only runs for 2-step dialogs after deletion has been requested.
+  // Stops when: offboard step ready (shouldPoll becomes false), max retries, instance gone from list, or error.
+  useEffect(() => {
+    if (!shouldPollDeleteDialogStatus) {
+      return;
+    }
+
+    pollCountRef.current = 0;
+
+    const stopPolling = () => {
+      setHasRequestedDeleteForPolling(false);
+    };
+
+    const pollingInterval = window.setInterval(async () => {
+      pollCountRef.current += 1;
+
+      if (pollCountRef.current >= MAX_POLL_COUNT) {
+        window.clearInterval(pollingInterval);
+        stopPolling();
+        return;
+      }
+
+      try {
+        const [instanceResult] = await Promise.allSettled([describeQuery.refetch()]);
+        const [accountConfigResult] = await Promise.allSettled([accountConfigQuery.refetch()]);
+
+        // Detect errors from refetch results
+        const hasInstanceError =
+          instanceResult.status === "rejected" ||
+          (instanceResult.status === "fulfilled" && instanceResult.value.isError);
+        const hasAccountConfigError =
+          accountConfigResult.status === "rejected" ||
+          (accountConfigResult.status === "fulfilled" && accountConfigResult.value.isError);
+
+        //errors — stop polling, keep dialog open
+        if (hasInstanceError) {
+          window.clearInterval(pollingInterval);
+          stopPolling();
+          setIsOverlayOpen(false);
+          setSelectedRows([]);
+          await refetchInstances();
+          return;
+        }
+
+        // Update polled data from successful responses
+        if (instanceResult.status === "fulfilled" && instanceResult.value.data) {
+          const instanceData = instanceResult.value.data as ResourceInstance;
+          setPolledInstanceStatus(instanceData.status);
+        }
+        if (accountConfigResult.status === "fulfilled" && accountConfigResult.value.data && !hasAccountConfigError) {
+          setPolledAccountConfig(accountConfigResult.value.data as AccountConfig);
+        }
+      } catch {
+        window.clearInterval(pollingInterval);
+        stopPolling();
+        setIsOverlayOpen(false);
+        setSelectedRows([]);
+      }
+    }, INSTANCE_STATUS_POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(pollingInterval);
+    };
+    //eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldPollDeleteDialogStatus]);
+
+  const updateInstanceMetadataMutation = $api.useMutation(
+    "patch",
+    "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}/{id}/metadata",
+    {
+      onSuccess: async () => {
+        refetchInstances();
+        setSelectedRows([]);
+        if (overlayType === "enable-deletion-protection-dialog") {
+          snackbar.showSuccess("Delete protection enabled successfully");
+        } else {
+          snackbar.showSuccess("Delete protection disabled successfully");
+        }
+      },
+    }
+  );
 
   // const deleteAccountConfigMutation = $api.useMutation("delete", "/2022-09-01-00/accountconfig/{id}", {
   //   onSuccess: () => {
@@ -580,6 +838,20 @@ const CloudAccountsPage = () => {
     }
   }, [isAccountCreation]);
 
+  const selectedInstanceData = useMemo(() => {
+    return {
+      id: selectedInstance?.id || "",
+      serviceProviderId: selectedInstanceOffering?.serviceProviderId || "",
+      serviceKey: selectedInstanceOffering?.serviceURLKey || "",
+      serviceAPIVersion: selectedInstanceOffering?.serviceAPIVersion || "",
+      serviceEnvironmentKey: selectedInstanceOffering?.serviceEnvironmentURLKey || "",
+      serviceModelKey: selectedInstanceOffering?.serviceModelURLKey || "",
+      productTierKey: selectedInstanceOffering?.productTierURLKey || "",
+      resourceKey: selectedResource?.urlKey as string,
+      subscriptionId: selectedInstanceSubscription?.id,
+    };
+  }, [selectedInstance, selectedInstanceOffering, selectedInstanceSubscription, selectedResource]);
+
   return (
     <PageContainer>
       <PageTitle icon={CloudAccountsIcon} className="mb-6">
@@ -603,19 +875,11 @@ const CloudAccountsPage = () => {
               setOverlayType("create-instance-form");
             },
             onDeleteClick: () => {
+              setClickedInstance(selectedInstance);
               setIsOverlayOpen(true);
               setOverlayType("delete-dialog");
             },
-            onConnectClick: () => {
-              setClickedInstance(selectedInstance);
-              setIsOverlayOpen(true);
-              setOverlayType("connect-dialog");
-            },
-            onDisconnectClick: () => {
-              setClickedInstance(selectedInstance);
-              setIsOverlayOpen(true);
-              setOverlayType("disconnect-dialog");
-            },
+
             onOffboardClick: () => {
               setClickedInstance(selectedInstance);
               setIsOverlayOpen(true);
@@ -626,8 +890,10 @@ const CloudAccountsPage = () => {
             isFetchingInstances: isFetchingInstances,
             refetchAccountConfigs: refetchAccountConfigs,
             isFetchingAccountConfigs: isFetchingAccountConfigs,
-            serviceModelType: selectedInstanceOffering?.serviceModelType,
             isSelectedInstanceReadyToOffboard: isSelectedInstanceReadyToOffboard,
+            setOverlayType: setOverlayType,
+            setIsOverlayOpen: setIsOverlayOpen,
+            selectedInstanceSubscription,
           }}
           isLoading={isInstancesPending || isAccountConfigsPending}
           selectionMode="single"
@@ -663,19 +929,23 @@ const CloudAccountsPage = () => {
       <DeleteAccountConfigConfirmationDialog
         open={isOverlayOpen && overlayType === "delete-dialog"}
         onClose={async () => {
+          setHasRequestedDeleteForPolling(false);
           setIsOverlayOpen(false);
           setSelectedRows([]);
           setClickedInstance(undefined);
+          // Reset mutation state if dialog is closed before backend responds
+          if (shouldResetDeleteMutationOnClose(deleteCloudAccountInstanceMutation.isPending)) {
+            deleteCloudAccountInstanceMutation.reset();
+          }
           await refetchInstances();
         }}
         isDeleteInstanceMutationPending={deleteCloudAccountInstanceMutation.isPending}
         // isDeletingAccountConfig={deleteAccountConfigMutation.isPending}
-        accountConfig={selectedAccountConfig}
-        isLoadingAccountConfig={isFetchingAccountConfigs}
+        accountConfig={deleteDialogAccountConfig}
+        isPollingActive={hasRequestedDeleteForPolling}
         onInstanceDeleteClick={async () => {
           if (!selectedInstance) return snackbar.showError("No instance selected");
           if (!selectedResource) return snackbar.showError("Resource not found");
-
           await deleteCloudAccountInstanceMutation.mutateAsync();
         }}
         onOffboardClick={async () => {
@@ -683,11 +953,10 @@ const CloudAccountsPage = () => {
           if (selectedInstance && selectedInstance?.status === "DELETING" && !selectedAccountConfig)
             return snackbar.showError("Offboarding is in progress");
           if (!selectedResource) return snackbar.showError("Resource not found");
-
           await deleteCloudAccountInstanceMutation.mutateAsync();
-          setSelectedRows([]);
+          // onSuccess closes the dialog and refetches — no extra cleanup needed here.
         }}
-        instanceStatus={selectedInstance?.status}
+        instanceStatus={deleteDialogInstanceStatus}
         offboardingInstructionDetails={offboardingInstructionDetails}
         instanceId={selectedInstance?.id}
       />
@@ -734,14 +1003,71 @@ const CloudAccountsPage = () => {
         gcpBootstrapShellCommand={gcpBootstrapShellCommand}
         azureBootstrapShellCommand={azureBootstrapShellCommand}
         accountInstructionDetails={accountInstructionDetails}
-        // downloadTerraformKitMutation={downloadTerraformKitMutation}
-        // orgId={clickedInstanceSubscription?.accountConfigIdentityId}
         accountConfigMethod={
           // @ts-ignore
           clickedInstance?.result_params?.account_configuration_method
         }
         fetchClickedInstanceDetails={fetchClickedInstanceDetails}
         setClickedInstance={setClickedInstance}
+      />
+
+      <TextConfirmationDialog
+        open={isOverlayOpen && Object.keys(DIALOG_DATA).includes(overlayType)}
+        handleClose={() => setIsOverlayOpen(false)}
+        onConfirm={async () => {
+          if (!selectedInstance) return snackbar.showError("No instance selected");
+          if (!selectedInstanceOffering) {
+            return snackbar.showError("Offering not found");
+          }
+          if (!selectedInstanceSubscription) {
+            return snackbar.showError("Subscription not found");
+          }
+          if (!selectedResource) {
+            return snackbar.showError("Resource not found");
+          }
+          if (!selectedInstance || !selectedInstanceOffering || !selectedInstanceSubscription || !selectedResource)
+            return false;
+
+          const pathData = {
+            serviceProviderId: selectedInstanceData.serviceProviderId,
+            serviceKey: selectedInstanceData.serviceKey,
+            serviceAPIVersion: selectedInstanceData.serviceAPIVersion,
+            serviceEnvironmentKey: selectedInstanceData.serviceEnvironmentKey,
+            serviceModelKey: selectedInstanceData.serviceModelKey,
+            productTierKey: selectedInstanceData.productTierKey,
+            resourceKey: selectedInstanceData.resourceKey,
+            id: selectedInstanceData.id,
+          };
+
+          const body = {
+            params: {
+              path: pathData,
+              query: {
+                subscriptionId: selectedInstanceSubscription?.id,
+              },
+            },
+          };
+
+          if (
+            overlayType === "enable-deletion-protection-dialog" ||
+            overlayType === "disable-deletion-protection-dialog"
+          ) {
+            await updateInstanceMetadataMutation.mutateAsync({
+              ...body,
+              body: {
+                deletionProtection: overlayType === "enable-deletion-protection-dialog" ? true : false,
+              },
+            });
+          }
+          return true;
+        }}
+        IconComponent={DIALOG_DATA[overlayType]?.icon}
+        title={DIALOG_DATA[overlayType]?.title}
+        subtitle={<>{`${DIALOG_DATA[overlayType]?.subtitle} - ${selectedInstanceData?.id}?`}</>}
+        confirmationText={DIALOG_DATA[overlayType]?.confirmationText}
+        buttonLabel={DIALOG_DATA[overlayType]?.buttonLabel}
+        buttonColor={DIALOG_DATA[overlayType]?.buttonColor}
+        isLoading={updateInstanceMetadataMutation.isPending}
       />
     </PageContainer>
   );

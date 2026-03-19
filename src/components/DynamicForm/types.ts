@@ -1,3 +1,5 @@
+import { ReactElement } from "react";
+
 import { FormMode } from "src/types/common/enums";
 
 export type Field = {
@@ -27,16 +29,11 @@ export type Field = {
 
   // Generic
   value?: any;
-  previewValue?:
-    | React.FC<{
-        field: Field;
-        formData: any;
-      }>
-    | string
-    | null;
+  previewValue?: ((props: { field: Field; formData: any }) => ReactElement | null) | string | null;
   customComponent?: React.ReactNode;
   onChange?: (e: any) => void;
   onBlur?: (e: any) => void;
+  skipFormikHandleChange?: boolean;
 };
 
 export type Section = {

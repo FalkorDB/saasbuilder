@@ -1,3 +1,7 @@
+import LockIcon from "src/components/Icons/Lock/LockIcon";
+import UnlockIcon from "src/components/Icons/Unlock/UnlockIcon";
+import OverlappingCirclesIconWrapper from "src/components/OverlappingCirclesIconWrapper/OverlappingCirclesIconWrapper";
+import { colors } from "src/themeConfig";
 import * as yup from "yup";
 
 export const CloudAccountValidationSchema = yup.object({
@@ -55,6 +59,28 @@ export const CloudAccountValidationSchema = yup.object({
       ),
     otherwise: yup.string(),
   }),
+  ociTenancyId: yup.string().when("cloudProvider", {
+    is: "oci",
+    then: yup
+      .string()
+      .required("OCI Tenancy OCID is required")
+      .matches(
+        /^ocid1\.tenancy\.oc1\.[a-z0-9.-]+$/,
+        "OCI Tenancy OCID must start with 'ocid1.tenancy.oc1.' followed by alphanumeric characters"
+      ),
+    otherwise: yup.string(),
+  }),
+  ociDomainId: yup.string().when("cloudProvider", {
+    is: "oci",
+    then: yup
+      .string()
+      .required("OCI Domain OCID is required")
+      .matches(
+        /^ocid1\.(domain|user)\.oc1\.[a-z0-9.-]+$/,
+        "OCI Domain OCID must start with 'ocid1.domain.oc1.' or 'ocid1.user.oc1.' followed by alphanumeric characters"
+      ),
+    otherwise: yup.string(),
+  }),
 });
 
 export const cloudAccountOffboardingSteps = [
@@ -67,3 +93,22 @@ export const cloudAccountOffboardingSteps = [
     description: "Confirm Offboarding",
   },
 ];
+
+export const DIALOG_DATA = {
+  "enable-deletion-protection-dialog": {
+    icon: () => <OverlappingCirclesIconWrapper IconComponent={LockIcon} />,
+    title: "Enable Delete Protection",
+    subtitle: "Are you sure you want to enable delete protection for",
+    confirmationText: "enable",
+    buttonLabel: "Enable",
+    buttonColor: colors.success600,
+  },
+  "disable-deletion-protection-dialog": {
+    icon: () => <OverlappingCirclesIconWrapper IconComponent={UnlockIcon} />,
+    title: "Disable Delete Protection",
+    subtitle: "Are you sure you want to disable delete protection for",
+    confirmationText: "disable",
+    buttonLabel: "Disable",
+    buttonColor: colors.success600,
+  },
+};

@@ -1,3 +1,4 @@
+import { SxProps } from "@mui/material";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 
@@ -10,7 +11,6 @@ import { ServiceOffering } from "src/types/serviceOffering";
 import { Subscription } from "src/types/subscription";
 import { fromProvider } from "cloud-regions-country-flags";
 dayjs.extend(utc);
-import { SxProps } from "@mui/material";
 
 import { getInstanceHealthStatus } from "src/components/InstanceHealthStatusChip/InstanceHealthStatusChip";
 import { instaceHealthStatusMap } from "src/constants/statusChipStyles/resourceInstanceHealthStatus";
@@ -54,7 +54,7 @@ type SchemaParameter = {
 /**
  * Filters schema parameters based on the selected cloud provider and scope
  * @param schemaParameters - Array of schema parameters to filter
- * @param selectedCloudProvider - The currently selected cloud provider (e.g., "aws", "gcp", "azure")
+ * @param selectedCloudProvider - The currently selected cloud provider (e.g., "aws", "gcp", "azure", "oci")
  * @returns Filtered array of schema parameters that match the cloud provider scope
  */
 export const filterSchemaByCloudProvider = (
@@ -182,6 +182,13 @@ export const getRegionMenuItems = (offering?: ServiceOffering, cloudProvider?: C
     offering.azureRegions?.forEach((region: string) => {
       menuItems.push({
         label: `${fromProvider(region, "AZURE").flag} ${region}`,
+        value: region,
+      });
+    });
+  } else if (cloudProvider === "oci") {
+    offering.ociRegions?.forEach((region: string) => {
+      menuItems.push({
+        label: region,
         value: region,
       });
     });
@@ -364,8 +371,9 @@ export const getInitialValues = (
   } else if (cloudProvider === "gcp") {
     region = offering.gcpRegions?.[0];
   } else if (cloudProvider === "azure") {
-    // @ts-ignore
     region = offering.azureRegions?.[0];
+  } else if (cloudProvider === "oci") {
+    region = offering.ociRegions?.[0];
   }
 
   const resources = getResourceMenuItems(offering);
@@ -800,3 +808,89 @@ export const getJsonValue = (value: any): string => {
     return "";
   }
 };
+
+export const normalizeCustomDnsValue = (key: string, value: unknown): string => {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  const valueAsString = typeof value === "string" ? value : String(value);
+
+  try {
+    const parsedValue = JSON.parse(valueAsString);
+    if (
+      parsedValue &&
+      typeof parsedValue === "object" &&
+      !Array.isArray(parsedValue) &&
+      typeof (parsedValue as Record<string, unknown>)[key] === "string"
+    ) {
+      return (parsedValue as Record<string, string>)[key];
+    }
+  } catch {
+    // Plain string, keep as-is.
+  }
+
+  return valueAsString;
+};
+
+export const normalizeCustomDnsConfiguration = (
+  customDnsConfiguration: unknown,
+  fallbackResourceKey: string
+): Record<string, string> => {
+  // Handle string value.
+  // If it is a JSON object string (e.g. '{"outlineWiki":"...","postgres":"..."}')
+  // preserve all keys instead of collapsing to fallbackResourceKey.
+  if (typeof customDnsConfiguration === "string") {
+    try {
+      const parsedConfiguration = JSON.parse(customDnsConfiguration);
+      if (parsedConfiguration && typeof parsedConfiguration === "object" && !Array.isArray(parsedConfiguration)) {
+        const normalizedCustomDnsConfiguration: Record<string, string> = {};
+
+        Object.entries(parsedConfiguration as Record<string, unknown>).forEach(([resourceKey, value]) => {
+          const normalizedValue = normalizeCustomDnsValue(resourceKey, value);
+          if (normalizedValue) {
+            normalizedCustomDnsConfiguration[resourceKey] = normalizedValue;
+          }
+        });
+
+        return normalizedCustomDnsConfiguration;
+      }
+    } catch {
+      // Plain string, fallback to legacy single-resource behavior.
+    }
+
+    const normalizedValue = normalizeCustomDnsValue(fallbackResourceKey, customDnsConfiguration);
+    return normalizedValue ? { [fallbackResourceKey]: normalizedValue } : {};
+  }
+
+  // Handle object value - normalize each resource's custom DNS value
+  if (customDnsConfiguration && typeof customDnsConfiguration === "object" && !Array.isArray(customDnsConfiguration)) {
+    const normalizedCustomDnsConfiguration: Record<string, string> = {};
+
+    Object.entries(customDnsConfiguration as Record<string, unknown>).forEach(([resourceKey, value]) => {
+      const normalizedValue = normalizeCustomDnsValue(resourceKey, value);
+      if (normalizedValue) {
+        normalizedCustomDnsConfiguration[resourceKey] = normalizedValue;
+      }
+    });
+
+    return normalizedCustomDnsConfiguration;
+  }
+
+  return {};
+};
+
+/**
+ * Normalizes custom_dns_configuration in requestParams.
+ * If the normalized result is non-empty, it replaces the original value;
+ * otherwise, the field is removed from requestParams.
+ */
+export function applyCustomDnsNormalization(requestParams: any, resourceKey: string) {
+  const normalized = normalizeCustomDnsConfiguration(requestParams.custom_dns_configuration, resourceKey);
+
+  if (Object.keys(normalized).length) {
+    requestParams.custom_dns_configuration = normalized;
+  } else {
+    delete requestParams.custom_dns_configuration;
+  }
+}

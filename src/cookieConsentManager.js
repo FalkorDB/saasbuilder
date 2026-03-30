@@ -1,6 +1,6 @@
-import { clarity } from "react-microsoft-clarity";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
+import { clarity } from "react-microsoft-clarity";
 import { loadReoScript } from 'reodotdev'
 
 export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
@@ -65,22 +65,18 @@ function addGoogleAnalytics() {
   const id = `gtm-script-${this.name}`;
   if (document.getElementById(id)) return; // Avoid duplicate GTM script
 
+  // Prime dataLayer before loading GTM so startup events are captured.
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    "gtm.start": new Date().getTime(),
+    event: "gtm.js",
+  });
+
   // Create GTM script dynamically
   const script = document.createElement("script");
   script.id = id;
   script.async = true;
-  script.text = `
-    (function(w,d,s,l,i){
-      w[l]=w[l]||[];
-      w[l].push({'gtm.start': new Date().getTime(), event:'gtm.js'});
-      var f=d.getElementsByTagName(s)[0],
-          j=d.createElement(s),
-          dl=l!='dataLayer'?'&l='+l:'';
-      j.async=true;
-      j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;
-      f.parentNode.insertBefore(j,f);
-    })(window, document, 'script', 'dataLayer', '${this.gtag}');
-  `;
+  script.src = `https://www.googletagmanager.com/gtm.js?id=${this.gtag}`;
 
   document.head.appendChild(script);
 
@@ -197,7 +193,7 @@ function addClarity() {
 
 function removeClarity() {
   try {
-    if (clarity) {
+    if (clarity && typeof clarity.clear === "function") {
       clarity.clear();
     }
   } catch (error) {

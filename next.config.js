@@ -1,5 +1,77 @@
 const withYaml = require("next-plugin-yaml");
 
+const toOrigin = (value) => {
+  if (!value) return "";
+  try {
+    return new URL(value).origin;
+  } catch {
+    return "";
+  }
+};
+
+const unique = (values) => [...new Set(values.filter(Boolean))];
+
+const analyticsOrigins = [
+  "https://www.googletagmanager.com",
+  "https://www.google-analytics.com",
+  "https://region1.google-analytics.com",
+  "https://accounts.google.com",
+  "https://www.google.com",
+  "https://www.gstatic.com",
+  "https://cdn.jsdelivr.net",
+];
+
+const runtimeOrigins = unique([
+  toOrigin(process.env.NEXT_PUBLIC_BACKEND_BASE_DOMAIN),
+  toOrigin(process.env.NEXT_PUBLIC_FALKORDB_API_BASE_URL),
+  toOrigin(process.env.NEXT_PUBLIC_GRAFANA_URL),
+]);
+
+const additionalScriptSources = (process.env.CSP_SRC || "").trim();
+
+const buildCsp = ({ reportOnly = false } = {}) => {
+  const scriptSrc = unique(["'self'", ...analyticsOrigins, additionalScriptSources]);
+
+  const strictConnectSrc = unique([
+    "'self'",
+    ...analyticsOrigins,
+    ...runtimeOrigins,
+    "https:",
+    "wss:",
+  ]);
+
+  const strictImgSrc = unique([
+    "'self'",
+    "data:",
+    "blob:",
+    ...analyticsOrigins,
+    ...runtimeOrigins,
+  ]);
+
+  const strictFrameSrc = unique([
+    "'self'",
+    "https://www.googletagmanager.com",
+    "https://www.google.com",
+    ...runtimeOrigins,
+  ]);
+
+  const directives = [
+    "default-src 'self'",
+    `script-src ${scriptSrc.join(" ")}`,
+    "worker-src 'self' https://www.google.com https://www.gstatic.com",
+    "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+    reportOnly ? `connect-src ${strictConnectSrc.join(" ")}` : "connect-src *",
+    reportOnly ? `img-src ${strictImgSrc.join(" ")}` : "img-src * data:",
+    reportOnly ? "media-src 'self' blob:" : "media-src *",
+    reportOnly ? `frame-src ${strictFrameSrc.join(" ")}` : "frame-src *",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+  ];
+
+  return directives.join("; ");
+};
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   turbopack: {},
@@ -35,8 +107,8 @@ const nextConfig = {
             value: "nosniff",
           },
           {
-            key: "Content-Security-Policy",
-            value: `default-src 'self'; script-src 'self' https://www.googletagmanager.com https://accounts.google.com/gsi/client https://www.google.com https://www.gstatic.com ${process.env.CSP_SRC || ""} 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net; worker-src 'self' https://www.google.com https://www.gstatic.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; connect-src *; img-src * data:; media-src *; frame-src *; object-src 'none'`,
+            key: "Content-Security-Policy-Report-Only",
+            value: buildCsp({ reportOnly: true }),
           },
           {
             key: "Strict-Transport-Security",

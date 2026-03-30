@@ -5,6 +5,7 @@ import { ENVIRONMENT_TYPES } from "src/constants/environmentTypes";
 import { getProviderOrgDetails } from "src/server/api/customer-user";
 import { EnvironmentType } from "src/types/common/enums";
 import { ProviderUser } from "src/types/users";
+
 import RootProviders from "./RootProviders";
 
 import "./globals.css";

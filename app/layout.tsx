@@ -25,24 +25,22 @@ const RootLayout = async ({ children }: { children: React.ReactNode }) => {
       <head>
         {process.env.GOOGLE_ANALYTICS_TAG_ID && (
           <>
-            {/* Load GA script early; establish default denied consent but still send a cookieless page_view for modeling */}
-            <script src={`https://www.googletagmanager.com/gtag/js?id=${process.env.GOOGLE_ANALYTICS_TAG_ID}`} async />
+            <script
+              async
+              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.GOOGLE_ANALYTICS_TAG_ID}`}
+            />
             <script
               id="ga-init"
               dangerouslySetInnerHTML={{
                 __html: `
-                  (function(){
-                    if (window.__gaInitialConfig) return; // avoid duplicate initial config on hydration/re-render
-                    window.__gaInitialConfig = true;
-                    window.dataLayer = window.dataLayer || [];
-                    function gtag(){window.dataLayer.push(arguments);} window.gtag = window.gtag || gtag;
-                    gtag('consent','default',{
-                      ad_storage:'denied',analytics_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',
-                      functionality_storage:'denied',personalization_storage:'denied',security_storage:'granted'
-                    });
-                    gtag('js', new Date());
-                    gtag('config', '${process.env.GOOGLE_ANALYTICS_TAG_ID}');
-                    })();
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('consent','default',{
+                    ad_storage:'denied',analytics_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',
+                    functionality_storage:'denied',personalization_storage:'denied',security_storage:'granted'
+                  });
+                  gtag('js', new Date());
+                  gtag('config', '${process.env.GOOGLE_ANALYTICS_TAG_ID}');
                 `,
               }}
             />

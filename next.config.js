@@ -21,20 +21,32 @@ const analyticsOrigins = [
   "https://cdn.jsdelivr.net",
 ];
 
+const imageOrigins = ["https://avatars.githubusercontent.com", "https://githubusercontent.com"];
+
 const runtimeOrigins = unique([
   toOrigin(process.env.NEXT_PUBLIC_BACKEND_BASE_DOMAIN),
   toOrigin(process.env.NEXT_PUBLIC_FALKORDB_API_BASE_URL),
   toOrigin(process.env.NEXT_PUBLIC_GRAFANA_URL),
 ]);
 
+const reoOrigins = process.env.NEXT_PUBLIC_REO_CLIENT_ID
+  ? ["https://static.reo.dev", "https://api.reo.dev"]
+  : [];
+
 const additionalScriptSources = (process.env.CSP_SRC || "").trim();
 
 const buildCsp = ({ reportOnly = false } = {}) => {
-  const scriptSrc = unique(["'self'", ...analyticsOrigins, additionalScriptSources]);
+  const scriptSrc = unique([
+    "'self'",
+    ...analyticsOrigins,
+    ...reoOrigins,
+    additionalScriptSources,
+  ]);
 
   const strictConnectSrc = unique([
     "'self'",
     ...analyticsOrigins,
+    ...reoOrigins,
     ...runtimeOrigins,
     "https:",
     "wss:",
@@ -45,6 +57,8 @@ const buildCsp = ({ reportOnly = false } = {}) => {
     "data:",
     "blob:",
     ...analyticsOrigins,
+    ...imageOrigins,
+    ...reoOrigins,
     ...runtimeOrigins,
   ]);
 
@@ -52,6 +66,7 @@ const buildCsp = ({ reportOnly = false } = {}) => {
     "'self'",
     "https://www.googletagmanager.com",
     "https://www.google.com",
+    "https://vercel.live",
     ...runtimeOrigins,
   ]);
 

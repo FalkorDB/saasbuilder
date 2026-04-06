@@ -202,8 +202,8 @@ function removeClarity() {
 }
 
 function startReo() {
-  // Declare clientID from environment variable or directly as string
-  const clientID = process.env.NEXT_PUBLIC_REO_CLIENT_ID || "aa70f06a8dabbfd";
+  const clientID = process.env.NEXT_PUBLIC_REO_CLIENT_ID;
+  if (!clientID || clientID.toLowerCase() === "undefined") return;
 
   // Resolve promise to get access to methods on Reo
   const reoPromise = loadReoScript({ clientID });

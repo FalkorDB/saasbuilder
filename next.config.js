@@ -19,9 +19,10 @@ const analyticsOrigins = [
   "https://www.google.com",
   "https://www.gstatic.com",
   "https://cdn.jsdelivr.net",
+  "https://bat.bing.com",
 ];
 
-const imageOrigins = ["https://avatars.githubusercontent.com", "https://githubusercontent.com", "https://c.clarity.ms", "https://perf-eu1.hsforms.com", "https://c.bing.com", "https://track-eu1.hubspot.com"];
+const imageOrigins = ["https://avatars.githubusercontent.com", "https://githubusercontent.com", "https://c.clarity.ms", "https://perf-eu1.hsforms.com", "https://c.bing.com", "https://bat.bing.com", "https://track-eu1.hubspot.com"];
 
 const runtimeOrigins = unique([
   toOrigin(process.env.NEXT_PUBLIC_BACKEND_BASE_DOMAIN),

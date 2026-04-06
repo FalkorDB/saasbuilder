@@ -21,7 +21,7 @@ const analyticsOrigins = [
   "https://cdn.jsdelivr.net",
 ];
 
-const imageOrigins = ["https://avatars.githubusercontent.com", "https://githubusercontent.com"];
+const imageOrigins = ["https://avatars.githubusercontent.com", "https://githubusercontent.com", "https://c.clarity.ms", "https://perf-eu1.hsforms.com", "https://c.bing.com", "https://track-eu1.hubspot.com"];
 
 const runtimeOrigins = unique([
   toOrigin(process.env.NEXT_PUBLIC_BACKEND_BASE_DOMAIN),
@@ -34,10 +34,12 @@ const reoOrigins = process.env.NEXT_PUBLIC_REO_CLIENT_ID
   : [];
 
 const additionalScriptSources = (process.env.CSP_SRC || "").trim();
+const isAnalyticsEnabled = Boolean(process.env.GOOGLE_ANALYTICS_TAG_ID);
 
 const buildCsp = ({ reportOnly = false } = {}) => {
   const scriptSrc = unique([
     "'self'",
+    ...(isAnalyticsEnabled ? ["'unsafe-inline'", "'unsafe-eval'"] : []),
     ...analyticsOrigins,
     ...reoOrigins,
     additionalScriptSources,

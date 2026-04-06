@@ -23,7 +23,7 @@ const RootLayout = async ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/favicon.ico" id="provider-favicon" />
+        <link rel="icon" href="/assets/icons/favicon.ico" id="provider-favicon" />
         {process.env.GOOGLE_ANALYTICS_TAG_ID && (
           <>
             <Script

@@ -8,9 +8,16 @@ import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
 const environmentType = getEnvironmentType();
 
 export async function middleware(request) {
-  // Allow CORS preflight checks to pass through without auth redirects.
+  // Handle preflight requests early to avoid page-route OPTIONS failures.
   if (request.method === "OPTIONS") {
-    return NextResponse.next();
+    return new NextResponse(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": request.headers.get("origin") || "*",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers") || "*",
+      },
+    });
   }
 
   const authToken = request.cookies.get("token");

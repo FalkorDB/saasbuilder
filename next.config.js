@@ -124,6 +124,10 @@ const nextConfig = {
             value: "nosniff",
           },
           {
+            key: "Cross-Origin-Embedder-Policy",
+            value: "unsafe-none",
+          },
+          {
             key: "Content-Security-Policy-Report-Only",
             value: buildCsp({ reportOnly: true }),
           },

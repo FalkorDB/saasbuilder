@@ -59,8 +59,43 @@ const handlerMap = {
   removeClarity,
 };
 
+const googleConsentDenied = {
+  ad_storage: "denied",
+  analytics_storage: "denied",
+  ad_user_data: "denied",
+  ad_personalization: "denied",
+  functionality_storage: "denied",
+  personalization_storage: "denied",
+  security_storage: "granted",
+};
+
+const googleConsentGranted = {
+  ad_storage: "granted",
+  analytics_storage: "granted",
+  ad_user_data: "granted",
+  ad_personalization: "granted",
+  functionality_storage: "granted",
+  personalization_storage: "granted",
+  security_storage: "granted",
+};
+
+function updateGoogleConsent(granted) {
+  const consent = granted ? googleConsentGranted : googleConsentDenied;
+
+  window.dataLayer = window.dataLayer || [];
+
+  if (typeof window.gtag === "function") {
+    window.gtag("consent", "update", consent);
+    return;
+  }
+
+  window.dataLayer.push(["consent", "update", consent]);
+}
+
 function addGoogleAnalytics() {
   if (!this.gtag || this.gtag.toLowerCase() === "undefined") return;
+
+  updateGoogleConsent(true);
 
   const id = `gtm-script-${this.name}`;
   if (document.getElementById(id)) return; // Avoid duplicate GTM script
@@ -150,6 +185,8 @@ const removeCookies = (cookieNames) => {
 };
 
 function removeGoogleAnalyticsScriptsAndCookies() {
+  updateGoogleConsent(false);
+
   // Remove the main GTM <script> tag
   removeScript(`gtm-script-${this.name}`);
 

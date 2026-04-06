@@ -8,6 +8,18 @@ import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
 const environmentType = getEnvironmentType();
 
 export async function middleware(request) {
+  // Handle preflight requests early to avoid page-route OPTIONS failures.
+  if (request.method === "OPTIONS") {
+    return new NextResponse(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": request.headers.get("origin") || "*",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers") || "*",
+      },
+    });
+  }
+
   const authToken = request.cookies.get("token");
   const path = request.nextUrl.pathname;
 
@@ -46,7 +58,6 @@ export async function middleware(request) {
       return redirectToSignIn();
     }
 
-    console.log(request.nextUrl.pathname);
     if (request.nextUrl.pathname.startsWith("/signin") || request.nextUrl.pathname.startsWith("/redirect")) {
       let destination = request.nextUrl.searchParams.get("destination");
 
@@ -59,7 +70,6 @@ export async function middleware(request) {
       return response;
     }
   } catch (error) {
-    console.log("Middleware Error", error?.response?.data);
     return redirectToSignIn();
   }
 

@@ -7,17 +7,24 @@ import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
 
 const environmentType = getEnvironmentType();
 
+const applyCrossOriginPolicyHeaders = (response) => {
+  response.headers.set("Cross-Origin-Embedder-Policy", "unsafe-none");
+  response.headers.set("Cross-Origin-Opener-Policy", "unsafe-none");
+  response.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  return response;
+};
+
 export async function middleware(request) {
   // Handle preflight requests early to avoid page-route OPTIONS failures.
   if (request.method === "OPTIONS") {
-    return new NextResponse(null, {
+    return applyCrossOriginPolicyHeaders(new NextResponse(null, {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": request.headers.get("origin") || "*",
         "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
         "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers") || "*",
       },
-    });
+    }));
   }
 
   const authToken = request.cookies.get("token");
@@ -39,7 +46,7 @@ export async function middleware(request) {
 
     const response = NextResponse.redirect(new URL(redirectPath, request.url));
     response.headers.set(`x-middleware-cache`, `no-cache`);
-    return response;
+    return applyCrossOriginPolicyHeaders(response);
   };
 
   if (!authToken?.value || jwtDecode(authToken.value).exp < Date.now() / 1000) {
@@ -67,7 +74,7 @@ export async function middleware(request) {
 
       const response = NextResponse.redirect(new URL(destination, request.url));
       response.headers.set(`x-middleware-cache`, `no-cache`);
-      return response;
+      return applyCrossOriginPolicyHeaders(response);
     }
   } catch (error) {
     return redirectToSignIn();
@@ -75,7 +82,7 @@ export async function middleware(request) {
 
   const response = NextResponse.next();
   response.headers.set(`x-middleware-cache`, `no-cache`);
-  return response;
+  return applyCrossOriginPolicyHeaders(response);
 }
 
 /*

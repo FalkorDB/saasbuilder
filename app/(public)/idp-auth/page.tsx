@@ -48,16 +48,25 @@ const IDPAuthPage = () => {
             console.warn("Failed to set SSO state:", error);
           }
 
-          try {
-            const user = await axios.get("/user").then(response => response.data)
-            const identity = {
-              "username": user.email,
-              "type": payload.identityProviderName === IDENTITY_PROVIDER_TYPES.Google ? "gmail" : payload.identityProviderName === IDENTITY_PROVIDER_TYPES.GitHub ? "github" : "other",
-              "firstname": user.name?.split(' ')[0],
+          if (window["Reo"]?.identify) {
+            try {
+              const user = await axios.get("/user").then((response) => response.data);
+              const identity = {
+                username: user.email,
+                type:
+                  payload.identityProviderName === IDENTITY_PROVIDER_TYPES.Google
+                    ? "gmail"
+                    : payload.identityProviderName === IDENTITY_PROVIDER_TYPES.GitHub
+                      ? "github"
+                      : "other",
+                firstname: user.name?.split(" ")[0],
+              };
+              window["Reo"].identify(identity);
+            } catch (error) {
+              console.error(error);
             }
-            window['Reo']?.identify?.call(identity);
-          } catch (error) {
-            console.error(error);
+          } else {
+            console.warn("Reo identify function is not available");
           }
 
           const decodedDestination = decodeURIComponent(destination);

@@ -21,7 +21,7 @@ import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { InstanceSnapshot } from "src/types/instance-snapshot";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { roundNumberToTwoDecimals } from "src/utils/formatNumber";
 import { getInstanceDetailsRoute, getSnapshotDetailsRoute } from "src/utils/routes";
 import { isCustomNetworkEnabledOnServiceOffering } from "src/utils/serviceOffering";
@@ -131,7 +131,7 @@ const InstanceSnapshotsPage = () => {
           minWidth: 120,
         },
       }),
-      columnHelper.accessor((row) => formatDateUTC(row.createdTime), {
+      columnHelper.accessor((row) => formatDateLocal(row.createdTime), {
         id: "createdTime",
         header: "Created On",
         meta: {
@@ -186,7 +186,7 @@ const InstanceSnapshotsPage = () => {
       }),
       columnHelper.accessor(
         (row) =>
-          row.completeTime && row.completeTime !== "0001-01-01T00:00:00Z" ? formatDateUTC(row.completeTime) : "-",
+          row.completeTime && row.completeTime !== "0001-01-01T00:00:00Z" ? formatDateLocal(row.completeTime) : "-",
         {
           id: "completeTime",
           header: "Completion Time",

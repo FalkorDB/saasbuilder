@@ -16,7 +16,11 @@ function useLogout() {
 
   // remove token from cookies, remove other user data and redirect to signin
   function handleLogout() {
-    Cookies.remove("token");
+    Cookies.remove("token", {
+      sameSite: "Lax",
+      secure: true,
+      domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+    });
     localStorage.removeItem("paymentNotificationHidden");
     try {
       localStorage.removeItem("loggedInUsingSSO");

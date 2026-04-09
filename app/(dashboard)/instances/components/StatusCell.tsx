@@ -4,7 +4,7 @@ import { styled, Tooltip, tooltipClasses } from "@mui/material";
 import AlertTriangle from "src/components/Icons/AlertTriangle/AlertTriangle";
 import { Text } from "src/components/Typography/Typography";
 import { UpgradeStatus } from "src/types/resourceInstance";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 
 type StatusCellProps = {
   upcomingUpgrade?: any;
@@ -101,7 +101,7 @@ const StatusCell: React.FC<StatusCellProps> = ({ upcomingUpgrade }) => {
           <div className="flex items-center gap-1">
             <CalendarIcon />
             <Text size="xsmall" weight="regular" color="#181D27" ellipsis>
-              {formatDateUTC(upcomingUpgrade.upgrade_path_scheduled_at)}
+              {formatDateLocal(upcomingUpgrade.upgrade_path_scheduled_at)}
             </Text>
           </div>
         ),

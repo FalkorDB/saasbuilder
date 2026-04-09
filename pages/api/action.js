@@ -33,12 +33,12 @@ export default async function handleAction(nextRequest, nextResponse) {
         // Extract client IP from X-Forwarded-For header
         // xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
         // Get the first IP (client IP)
-        const xForwardedForHeader = nextRequest.get("X-Forwarded-For") || "";
+        const xForwardedForHeader = nextRequest.getHeader?.call("x-forwarded-for") || "";
         const clientIP = xForwardedForHeader.split(",").shift().trim();
         const saasBuilderIP = process.env.POD_IP || "";
 
         // Build custom User-Agent: customer-portal/<version> (<original-user-agent>)
-        const originalUserAgent = nextRequest.get("User-Agent") || "";
+        const originalUserAgent = nextRequest.getHeader?.call("user-agent") || "";
         const customUserAgent = `customer-portal/${appVersion} (${originalUserAgent})`;
 
         // Prepare request options
@@ -106,16 +106,15 @@ export default async function handleAction(nextRequest, nextResponse) {
 
           // Send response data
           if (responseData) {
-            nextResponse.send(responseData);
+            return nextResponse.send(responseData);
           } else {
-            nextResponse.send();
+            return nextResponse.send();
           }
-          return;
         }
       } catch (error) {
         console.error("Action Route error", error);
-        const errorCode = error?.status || 500;
-        const errorMessage = error?.message || defaultErrorMessage;
+        const errorCode = error?.response?.status || 500;
+        const errorMessage = error?.response?.data?.message || defaultErrorMessage;
         return nextResponse.status(errorCode).send({
           message: errorMessage,
         });

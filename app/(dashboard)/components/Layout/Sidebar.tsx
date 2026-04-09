@@ -144,7 +144,7 @@ type Overlay = "plan-details" | "documentation" | "pricing" | "support" | "api-d
 
 const Sidebar = () => {
   const currentPath = usePathname();
-  const { serviceOfferings } = useGlobalData();
+  const { serviceOfferings, subscriptions } = useGlobalData();
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const [overlayType, setOverlayType] = useState<Overlay>("plan-details");
   const [expandedMenus, setExpandedMenus] = useState({
@@ -174,17 +174,21 @@ const Sidebar = () => {
 
   const showCloudProvidersPage = useMemo(() => {
     return Boolean(
-      serviceOfferings.find(
-        (offering) => offering.serviceModelType === "BYOA" || offering.serviceModelType === "ON_PREM_COPILOT"
-      )
+      subscriptions.find(s => {
+        const offering = serviceOfferings.find(o => s.productTierId === o.productTierID);
+        return offering?.serviceModelType === "BYOA" || offering?.serviceModelType === "ON_PREM_COPILOT"
+      })
     );
-  }, [serviceOfferings]);
+  }, [serviceOfferings, subscriptions]);
 
   const showCustomNetworksPage = useMemo(() => {
     return Boolean(
-      serviceOfferings.some((offering) => offering.serviceModelFeatures?.find((el) => el.feature === "CUSTOM_NETWORKS"))
+      subscriptions.find(s => {
+        const offering = serviceOfferings.find(o => s.productTierId === o.productTierID)
+        return offering?.serviceModelFeatures?.find((el) => el.feature === "CUSTOM_NETWORKS");
+      })
     );
-  }, [serviceOfferings]);
+  }, [serviceOfferings, subscriptions]);
 
   // Prefetch Billing Data
   const billingStatusQuery = useBillingStatus();

@@ -109,7 +109,11 @@ apiClient.use({
       if (response.status === 401) {
         // Check if this isn't the signin URL to avoid redirect loops
         if (!response.url.endsWith("/signin")) {
-          Cookies.remove("token");
+          Cookies.remove("token", {
+            sameSite: "Lax",
+            secure: true,
+            domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
+          });
           localStorage.removeItem("paymentNotificationHidden");
           try {
             localStorage.removeItem("loggedInUsingSSO");

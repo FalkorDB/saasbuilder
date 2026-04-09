@@ -120,14 +120,18 @@ const SignInForm: FC<SignInFormProps> = ({
         methodType: "Password",
       });
 
-      try {
-        const identity = {
-          username: formik.values.email,
-          type: "email",
-        };
-        window["Reo"]?.identify?.call(identity);
-      } catch (error) {
-        console.warn("Failed to identify user for analytics:", error);
+      if (window["Reo"]?.identify) {
+        try {
+          const identity = {
+            username: formik.values.email,
+            type: "email",
+          };
+          window["Reo"].identify(identity);
+        } catch (error) {
+          console.warn("Failed to identify user for analytics:", error);
+        }
+      } else {
+        console.warn("Reo identify function is not available");
       }
 
       /*eslint-disable-next-line no-use-before-define*/

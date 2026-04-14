@@ -279,6 +279,23 @@ const InstanceForm = ({
               snackbar.showError(`Invalid Node Instance Type`);
               isTypeError = true;
             }
+
+            if (key === "falkordbUser") {
+              if (data.requestParams["falkordbUser"] && !/^[_a-zA-Z0-9]+$/.test(data.requestParams["falkordbUser"])) {
+                snackbar.showError(`Invalid FalkorDB User`);
+                isTypeError = true;
+              }
+              if (data.requestParams["falkordbUser"] && data.requestParams["falkordbUser"].length < 3) {
+                snackbar.showError(`FalkorDB User must be at least 3 characters long`);
+              }
+            }
+
+            if (key === "falkordbPassword") {
+              if (data.requestParams["falkordbPassword"] && data.requestParams["falkordbPassword"].length < 6) {
+                snackbar.showError(`FalkorDB Password must be at least 6 characters long`);
+                isTypeError = true;
+              }
+            }
           });
 
           if (isTypeError) {
@@ -428,6 +445,23 @@ const InstanceForm = ({
                 if (data.requestParams[key] === "true") data.requestParams[key] = true;
                 else data.requestParams[key] = false;
                 break;
+            }
+
+            if (key === "falkordbUser") {
+              if (data.requestParams["falkordbUser"] && !/^[_a-zA-Z0-9]+$/.test(data.requestParams["falkordbUser"])) {
+                snackbar.showError(`Invalid FalkorDB User`);
+                isTypeError = true;
+              }
+              if (data.requestParams["falkordbUser"] && data.requestParams["falkordbUser"].length < 3) {
+                snackbar.showError(`FalkorDB User must be at least 3 characters long`);
+              }
+            }
+
+            if (key === "falkordbPassword") {
+              if (data.requestParams["falkordbPassword"] && data.requestParams["falkordbPassword"].length < 6) {
+                snackbar.showError(`FalkorDB Password must be at least 6 characters long`);
+                isTypeError = true;
+              }
             }
           });
 
@@ -685,7 +719,7 @@ const InstanceForm = ({
   // Check if the current offering is on-prem (has onprem_platform in input params)
   const isOnPremOffering = Boolean(
     offering?.serviceModelType === "ON_PREM" &&
-      resourceCreateSchema?.inputParameters?.some((field) => field.key === "onprem_platform")
+    resourceCreateSchema?.inputParameters?.some((field) => field.key === "onprem_platform")
   );
 
   // Update validation schema when requestParams validation changes

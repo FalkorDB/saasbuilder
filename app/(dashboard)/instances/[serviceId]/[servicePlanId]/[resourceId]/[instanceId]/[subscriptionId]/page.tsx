@@ -136,10 +136,10 @@ const InstanceDetailsPage = ({
   const tabs = useMemo(
     () =>
       getTabs({
-        isMetricsEnabled: offering.productTierName !== "FalkorDB Free", // Metrics is not available for FalkorDB Free tier
+        isMetricsEnabled: offering?.productTierName !== "FalkorDB Free", // Metrics is not available for FalkorDB Free tier
         tierVersion: resourceInstanceData?.unprocessedData?.tierVersion,
         isLogsEnabled: false,
-        productTierName: offering.productTierName,
+        productTierName: offering?.productTierName,
         isActive: resourceInstanceData?.active,
         isResourceBYOA,
         isCliManagedResource,

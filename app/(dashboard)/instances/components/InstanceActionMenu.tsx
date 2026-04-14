@@ -79,6 +79,8 @@ const InstanceActionMenu: React.FC<InstanceActionMenuProps> = ({
     const deletionProtectionFeatureEnabled = instance?.resourceInstanceMetadata?.deletionProtection !== undefined;
     const isDeleteProtected = instance?.resourceInstanceMetadata?.deletionProtection === true;
 
+    const isOnPrem = serviceOffering?.serviceModelType === "ON_PREM";
+
     const pathData = {
       serviceProviderId: serviceOffering?.serviceProviderId || "",
       serviceKey: serviceOffering?.serviceURLKey || "",
@@ -91,60 +93,64 @@ const InstanceActionMenu: React.FC<InstanceActionMenuProps> = ({
     };
 
     if (variant === "details-page") {
-      res.push({
-        dataTestId: "stop-button",
-        label: "Stop",
-        isDisabled: !instance || status !== "RUNNING" || isComplexResource || isProxyResource || !isUpdateAllowedByRBAC,
-        onClick: () => {
-          if (!instance) return snackbar.showError("Please select an instance");
-          setOverlayType("stop-dialog");
-          setIsOverlayOpen(true);
-        },
-        disabledMessage: !instance
-          ? "Please select an instance"
-          : status !== "RUNNING"
-            ? "Instance must be running to stop it"
-            : isComplexResource || isProxyResource
-              ? "System manages instances cannot be stopped"
-              : !isUpdateAllowedByRBAC
-                ? "Unauthorized to stop instances"
-                : "",
-      });
+      if (!isOnPrem) {
+        res.push({
+          dataTestId: "stop-button",
+          label: "Stop",
+          isDisabled:
+            !instance || status !== "RUNNING" || isComplexResource || isProxyResource || !isUpdateAllowedByRBAC,
+          onClick: () => {
+            if (!instance) return snackbar.showError("Please select an instance");
+            setOverlayType("stop-dialog");
+            setIsOverlayOpen(true);
+          },
+          disabledMessage: !instance
+            ? "Please select an instance"
+            : status !== "RUNNING"
+              ? "Instance must be running to stop it"
+              : isComplexResource || isProxyResource
+                ? "System manages instances cannot be stopped"
+                : !isUpdateAllowedByRBAC
+                  ? "Unauthorized to stop instances"
+                  : "",
+        });
 
-      res.push({
-        dataTestId: "start-button",
-        label: "Start",
-        isLoading: startInstanceMutation.isPending,
-        isDisabled: !instance || status !== "STOPPED" || isComplexResource || isProxyResource || !isUpdateAllowedByRBAC,
-        onClick: () => {
-          if (!instance) return snackbar.showError("Please select an instance");
-          if (!serviceOffering) return snackbar.showError("Product not found");
-          startInstanceMutation.mutate({
-            params: {
-              path: pathData,
-              query: {
-                subscriptionId: subscription?.id,
+        res.push({
+          dataTestId: "start-button",
+          label: "Start",
+          isLoading: startInstanceMutation.isPending,
+          isDisabled:
+            !instance || status !== "STOPPED" || isComplexResource || isProxyResource || !isUpdateAllowedByRBAC,
+          onClick: () => {
+            if (!instance) return snackbar.showError("Please select an instance");
+            if (!serviceOffering) return snackbar.showError("Product not found");
+            startInstanceMutation.mutate({
+              params: {
+                path: pathData,
+                query: {
+                  subscriptionId: subscription?.id,
+                },
               },
-            },
-          });
-        },
-        disabledMessage: !instance
-          ? "Please select an instance"
-          : status !== "STOPPED"
-            ? "Instances must be stopped before starting"
-            : isComplexResource || isProxyResource
-              ? "System managed instances cannot be started"
-              : !isUpdateAllowedByRBAC
-                ? "Unauthorized to start instances"
-                : "",
-      });
+            });
+          },
+          disabledMessage: !instance
+            ? "Please select an instance"
+            : status !== "STOPPED"
+              ? "Instances must be stopped before starting"
+              : isComplexResource || isProxyResource
+                ? "System managed instances cannot be started"
+                : !isUpdateAllowedByRBAC
+                  ? "Unauthorized to start instances"
+                  : "",
+        });
+      }
 
       res.push({
         dataTestId: "modify-button",
         label: "Modify",
         isDisabled:
           !instance ||
-          (status !== "RUNNING" && status !== "FAILED" && status !== "COMPLETE") ||
+          (status !== "RUNNING" && status !== "INSTALLER_READY" && status !== "FAILED" && status !== "COMPLETE") ||
           isProxyResource ||
           !isUpdateAllowedByRBAC,
         onClick: () => {
@@ -154,7 +160,7 @@ const InstanceActionMenu: React.FC<InstanceActionMenuProps> = ({
         },
         disabledMessage: !instance
           ? "Please select an instance"
-          : status !== "RUNNING" && status !== "FAILED"
+          : status !== "RUNNING" && status !== "FAILED" && status !== "INSTALLER_READY" && status !== "COMPLETE"
             ? "Instance must be running or failed to modify"
             : isProxyResource
               ? "System managed instances cannot be modified"
@@ -188,25 +194,28 @@ const InstanceActionMenu: React.FC<InstanceActionMenuProps> = ({
     }
 
     if (!isComplexResource && !isProxyResource) {
-      res.push({
-        dataTestId: "reboot-button",
-        label: "Reboot",
-        isDisabled:
-          !instance || (status !== "RUNNING" && status !== "FAILED" && status !== "COMPLETE") || !isUpdateAllowedByRBAC,
-        onClick: () => {
-          if (!instance) return snackbar.showError("Please select an instance");
-          setOverlayType("reboot-dialog");
-          setIsOverlayOpen(true);
-        },
-        disabledMessage: !instance
-          ? "Please select an instance"
-          : status !== "RUNNING" && status !== "FAILED"
-            ? "Instance must be running or failed to reboot"
-            : !isUpdateAllowedByRBAC
-              ? "Unauthorized to reboot instances"
-              : "",
-      });
-
+      if (!isOnPrem) {
+        res.push({
+          dataTestId: "reboot-button",
+          label: "Reboot",
+          isDisabled:
+            !instance ||
+            (status !== "RUNNING" && status !== "FAILED" && status !== "COMPLETE") ||
+            !isUpdateAllowedByRBAC,
+          onClick: () => {
+            if (!instance) return snackbar.showError("Please select an instance");
+            setOverlayType("reboot-dialog");
+            setIsOverlayOpen(true);
+          },
+          disabledMessage: !instance
+            ? "Please select an instance"
+            : status !== "RUNNING" && status !== "FAILED"
+              ? "Instance must be running or failed to reboot"
+              : !isUpdateAllowedByRBAC
+                ? "Unauthorized to reboot instances"
+                : "",
+        });
+      }
       if (instance?.backupStatus) {
         res.push({
           dataTestId: "restore-button",
@@ -232,10 +241,11 @@ const InstanceActionMenu: React.FC<InstanceActionMenuProps> = ({
       res.push({
         dataTestId: "upgrade-button",
         label: "Upgrade",
-        isDisabled: !instance || !["RUNNING", "STOPPED"].includes(status as string) || !isUpdateAllowedByRBAC,
+        isDisabled:
+          !instance || !["RUNNING", "STOPPED", "INSTALLER_READY"].includes(status as string) || !isUpdateAllowedByRBAC,
         disabledMessage: !instance
           ? "Please select an instance"
-          : !["RUNNING", "STOPPED"].includes(status as string)
+          : !["RUNNING", "STOPPED", "INSTALLER_READY"].includes(status as string)
             ? "Instance must be running or stopped to upgrade"
             : !isUpdateAllowedByRBAC
               ? "Unauthorized to upgrade instances"

@@ -5,9 +5,10 @@ import { Base64 } from "js-base64";
 
 import InstanceLicenseStatusChip from "src/components/InstanceLicenseStatusChip/InstanceLicenseStatusChip";
 import { INTEGRATION_TYPE_LABEL_MAP } from "src/constants/productTierFeatures";
+import { extractAppVersion } from "src/utils/extractAppVersion";
 import formatDateLocal from "src/utils/formatDateLocal";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
-import { extractAppVersion } from "src/utils/extractAppVersion";
+
 import NonOmnistrateIntegrationRow from "./NonOmnistrateIntegrationRow";
 import PropertyDetails from "./PropertyDetails";
 import TerraformDownloadURL from "./TerraformDownloadURL";
@@ -368,7 +369,7 @@ function ResourceInstanceDetails(props) {
   const hasPendingUpgrades = maintenanceTasks?.upgrade_paths?.length > 0;
 
   return (
-    <Box marginTop={"20px"}>
+    <Box marginTop={"32px"}>
       {hasPendingUpgrades && (
         <UpgradeScheduledNotificationBar
           upgradeStatus={maintenanceTasks.upgrade_paths[0].upgrade_status}

@@ -18,7 +18,7 @@ import { CloudProvider } from "src/types/common/enums";
 import { ResourceInstance } from "src/types/resourceInstance";
 import { APIEntity } from "src/types/serviceOffering";
 import { isCloudAccountInstance } from "src/utils/access/byoaResource";
-import { checkBYOADeploymentInstance } from "src/utils/instance";
+import { checkBYOADeploymentInstance, getResultParams } from "src/utils/instance";
 import Button from "components/Button/Button";
 import CardWithTitle from "components/Card/CardWithTitle";
 import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
@@ -28,6 +28,7 @@ import Form from "components/FormElementsv2/Form/Form";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import { Text } from "components/Typography/Typography";
 
+import { REQUEST_PARAMS_FIELDS_TO_FILTER } from "../constants";
 import useCustomerVersionSets from "../hooks/useCustomerVersionSets";
 import useResources from "../hooks/useResources";
 import useResourceSchema from "../hooks/useResourceSchema";
@@ -52,6 +53,7 @@ const InstanceForm = ({
   setOverlayType,
   setIsOverlayOpen,
   setCreateInstanceModalData,
+  setSelectedRows,
 }) => {
   const snackbar = useSnackbar();
 
@@ -137,7 +139,7 @@ const InstanceForm = ({
         } catch {}
 
         setCreateInstanceModalData({
-          isCustomDNS: formData.values.requestParams?.custom_dns_configuration,
+          isCustomDNS: (formData.values.requestParams as Record<string, any>)?.custom_dns_configuration,
           instanceId: response?.id as string,
           isFirstInstanceInRegion: isFirstInstanceInRegion,
           lifecycleStatus: lifecycleStatus as string,
@@ -159,6 +161,7 @@ const InstanceForm = ({
         formData.resetForm();
         snackbar.showSuccess("Updated Deployment Instance");
         setIsOverlayOpen(false);
+        setSelectedRows([]);
       },
     }
   );
@@ -179,8 +182,8 @@ const InstanceForm = ({
     onSubmit: async (values) => {
       try {
         // Clean up requestParams cloud_provider_native_network_id before submitting
-        if (values.requestParams?.cloud_provider_native_network_id === "") {
-          delete values.requestParams?.cloud_provider_native_network_id;
+        if ((values.requestParams as any)?.cloud_provider_native_network_id === "") {
+          delete (values.requestParams as any)?.cloud_provider_native_network_id;
         }
 
         const offering = serviceOfferingsObj[values.serviceId]?.[values.servicePlanId];
@@ -275,6 +278,23 @@ const InstanceForm = ({
             ) {
               snackbar.showError(`Invalid Node Instance Type`);
               isTypeError = true;
+            }
+
+            if (key === "falkordbUser") {
+              if (data.requestParams["falkordbUser"] && !/^[_a-zA-Z0-9]+$/.test(data.requestParams["falkordbUser"])) {
+                snackbar.showError(`Invalid FalkorDB User`);
+                isTypeError = true;
+              }
+              if (data.requestParams["falkordbUser"] && data.requestParams["falkordbUser"].length < 3) {
+                snackbar.showError(`FalkorDB User must be at least 3 characters long`);
+              }
+            }
+
+            if (key === "falkordbPassword") {
+              if (data.requestParams["falkordbPassword"] && data.requestParams["falkordbPassword"].length < 6) {
+                snackbar.showError(`FalkorDB Password must be at least 6 characters long`);
+                isTypeError = true;
+              }
             }
           });
 
@@ -426,6 +446,23 @@ const InstanceForm = ({
                 else data.requestParams[key] = false;
                 break;
             }
+
+            if (key === "falkordbUser") {
+              if (data.requestParams["falkordbUser"] && !/^[_a-zA-Z0-9]+$/.test(data.requestParams["falkordbUser"])) {
+                snackbar.showError(`Invalid FalkorDB User`);
+                isTypeError = true;
+              }
+              if (data.requestParams["falkordbUser"] && data.requestParams["falkordbUser"].length < 3) {
+                snackbar.showError(`FalkorDB User must be at least 3 characters long`);
+              }
+            }
+
+            if (key === "falkordbPassword") {
+              if (data.requestParams["falkordbPassword"] && data.requestParams["falkordbPassword"].length < 6) {
+                snackbar.showError(`FalkorDB Password must be at least 6 characters long`);
+                isTypeError = true;
+              }
+            }
           });
 
           // Remove Empty Fields from data.requestParams
@@ -471,7 +508,7 @@ const InstanceForm = ({
   const offering = serviceOfferingsObj[values.serviceId]?.[values.servicePlanId];
 
   const { data: customNetworks = [], isFetching: isFetchingCustomNetworks } = useCustomNetworks({
-    enabled: values.requestParams?.custom_network_id !== undefined, // Fetch only if custom_network_id is present
+    enabled: (values.requestParams as Record<string, any>)?.custom_network_id !== undefined, // Fetch only if custom_network_id is present
     refetchOnWindowFocus: true, // User can create a custom network and come back to this tab
   });
 
@@ -488,7 +525,7 @@ const InstanceForm = ({
     },
     {
       // Only fetch customer version sets if the offering supports VERSION_SET_OVERRIDE feature
-      enabled: allowCustomerVersionOverride,
+      enabled: allowCustomerVersionOverride && !!values.serviceId && !!values.servicePlanId,
     }
   );
 
@@ -513,7 +550,7 @@ const InstanceForm = ({
     const inputParams = filterSchemaByCloudProvider(
       resourceCreateSchema?.inputParameters || [],
       formData.values.cloudProvider
-    );
+    ).filter((param) => !REQUEST_PARAMS_FIELDS_TO_FILTER.includes(param.key));
 
     // Create validation rules for requestParams
     const requestParamsValidation: Record<string, ValidationSchema> = {};
@@ -596,7 +633,7 @@ const InstanceForm = ({
     const inputParams = filterSchemaByCloudProvider(
       resourceModifySchema?.inputParameters || [],
       formData.values.cloudProvider
-    );
+    ).filter((param) => !REQUEST_PARAMS_FIELDS_TO_FILTER.includes(param.key));
 
     // Create validation rules for requestParams
     const requestParamsValidation: Record<string, ValidationSchema> = {};
@@ -679,45 +716,57 @@ const InstanceForm = ({
     return yup.object().shape(requestParamsValidation);
   }, [resourceSchemaData, formData.values.cloudProvider]);
 
+  // Check if the current offering is on-prem (has onprem_platform in input params)
+  const isOnPremOffering = Boolean(
+    offering?.serviceModelType === "ON_PREM" &&
+    resourceCreateSchema?.inputParameters?.some((field) => field.key === "onprem_platform")
+  );
+
   // Update validation schema when requestParams validation changes
   useEffect(() => {
+    const baseFields = {
+      serviceId: yup.string().required("Product is required"),
+      servicePlanId: yup.string().required("A plan with a valid subscription is required"),
+      subscriptionId: yup.string().required("Subscription is required"),
+      resourceId: yup.string().required("Resource is required"),
+      customTags: yup.array().of(
+        yup.object().shape({
+          key: yup.string().required("Name is required"),
+          value: yup.string().required("Value is required"),
+        })
+      ),
+      // Add onprem_platform as required only for on-prem offerings
+      ...(isOnPremOffering && {
+        onprem_platform: yup.string().required("Kubernetes Distribution is required"),
+      }),
+    };
+
     if (formMode === "modify" && selectedInstance) {
       const newValidationSchema = yup.object({
-        serviceId: yup.string().required("Product is required"),
-        servicePlanId: yup.string().required("A plan with a valid subscription is required"),
-        subscriptionId: yup.string().required("Subscription is required"),
-        resourceId: yup.string().required("Resource is required"),
-        customTags: yup.array().of(
-          yup.object().shape({
-            key: yup.string().required("Name is required"),
-            value: yup.string().required("Value is required"),
-          })
-        ),
+        ...baseFields,
         requestParams: requestParamsModifyValidationSchema,
       });
       setValidationSchema(newValidationSchema);
     } else {
       const newValidationSchema = yup.object({
-        serviceId: yup.string().required("Product is required"),
-        servicePlanId: yup.string().required("A plan with a valid subscription is required"),
-        subscriptionId: yup.string().required("Subscription is required"),
-        resourceId: yup.string().required("Resource is required"),
-        customTags: yup.array().of(
-          yup.object().shape({
-            key: yup.string().required("Name is required"),
-            value: yup.string().required("Value is required"),
-          })
-        ),
+        ...baseFields,
         requestParams: requestParamsCreateValidationSchema,
       });
       setValidationSchema(newValidationSchema);
     }
-  }, [requestParamsCreateValidationSchema, requestParamsModifyValidationSchema, formMode, selectedInstance]);
+  }, [
+    requestParamsCreateValidationSchema,
+    requestParamsModifyValidationSchema,
+    formMode,
+    selectedInstance,
+    isOnPremOffering,
+  ]);
 
   const { data: customAvailabilityZoneData, isLoading: isFetchingCustomAvailabilityZones } = useAvailabilityZone({
     regionCode: values.region,
     cloudProviderName: values.cloudProvider as CloudProvider,
-    hasCustomAvailabilityZoneField: values.requestParams?.custom_availability_zone !== undefined,
+    hasCustomAvailabilityZoneField:
+      (values.requestParams as Record<string, any>)?.custom_availability_zone !== undefined,
   });
 
   const { isFetching: isFetchingResourceInstanceIds, data: resourceIdInstancesHashMap = {} } = useResourcesInstanceIds(
@@ -789,27 +838,31 @@ const InstanceForm = ({
       instances
         .filter((instance) => isCloudAccountInstance(instance))
         .filter((instance) => {
-          if (instance.result_params?.gcp_project_id) {
+          const resultParams = getResultParams(instance);
+          if (resultParams?.gcp_project_id) {
             return values.cloudProvider === "gcp";
-          } else if (instance.result_params?.aws_account_id) {
+          } else if (resultParams?.aws_account_id) {
             return values.cloudProvider === "aws";
-          } else if (instance.result_params?.azure_subscription_id) {
+          } else if (resultParams?.azure_subscription_id) {
             return values.cloudProvider === "azure";
-          } else if (instance.result_params?.oci_tenancy_id) {
+          } else if (resultParams?.oci_tenancy_id) {
             return values.cloudProvider === "oci";
           }
         })
         .filter((instance) => ["READY", "RUNNING"].includes(instance.status))
-        .map((instance) => ({
-          ...instance,
-          label: instance.result_params?.gcp_project_id
-            ? `${instance.id} (Project ID - ${instance.result_params?.gcp_project_id})`
-            : instance.result_params?.aws_account_id
-              ? `${instance.id} (Account ID - ${instance.result_params?.aws_account_id})`
-              : instance.result_params?.oci_tenancy_id
-                ? `${instance.id} (Tenancy ID - ${instance.result_params?.oci_tenancy_id})`
-                : `${instance.id} (Subscription ID - ${instance.result_params?.azure_subscription_id})`,
-        })),
+        .map((instance) => {
+          const resultParams = getResultParams(instance);
+          return {
+            ...instance,
+            label: resultParams?.gcp_project_id
+              ? `${instance.id} (Project ID - ${resultParams?.gcp_project_id})`
+              : resultParams?.aws_account_id
+                ? `${instance.id} (Account ID - ${resultParams?.aws_account_id})`
+                : resultParams?.oci_tenancy_id
+                  ? `${instance.id} (Tenancy ID - ${resultParams?.oci_tenancy_id})`
+                  : `${instance.id} (Subscription ID - ${resultParams?.azure_subscription_id})`,
+          };
+        }),
     [instances, values.cloudProvider]
   );
 

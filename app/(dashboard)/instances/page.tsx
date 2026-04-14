@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Stack, Tooltip } from "@mui/material";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { IconButton, Stack, Tooltip } from "@mui/material";
 import { createColumnHelper } from "@tanstack/react-table";
 
+import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
 import DeleteProtectionIcon from "src/components/Icons/DeleteProtection/DeleteProtection";
+import DownloadCLIIcon from "src/components/Icons/SideNavbar/DownloadCLI/DownloadCLIIcon";
 import InstanceHealthStatusChip, {
   getInstanceHealthStatus,
 } from "src/components/InstanceHealthStatusChip/InstanceHealthStatusChip";
 import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 import { getResourceInstanceStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceStatus";
+import useInstallerDownload from "src/hooks/useInstallerDownload";
+import { styleConfig } from "src/providerConfig";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { ResourceInstance, ResourceInstanceNetworkTopology } from "src/types/resourceInstance";
 import { isCloudAccountInstance } from "src/utils/access/byoaResource";
@@ -23,12 +27,14 @@ import StatusChip from "components/StatusChip/StatusChip";
 import PageContainer from "../components/Layout/PageContainer";
 
 import CustomTagsCell from "./components/CustomTagsCell";
+import InstallerActionIcon from "./components/InstallerHub/Installer/InstallerActionIcon";
+import InstallerUpgraderInstructions from "./components/InstallerHub/InstallerUpgraderInstructions";
 import InstanceDialogs from "./components/InstanceDialogs";
 import InstancesOverview from "./components/InstancesOverview";
 import InstancesTableHeader from "./components/InstancesTableHeader";
 import StatusCell from "./components/StatusCell";
 import useInstances from "./hooks/useInstances";
-import { getMainResourceFromInstance, getRowBorderStyles } from "./utils";
+import { getMainResourceFromInstance, getRowBorderStyles, platformToCloudProviderMap } from "./utils";
 
 const columnHelper = createColumnHelper<ResourceInstance>();
 export type Overlay =
@@ -49,7 +55,9 @@ const InstancesPage = () => {
   const [overlayType, setOverlayType] = useState<Overlay>("create-instance-form");
   const [isOverlayOpen, setIsOverlayOpen] = useState<boolean>(false);
   const [filteredInstances, setFilteredInstances] = useState<ResourceInstance[]>([]);
-
+  const [instanceId, setInstanceId] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { isDownloading, download: downloadInstaller } = useInstallerDownload();
   const {
     subscriptionsObj,
     serviceOfferingsObj,
@@ -65,6 +73,23 @@ const InstancesPage = () => {
     refetch: refetchInstances,
     isError: isInstancesError,
   } = useInstances();
+
+  const handleDownload = useCallback(
+    (id: string, downloadURL: string) => {
+      setInstanceId(id);
+      downloadInstaller(downloadURL, id);
+      handleModalOpen();
+    },
+    [downloadInstaller]
+  );
+
+  function handleModalOpen() {
+    setIsModalOpen(true);
+  }
+
+  function handleModalClose() {
+    setIsModalOpen(false);
+  }
 
   const dataTableColumns = useMemo(() => {
     return [
@@ -206,13 +231,57 @@ const InstancesPage = () => {
         id: "status",
         header: "Lifecycle Status",
         cell: (data) => {
-          const status = data.row.original.status;
+          const { status, id, onPremInstallerDetails } = data.row.original;
           const statusStylesAndLabel = getResourceInstanceStatusStylesAndLabel(status as string);
+          const downloadURL = onPremInstallerDetails?.downloadURL;
+          const isInstallerReady = status === "INSTALLER_READY" && !!downloadURL;
+          const isPending = id === instanceId;
 
-          return <StatusChip status={status} {...statusStylesAndLabel} showOverflowTitle />;
+          return (
+            <Stack direction="row" alignItems="center" gap="4px">
+              <StatusChip status={status} {...statusStylesAndLabel} showOverflowTitle />
+              {isInstallerReady && (
+                <>
+                  <IconButton
+                    disableRipple
+                    disabled={isPending && isDownloading}
+                    onClick={() => {
+                      if (downloadURL) {
+                        handleDownload(id || "", downloadURL);
+                      }
+                    }}
+                    sx={{
+                      padding: 0,
+                    }}
+                  >
+                    {isPending && isDownloading ? (
+                      <LoadingSpinnerSmall />
+                    ) : (
+                      <DownloadCLIIcon color={styleConfig.secondaryButtonText} />
+                    )}
+                  </IconButton>
+                  <Tooltip title="View installer instructions">
+                    <IconButton
+                      disableRipple
+                      disabled={isPending && isDownloading}
+                      onClick={() => {
+                        setInstanceId(id || "");
+                        handleModalOpen();
+                      }}
+                      sx={{
+                        padding: 0,
+                      }}
+                    >
+                      <InstallerActionIcon color="#475467" />
+                    </IconButton>
+                  </Tooltip>
+                </>
+              )}
+            </Stack>
+          );
         },
         meta: {
-          minWidth: 170,
+          minWidth: 190,
           disableBrowserTooltip: true,
         },
       }),
@@ -243,12 +312,15 @@ const InstancesPage = () => {
               viewType: "Nodes",
             });
 
+            const offering = serviceOfferingsObj[serviceId as string]?.[productTierId as string];
+
             return (
               <InstanceHealthStatusChip
                 computedHealthStatus={value}
                 detailedNetworkTopology={
                   (data.row.original?.detailedNetworkTopology ?? {}) as Record<string, ResourceInstanceNetworkTopology>
                 }
+                serviceModelType={offering?.serviceModelType} // Pass the service model type to conditionally render the health status
                 viewNodesLink={resourceInstanceUrlLink}
               />
             );
@@ -273,7 +345,9 @@ const InstancesPage = () => {
         id: "cloud_provider",
         header: "Cloud Provider",
         cell: (data) => {
-          const cloudProvider = data.row.original.cloud_provider;
+          const cloudProvider = data.row.original.onpremPlatform
+            ? platformToCloudProviderMap[data.row.original.onpremPlatform]
+            : data.row.original.cloud_provider;
 
           return cloudProvider ? cloudProviderLongLogoMap[cloudProvider] : "-";
         },
@@ -315,7 +389,7 @@ const InstancesPage = () => {
         },
       }),
     ];
-  }, [subscriptionsObj, serviceOfferingsObj]);
+  }, [subscriptionsObj, serviceOfferingsObj, isDownloading, handleDownload, instanceId]);
 
   useEffect(() => {
     if (isInstancesError) {
@@ -438,6 +512,26 @@ const InstancesPage = () => {
         selectedRows={selectedRows}
         setSelectedRows={setSelectedRows}
         refetchData={refetchInstances}
+      />
+
+      <InstallerUpgraderInstructions
+        open={isModalOpen}
+        handleClose={handleModalClose}
+        installerInstructions={
+          instances.find(
+            (instance) => instance.id === instanceId && instance?.onPremInstallerDetails?.installerInstructions
+          )?.onPremInstallerDetails?.installerInstructions
+        }
+        selectedInstanceOffering={(() => {
+          const matchedInstance = instances.find((instance) => instance.id === instanceId);
+          if (!matchedInstance) return undefined;
+          const subscription = subscriptionsObj[matchedInstance.subscriptionId as string];
+          return serviceOfferingsObj[subscription?.serviceId as string]?.[subscription?.productTierId as string];
+        })()}
+        selectedInstance={instances.find(
+          (instance): instance is ResourceInstance & { id: string } =>
+            instance.id === instanceId && instance.id !== undefined
+        )}
       />
     </PageContainer>
   );

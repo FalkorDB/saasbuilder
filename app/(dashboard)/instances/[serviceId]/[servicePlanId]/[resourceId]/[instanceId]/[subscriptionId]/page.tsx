@@ -5,18 +5,23 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
-import { Collapse, Stack, Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, Collapse, Stack } from "@mui/material";
 import PageContainer from "app/(dashboard)/components/Layout/PageContainer";
 import NoServiceFoundUI from "app/(dashboard)/components/NoServiceFoundUI/NoServiceFoundUI";
+import InstallerHub from "app/(dashboard)/instances/components/InstallerHub/InstallerHub";
 import InstanceActionMenu from "app/(dashboard)/instances/components/InstanceActionMenu";
 import InstanceDialogs from "app/(dashboard)/instances/components/InstanceDialogs";
 import useInstances from "app/(dashboard)/instances/hooks/useInstances";
 import { Overlay } from "app/(dashboard)/instances/page";
+import { platformToCloudProviderMap } from "app/(dashboard)/instances/utils";
 import { RiArrowGoBackFill } from "react-icons/ri";
 import { useDispatch, useSelector } from "react-redux";
 
+import { connectToInstance } from "src/api/resourceInstance";
+import ConnectIcon from "src/components/Icons/Connect/Connect";
 import RefreshWithToolTip from "src/components/RefreshWithTooltip/RefreshWithToolTip";
 import ResourceCustomDNS from "src/components/ResourceInstance/Connectivity/ResourceCustomDNS";
+import ResourceUserAccess from "src/components/ResourceInstance/UserAccess/ResourceUserAccess";
 import { Tab, Tabs } from "src/components/Tab/Tab";
 import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
 import useResourceInstance from "src/hooks/useResourceInstance";
@@ -32,15 +37,13 @@ import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import AuditLogs from "components/ResourceInstance/AuditLogs/AuditLogs";
 import Backup from "components/ResourceInstance/Backup/Backup";
 import Connectivity from "components/ResourceInstance/Connectivity/Connectivity";
+import ResourceImportExportRDB from "components/ResourceInstance/ImportExportRDB/ResourceImportExportRDB";
 import NodesTable from "components/ResourceInstance/NodesTable/NodesTable";
 import ResourceInstanceDetails from "components/ResourceInstance/ResourceInstanceDetails/ResourceInstanceDetails";
 import ResourceInstanceOverview from "components/ResourceInstance/ResourceInstanceOverview/ResourceInstanceOverview";
-import ResourceImportExportRDB from "components/ResourceInstance/ImportExportRDB/ResourceImportExportRDB";
 import { DisplayText } from "components/Typography/Typography";
 
 import { checkCustomDNSEndpoint, getTabs } from "./utils";
-import { connectToInstance } from "src/api/resourceInstance";
-import ConnectIcon from "src/components/Icons/Connect/Connect";
 
 export type CurrentTab =
   | "Instance Details"
@@ -51,7 +54,8 @@ export type CurrentTab =
   | "Audit Logs"
   | "Backups"
   | "Snapshots"
-  | "Custom DNS";
+  | "Custom DNS"
+  | "User Access";
 
 const isResourceBYOA = false;
 
@@ -131,18 +135,23 @@ const InstanceDetailsPage = ({
 
   const tabs = useMemo(
     () =>
-      getTabs(
-        offering.productTierName !== "FalkorDB Free", // resourceInstanceData?.isMetricsEnabled,
-        false,
-        resourceInstanceData?.active,
+      getTabs({
+        isMetricsEnabled: offering?.productTierName !== "FalkorDB Free", // Metrics is not available for FalkorDB Free tier
+        tierVersion: resourceInstanceData?.unprocessedData?.tierVersion,
+        isLogsEnabled: false,
+        productTierName: offering?.productTierName,
+        isActive: resourceInstanceData?.active,
         isResourceBYOA,
         isCliManagedResource,
         resourceType,
         // @ts-ignore
-        resourceInstanceData?.backupStatus?.backupPeriodInHours,
-        checkCustomDNSEndpoint(resourceInstanceData ? resourceInstanceData?.connectivity?.globalEndpoints : {})
-      ),
-    [resourceInstanceData, isCliManagedResource, resourceType]
+        isBackup: resourceInstanceData?.backupStatus?.backupPeriodInHours,
+        isCustomDNS: checkCustomDNSEndpoint(
+          resourceInstanceData ? resourceInstanceData?.connectivity?.globalEndpoints : {}
+        ),
+        serviceModelType: offering?.serviceModelType,
+      }),
+    [resourceInstanceData, isCliManagedResource, resourceType, offering]
   );
 
   const disabledTabs = useMemo(
@@ -210,7 +219,7 @@ const InstanceDetailsPage = ({
   })?.[0]?.[0];
 
   const url = window.location.href;
-  
+
   return (
     <PageContainer>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -231,7 +240,11 @@ const InstanceDetailsPage = ({
           serviceLogoURL={subscription?.serviceLogoURL}
           resourceInstanceId={instanceId}
           region={resourceInstanceData.region}
-          cloudProvider={cloudProvider}
+          cloudProvider={
+            resourceInstanceData?.unprocessedData?.onpremPlatform
+              ? platformToCloudProviderMap[resourceInstanceData.unprocessedData.onpremPlatform]
+              : cloudProvider
+          }
           status={resourceInstanceData.status}
           createdAt={resourceInstanceData.createdAt}
           modifiedAt={resourceInstanceData.modifiedAt}
@@ -241,6 +254,7 @@ const InstanceDetailsPage = ({
           onViewNodesClick={() => {
             setCurrentTab("Nodes");
           }}
+          serviceModelType={offering?.serviceModelType}
         />
       </Collapse>
       <Stack direction="row" alignItems="center" justifyContent="space-between" gap="24px" sx={{ marginTop: "20px" }}>
@@ -266,28 +280,30 @@ const InstanceDetailsPage = ({
         <Stack direction="row" alignItems="center" gap="16px">
           <div className="flex items-center">{resourceInstanceQuery.isFetching && <CircularProgress size={20} />}</div>
           <RefreshWithToolTip disabled={resourceInstanceQuery.isFetching} refetch={refetchInstance} />
-          {resourceInstanceData.networkType !== "INTERNAL" && <Button
-            variant="contained"
-            size="common"
-            disabled={resourceInstanceData.status !== "RUNNING"}
-            disabledMessage="Instance must be running to connect"
-            onClick={() =>
-              connectToInstance({
-                host: (resourceInstanceData.detailedNetworkTopology[componentName] as any)?.clusterEndpoint,
-                port: (resourceInstanceData.detailedNetworkTopology[componentName] as any).clusterPorts?.[0],
-                username: (resourceInstanceData.resultParameters as any)?.falkordbUser,
-                region: resourceInstanceData.region,
-                tls: (resourceInstanceData.resultParameters as any)?.enableTLS,
-              })
-            }
-          >
-            <ConnectIcon
-              color="white"
+          {resourceInstanceData.networkType !== "INTERNAL" && (
+            <Button
+              variant="contained"
+              size="common"
               disabled={resourceInstanceData.status !== "RUNNING"}
-              style={{ marginRight: "8px" }}
-            />
-            Connect
-          </Button>}
+              disabledMessage="Instance must be running to connect"
+              onClick={() =>
+                connectToInstance({
+                  host: (resourceInstanceData.detailedNetworkTopology[componentName] as any)?.clusterEndpoint,
+                  port: (resourceInstanceData.detailedNetworkTopology[componentName] as any).clusterPorts?.[0],
+                  username: (resourceInstanceData.resultParameters as any)?.falkordbUser,
+                  region: resourceInstanceData.region,
+                  tls: (resourceInstanceData.resultParameters as any)?.enableTLS,
+                })
+              }
+            >
+              <ConnectIcon
+                color="white"
+                disabled={resourceInstanceData.status !== "RUNNING"}
+                style={{ marginRight: "8px" }}
+              />
+              Connect
+            </Button>
+          )}
           <InstanceActionMenu
             variant="details-page"
             instance={resourceInstanceData?.unprocessedData}
@@ -297,7 +313,6 @@ const InstanceDetailsPage = ({
             setIsOverlayOpen={setIsOverlayOpen}
             refetchData={refetchInstance}
           />
-        
         </Stack>
       </Stack>
       {currentTab === tabs.resourceInstanceDetails && (
@@ -334,6 +349,7 @@ const InstanceDetailsPage = ({
           customTags={resourceInstanceData?.customTags}
         />
       )}
+      {currentTab === tabs.installerHub && <InstallerHub instanceDetails={resourceInstanceData?.unprocessedData} />}
       {currentTab === tabs.connectivity && (
         <Connectivity
           networkType={resourceInstanceData.connectivity.networkType}
@@ -452,12 +468,22 @@ const InstanceDetailsPage = ({
       {currentTab === tabs.customDNS && (
         <ResourceCustomDNS
           globalEndpoints={resourceInstanceData.connectivity.globalEndpoints}
-          context="access"
           accessQueryParams={queryData}
           refetchInstance={resourceInstanceQuery.refetch}
         />
       )}
-      {currentTab === tabs.importExportRDB && <ResourceImportExportRDB instanceId={instanceId} status={resourceInstanceData.status} />}
+      {currentTab === tabs.importExportRDB && (
+        <ResourceImportExportRDB instanceId={instanceId} status={resourceInstanceData.status} />
+      )}
+      {currentTab === tabs.userAccess && (
+        <ResourceUserAccess
+          instanceId={instanceId}
+          subscriptionId={subscription.id}
+          status={resourceInstanceData.status!}
+          roleType={subscription.roleType}
+          defaultUsername={(resourceInstanceData.resultParameters as any)?.falkordbUser}
+        />
+      )}
       <InstanceDialogs
         variant="details-page"
         isOverlayOpen={isOverlayOpen}
@@ -470,7 +496,7 @@ const InstanceDetailsPage = ({
         subscription={subscription}
         refetchData={refetchInstance}
       />
-    </PageContainer >
+    </PageContainer>
   );
 };
 

@@ -27,6 +27,7 @@ const imageOrigins = ["https://avatars.githubusercontent.com", "https://githubus
 const runtimeOrigins = unique([
   toOrigin(process.env.NEXT_PUBLIC_BACKEND_BASE_DOMAIN),
   toOrigin(process.env.NEXT_PUBLIC_FALKORDB_API_BASE_URL),
+  toOrigin(process.env.NEXT_PUBLIC_FALKORDB_LDAP_API_BASE_URL),
   toOrigin(process.env.NEXT_PUBLIC_GRAFANA_URL),
 ]);
 

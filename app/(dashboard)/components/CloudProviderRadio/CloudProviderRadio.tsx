@@ -2,20 +2,22 @@
 
 import { cn } from "lib/utils";
 
-import { cloudProviderLabels } from "src/constants/cloudProviders";
-import { colors } from "src/themeConfig";
 import { Text } from "components/Typography/Typography";
+import { colors } from "src/themeConfig";
 
-import AWSIcon from "./AWSIcon";
-import AzureIcon from "./AzureIcon";
-import GcpIcon from "./GCPIcon";
-import OCIIcon from "./OCIIcon";
+import AwsLogo from "../../../../src/components/Logos/AwsLogo";
+import AzureLogo from "../../../../src/components/Logos/AzureLogo";
+import GcpLogo from "../../../../src/components/Logos/GcpLogo";
+import OciLogo from "../../../../src/components/Logos/OciLogo";
 
-const cloudIcons = {
-  aws: <AWSIcon style={{ height: "32px", width: "auto" }} />,
-  gcp: <GcpIcon style={{ height: "32px", width: "auto" }} />,
-  azure: <AzureIcon style={{ height: "32px", width: "auto" }} />,
-  oci: <OCIIcon style={{ height: "32px", width: "auto" }} />,
+import PrivateIcon from "./PrivateIcon";
+
+export const cloudProviderLongLogoMap = {
+  aws: <AwsLogo style={{ height: "24px", width: "auto" }} />,
+  gcp: <GcpLogo style={{ height: "24px", width: "auto" }} />,
+  azure: <AzureLogo style={{ height: "24px", width: "auto" }} />,
+  oci: <OciLogo style={{ height: "24px", width: "auto" }} />,
+  private: <PrivateIcon style={{ height: "24px", width: "auto" }} />,
 };
 
 const CloudProviderCard = ({ cloudProvider, isSelected, onClick, disabled }) => {
@@ -23,11 +25,13 @@ const CloudProviderCard = ({ cloudProvider, isSelected, onClick, disabled }) => 
     <div
       data-testid={`${cloudProvider}-card`}
       className={cn(
-        "px-4 py-4 rounded-xl text-center flex flex-col justify-between items-center min-h-28",
+        "px-4 py-4 rounded-xl text-center flex flex-col justify-center items-center",
         disabled ? "cursor-default bg-gray-50" : "cursor-pointer"
       )}
       style={{
         outline: isSelected ? `2px solid ${colors.success500}` : `1px solid ${colors.gray200}`,
+        minWidth: "120px",
+        minHeight: "60px",
       }}
       onClick={() => {
         if (!disabled) {
@@ -35,10 +39,9 @@ const CloudProviderCard = ({ cloudProvider, isSelected, onClick, disabled }) => 
         }
       }}
     >
-      {cloudIcons[cloudProvider]}
-      <Text size="small" weight="medium" color={disabled ? "#667085" : "#414651"}>
-        {cloudProviderLabels[cloudProvider]}
-      </Text>
+      <div className="flex items-center justify-center" style={{ height: "28px" }}>
+        {cloudProviderLongLogoMap[cloudProvider]}
+      </div>
     </div>
   );
 };
@@ -58,7 +61,10 @@ const CloudProviderRadio: React.FC<CloudProviderRadioProps> = ({
   onChange = () => {},
   disabled,
 }) => {
-  if (!cloudProviders.length) {
+  // Filter out cloud providers that don't have a logo/icon defined
+  const validCloudProviders = cloudProviders.filter((cp) => cp && cloudProviderLongLogoMap[cp]);
+
+  if (!validCloudProviders.length) {
     return (
       <div className="flex items-center justify-center h-10">
         <Text size="small" weight="medium" color={colors.gray500}>
@@ -69,8 +75,11 @@ const CloudProviderRadio: React.FC<CloudProviderRadioProps> = ({
   }
 
   return (
-    <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${cloudProviders.length}, minmax(0, 1fr))` }}>
-      {cloudProviders.map((cloudProvider, index) => {
+    <div
+      className="grid gap-4"
+      style={{ gridTemplateColumns: `repeat(${validCloudProviders.length}, minmax(0, 1fr))` }}
+    >
+      {validCloudProviders.map((cloudProvider, index) => {
         return (
           <CloudProviderCard
             key={index}

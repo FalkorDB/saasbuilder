@@ -14,7 +14,7 @@ const applyCrossOriginPolicyHeaders = (response) => {
   return response;
 };
 
-export async function middleware(request) {
+export async function proxy(request) {
   // Handle preflight requests early to avoid page-route OPTIONS failures.
   if (request.method === "OPTIONS") {
     return applyCrossOriginPolicyHeaders(new NextResponse(null, {
@@ -76,7 +76,7 @@ export async function middleware(request) {
       response.headers.set(`x-middleware-cache`, `no-cache`);
       return applyCrossOriginPolicyHeaders(response);
     }
-  } catch (error) {
+  } catch (_error) {
     return redirectToSignIn();
   }
 

@@ -76,7 +76,7 @@ export async function middleware(request) {
       response.headers.set(`x-middleware-cache`, `no-cache`);
       return applyCrossOriginPolicyHeaders(response);
     }
-  } catch (error) {
+  } catch (_error) {
     return redirectToSignIn();
   }
 

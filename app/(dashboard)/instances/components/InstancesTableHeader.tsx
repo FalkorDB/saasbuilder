@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { CircularProgress } from "@mui/material";
+import { useMutation } from "@tanstack/react-query";
 
-import { connectToInstance } from "src/api/resourceInstance";
 import { $api } from "src/api/query";
+import { connectToInstance } from "src/api/resourceInstance";
 import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
 import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
 import useSnackbar from "src/hooks/useSnackbar";
@@ -21,9 +22,8 @@ import DataGridHeaderTitle from "components/Headers/DataGridHeaderTitle";
 import RefreshWithToolTip from "components/RefreshWithTooltip/RefreshWithToolTip";
 
 import { Overlay } from "../page";
-import { getMainResourceFromInstance } from "../utils";
+import { getMainResourceFromInstance, isOnpremInstaller } from "../utils";
 
-import { useMutation } from "@tanstack/react-query";
 import InstanceActionMenu from "./InstanceActionMenu";
 import InstancesFilters from "./InstancesFilters";
 
@@ -109,6 +109,7 @@ const InstancesTableHeader: React.FC<InstancesTableHeaderProps> = ({
   const mainActions = useMemo(() => {
     const actions: Action[] = [];
     const status = selectedInstance?.status;
+    const installer = isOnpremInstaller(status);
     const isDeleteProtected = selectedInstance?.resourceInstanceMetadata?.deletionProtection === true;
     // Check if the user has permission to perform the operation - Role from Subscription
     const role = getEnumFromUserRoleString(selectedInstanceSubscription?.roleType);
@@ -140,15 +141,17 @@ const InstancesTableHeader: React.FC<InstancesTableHeaderProps> = ({
       },
       disabledMessage: !selectedInstance
         ? "Please select an instance"
-        : status === "DISCONNECTED"
-          ? "Instance is disconnected"
-          : status !== "RUNNING"
-            ? "Instance must be running to stop it"
-            : isComplexResource || isProxyResource
-              ? "System manages instances cannot be stopped"
-              : !isUpdateAllowedByRBAC
-                ? "Unauthorized to stop instances"
-                : "",
+        : installer
+          ? "Not applicable for on-prem deployment instances"
+          : status === "DISCONNECTED"
+            ? "Instance is disconnected"
+            : status !== "RUNNING"
+              ? "Instance must be running to stop it"
+              : isComplexResource || isProxyResource
+                ? "System managed instances cannot be stopped"
+                : !isUpdateAllowedByRBAC
+                  ? "Unauthorized to stop instances"
+                  : "",
     });
 
     actions.push({
@@ -172,15 +175,17 @@ const InstancesTableHeader: React.FC<InstancesTableHeaderProps> = ({
       },
       disabledMessage: !selectedInstance
         ? "Please select an instance"
-        : status === "DISCONNECTED"
-          ? "Instance is disconnected"
-          : status !== "STOPPED"
-            ? "Instances must be stopped before starting"
-            : isComplexResource || isProxyResource
-              ? "System managed instances cannot be started"
-              : !isUpdateAllowedByRBAC
-                ? "Unauthorized to start instances"
-                : "",
+        : installer
+          ? "Not applicable for on-prem deployment instances"
+          : status === "DISCONNECTED"
+            ? "Instance is disconnected"
+            : status !== "STOPPED"
+              ? "Instances must be stopped before starting"
+              : isComplexResource || isProxyResource
+                ? "System managed instances cannot be started"
+                : !isUpdateAllowedByRBAC
+                  ? "Unauthorized to start instances"
+                  : "",
     });
 
     actions.push({
@@ -189,7 +194,7 @@ const InstancesTableHeader: React.FC<InstancesTableHeaderProps> = ({
       actionType: "secondary",
       isDisabled:
         !selectedInstance ||
-        (status !== "RUNNING" && status !== "FAILED" && status !== "COMPLETE") ||
+        (status !== "RUNNING" && status !== "INSTALLER_READY" && status !== "FAILED" && status !== "COMPLETE") ||
         isProxyResource ||
         !isUpdateAllowedByRBAC,
       onClick: () => {
@@ -246,9 +251,10 @@ const InstancesTableHeader: React.FC<InstancesTableHeaderProps> = ({
         label: "Connect",
         isLoading: connectInstanceMutation.isPending,
         isDisabled:
-          !selectedInstance || (status !== "RUNNING" && status !== "FAILED" && selectedInstance.network_type !== "INTERNAL"),
+          !selectedInstance ||
+          (status !== "RUNNING" && status !== "FAILED" && selectedInstance.network_type !== "INTERNAL"),
         onClick: () => {
-          if (!selectedInstance) return; 
+          if (!selectedInstance) return;
           const resourceKey = Object.entries(selectedInstance?.detailedNetworkTopology ?? {}).filter(([_, v]) => {
             return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
           })[0][0];
@@ -256,14 +262,14 @@ const InstancesTableHeader: React.FC<InstancesTableHeaderProps> = ({
             host: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterEndpoint,
             port: selectedInstance.detailedNetworkTopology?.[resourceKey]?.clusterPorts?.[0],
             region: selectedInstance.region,
-            username: (selectedInstance.result_params as any)?.falkordbUser ?? '',
+            username: (selectedInstance.result_params as any)?.falkordbUser ?? "",
             tls: (selectedInstance.result_params as any)?.enableTLS ?? false,
           });
         },
         disabledMessage: !selectedInstance
           ? "Please select an instance"
-          : selectedInstance.network_type == "INTERNAL" ?
-            "This instance is deployed in an internal network"
+          : selectedInstance.network_type == "INTERNAL"
+            ? "This instance is deployed in an internal network"
             : status !== "RUNNING"
               ? "Instance must be running to connect"
               : "",

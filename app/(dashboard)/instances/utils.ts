@@ -20,6 +20,7 @@ import {
   ResourceInstanceNetworkTopology,
 } from "src/types/resourceInstance";
 import { TierVersionSet } from "src/types/tier-version-set";
+import { getResultParams } from "src/utils/instance";
 
 import { loadStatusLabel, loadStatusMap } from "./constants";
 
@@ -42,6 +43,9 @@ export const getServiceMenuItems = (serviceOfferings: ServiceOffering[]) => {
 
   return menuItems.sort((a, b) => a.label.localeCompare(b.label));
 };
+
+export const isOnpremInstaller = (status) =>
+  ["UPDATING_INSTALLER", "CREATING_INSTALLER", "INSTALLER_READY"].includes(status);
 
 type SchemaParameter = {
   key: string;
@@ -306,6 +310,22 @@ export const getValidSubscriptionForInstanceCreation = (
   );
 };
 
+export const cloudProviderToPlatformMap: Record<string, string> = {
+  aws: "EKS",
+  gcp: "GKE",
+  azure: "AKS",
+  oci: "OKE",
+  private: "Generic",
+};
+
+export const platformToCloudProviderMap: Record<string, string> = {
+  EKS: "aws",
+  GKE: "gcp",
+  AKS: "azure",
+  OKE: "oci",
+  Generic: "private",
+};
+
 export const getInitialValues = (
   instance: ResourceInstance | undefined,
   subscriptions: Subscription[],
@@ -317,7 +337,7 @@ export const getInitialValues = (
   if (instance) {
     const subscription = subscriptions.find((sub) => sub.id === instance?.subscriptionId);
 
-    const requestParams: any = { ...(instance.result_params as object) };
+    const requestParams = getResultParams(instance);
     if (instance.network_type) {
       requestParams.network_type = instance.network_type;
     }
@@ -326,6 +346,17 @@ export const getInitialValues = (
       requestParams.custom_network_id = instance.customNetworkDetail.id;
     }
 
+    // For on-prem instances, derive onprem_platform from the root-level onpremPlatform field
+    const instanceCloudProvider = instance.cloud_provider;
+    const onpremPlatform = instance?.onpremPlatform || "";
+
+    const offering = serviceOfferingsObj[subscription?.serviceId || ""]?.[subscription?.productTierId || ""];
+    const isInstanceOnPrem = offering?.serviceModelType === "ON_PREM";
+
+    const derivedCloudProvider = isInstanceOnPrem
+      ? platformToCloudProviderMap[onpremPlatform] || instanceCloudProvider || ""
+      : instanceCloudProvider || "";
+
     return {
       id: instance.id,
       serviceId: subscription?.serviceId || "",
@@ -333,12 +364,13 @@ export const getInitialValues = (
       subscriptionId: instance.subscriptionId || "",
       // @ts-ignore
       resourceId: instance.resourceID || "",
-      cloudProvider: instance.cloud_provider,
+      cloudProvider: derivedCloudProvider,
       region: instance.region,
       network_type: instance.network_type || "",
-      productTierVersion: "", // Empty for existing instances
+      productTierVersion: instance.tierVersion || "", // Use the instance's actual version
       requestParams,
       customTags: instance.customTags?.length ? instance.customTags : [],
+      ...(isInstanceOnPrem && { onprem_platform: onpremPlatform }),
     };
   }
 
@@ -363,7 +395,12 @@ export const getInitialValues = (
   const servicePlanId = selectedSubscription?.productTierId || "";
 
   const offering = serviceOfferingsObj[serviceId]?.[servicePlanId];
-  const cloudProvider = offering?.cloudProviders?.[0] || "";
+  const isOnPrem = offering?.serviceModelType === "ON_PREM";
+
+  // For on-prem, derive cloudProvider from the first onPremPlatform
+  const cloudProvider = isOnPrem
+    ? platformToCloudProviderMap[offering?.onPremPlatforms?.[0] || ""] || ""
+    : offering?.cloudProviders?.[0] || "";
 
   let region;
   if (cloudProvider === "aws") {
@@ -382,6 +419,9 @@ export const getInitialValues = (
   const preferredVersion = versionSets?.find((v) => v.status === "Preferred");
   const defaultProductTierVersion = preferredVersion?.version || "";
 
+  // For on-prem offerings, derive the default onprem_platform from the cloudProvider
+  const onpremPlatform = isOnPrem ? cloudProviderToPlatformMap[cloudProvider] || "" : "";
+
   return {
     serviceId,
     servicePlanId,
@@ -392,6 +432,7 @@ export const getInitialValues = (
     productTierVersion: defaultProductTierVersion,
     requestParams: {},
     customTags: [],
+    ...(isOnPrem && { onprem_platform: onpremPlatform }),
   };
 };
 

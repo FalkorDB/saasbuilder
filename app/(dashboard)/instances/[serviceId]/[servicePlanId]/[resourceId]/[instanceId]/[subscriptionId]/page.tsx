@@ -21,6 +21,7 @@ import { connectToInstance } from "src/api/resourceInstance";
 import ConnectIcon from "src/components/Icons/Connect/Connect";
 import RefreshWithToolTip from "src/components/RefreshWithTooltip/RefreshWithToolTip";
 import ResourceCustomDNS from "src/components/ResourceInstance/Connectivity/ResourceCustomDNS";
+import ResourceUserAccess from "src/components/ResourceInstance/UserAccess/ResourceUserAccess";
 import { Tab, Tabs } from "src/components/Tab/Tab";
 import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
 import useResourceInstance from "src/hooks/useResourceInstance";
@@ -53,7 +54,8 @@ export type CurrentTab =
   | "Audit Logs"
   | "Backups"
   | "Snapshots"
-  | "Custom DNS";
+  | "Custom DNS"
+  | "User Access";
 
 const isResourceBYOA = false;
 
@@ -134,7 +136,8 @@ const InstanceDetailsPage = ({
   const tabs = useMemo(
     () =>
       getTabs({
-        isMetricsEnabled: resourceInstanceData?.isMetricsEnabled,
+        isMetricsEnabled: offering.productTierName !== "FalkorDB Free", // Metrics is not available for FalkorDB Free tier
+        tierVersion: resourceInstanceData?.unprocessedData?.tierVersion,
         isLogsEnabled: false,
         productTierName: offering.productTierName,
         isActive: resourceInstanceData?.active,
@@ -471,6 +474,15 @@ const InstanceDetailsPage = ({
       )}
       {currentTab === tabs.importExportRDB && (
         <ResourceImportExportRDB instanceId={instanceId} status={resourceInstanceData.status} />
+      )}
+      {currentTab === tabs.userAccess && (
+        <ResourceUserAccess
+          instanceId={instanceId}
+          subscriptionId={subscription.id}
+          status={resourceInstanceData.status!}
+          roleType={subscription.roleType}
+          defaultUsername={(resourceInstanceData.resultParameters as any)?.falkordbUser}
+        />
       )}
       <InstanceDialogs
         variant="details-page"

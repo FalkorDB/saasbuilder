@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
-import { Collapse, Stack, Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, Collapse, Stack } from "@mui/material";
 import PageContainer from "app/(dashboard)/components/Layout/PageContainer";
 import NoServiceFoundUI from "app/(dashboard)/components/NoServiceFoundUI/NoServiceFoundUI";
 import InstanceActionMenu from "app/(dashboard)/instances/components/InstanceActionMenu";
@@ -15,8 +15,11 @@ import { Overlay } from "app/(dashboard)/instances/page";
 import { RiArrowGoBackFill } from "react-icons/ri";
 import { useDispatch, useSelector } from "react-redux";
 
+import { connectToInstance } from "src/api/resourceInstance";
+import ConnectIcon from "src/components/Icons/Connect/Connect";
 import RefreshWithToolTip from "src/components/RefreshWithTooltip/RefreshWithToolTip";
 import ResourceCustomDNS from "src/components/ResourceInstance/Connectivity/ResourceCustomDNS";
+import ResourceUserAccess from "src/components/ResourceInstance/UserAccess/ResourceUserAccess";
 import { Tab, Tabs } from "src/components/Tab/Tab";
 import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
 import useResourceInstance from "src/hooks/useResourceInstance";
@@ -32,15 +35,13 @@ import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import AuditLogs from "components/ResourceInstance/AuditLogs/AuditLogs";
 import Backup from "components/ResourceInstance/Backup/Backup";
 import Connectivity from "components/ResourceInstance/Connectivity/Connectivity";
+import ResourceImportExportRDB from "components/ResourceInstance/ImportExportRDB/ResourceImportExportRDB";
 import NodesTable from "components/ResourceInstance/NodesTable/NodesTable";
 import ResourceInstanceDetails from "components/ResourceInstance/ResourceInstanceDetails/ResourceInstanceDetails";
 import ResourceInstanceOverview from "components/ResourceInstance/ResourceInstanceOverview/ResourceInstanceOverview";
-import ResourceImportExportRDB from "components/ResourceInstance/ImportExportRDB/ResourceImportExportRDB";
 import { DisplayText } from "components/Typography/Typography";
 
 import { checkCustomDNSEndpoint, getTabs } from "./utils";
-import { connectToInstance } from "src/api/resourceInstance";
-import ConnectIcon from "src/components/Icons/Connect/Connect";
 
 export type CurrentTab =
   | "Instance Details"
@@ -51,7 +52,8 @@ export type CurrentTab =
   | "Audit Logs"
   | "Backups"
   | "Snapshots"
-  | "Custom DNS";
+  | "Custom DNS"
+  | "User Access";
 
 const isResourceBYOA = false;
 
@@ -132,7 +134,7 @@ const InstanceDetailsPage = ({
   const tabs = useMemo(
     () =>
       getTabs(
-        offering.productTierName !== "FalkorDB Free", // resourceInstanceData?.isMetricsEnabled,
+        offering?.productTierName !== "FalkorDB Free", // resourceInstanceData?.isMetricsEnabled,
         false,
         resourceInstanceData?.active,
         isResourceBYOA,
@@ -140,7 +142,9 @@ const InstanceDetailsPage = ({
         resourceType,
         // @ts-ignore
         resourceInstanceData?.backupStatus?.backupPeriodInHours,
-        checkCustomDNSEndpoint(resourceInstanceData ? resourceInstanceData?.connectivity?.globalEndpoints : {})
+        checkCustomDNSEndpoint(resourceInstanceData ? resourceInstanceData?.connectivity?.globalEndpoints : {}),
+        resourceInstanceData?.unprocessedData?.tierVersion,
+        offering?.productTierName
       ),
     [resourceInstanceData, isCliManagedResource, resourceType]
   );
@@ -210,7 +214,7 @@ const InstanceDetailsPage = ({
   })?.[0]?.[0];
 
   const url = window.location.href;
-  
+
   return (
     <PageContainer>
       <Stack direction="row" alignItems="center" justifyContent="space-between">
@@ -266,28 +270,30 @@ const InstanceDetailsPage = ({
         <Stack direction="row" alignItems="center" gap="16px">
           <div className="flex items-center">{resourceInstanceQuery.isFetching && <CircularProgress size={20} />}</div>
           <RefreshWithToolTip disabled={resourceInstanceQuery.isFetching} refetch={refetchInstance} />
-          {resourceInstanceData.networkType !== "INTERNAL" && <Button
-            variant="contained"
-            size="common"
-            disabled={resourceInstanceData.status !== "RUNNING"}
-            disabledMessage="Instance must be running to connect"
-            onClick={() =>
-              connectToInstance({
-                host: (resourceInstanceData.detailedNetworkTopology[componentName] as any)?.clusterEndpoint,
-                port: (resourceInstanceData.detailedNetworkTopology[componentName] as any).clusterPorts?.[0],
-                username: (resourceInstanceData.resultParameters as any)?.falkordbUser,
-                region: resourceInstanceData.region,
-                tls: (resourceInstanceData.resultParameters as any)?.enableTLS,
-              })
-            }
-          >
-            <ConnectIcon
-              color="white"
+          {resourceInstanceData.networkType !== "INTERNAL" && (
+            <Button
+              variant="contained"
+              size="common"
               disabled={resourceInstanceData.status !== "RUNNING"}
-              style={{ marginRight: "8px" }}
-            />
-            Connect
-          </Button>}
+              disabledMessage="Instance must be running to connect"
+              onClick={() =>
+                connectToInstance({
+                  host: (resourceInstanceData.detailedNetworkTopology[componentName] as any)?.clusterEndpoint,
+                  port: (resourceInstanceData.detailedNetworkTopology[componentName] as any).clusterPorts?.[0],
+                  username: (resourceInstanceData.resultParameters as any)?.falkordbUser,
+                  region: resourceInstanceData.region,
+                  tls: (resourceInstanceData.resultParameters as any)?.enableTLS,
+                })
+              }
+            >
+              <ConnectIcon
+                color="white"
+                disabled={resourceInstanceData.status !== "RUNNING"}
+                style={{ marginRight: "8px" }}
+              />
+              Connect
+            </Button>
+          )}
           <InstanceActionMenu
             variant="details-page"
             instance={resourceInstanceData?.unprocessedData}
@@ -297,7 +303,6 @@ const InstanceDetailsPage = ({
             setIsOverlayOpen={setIsOverlayOpen}
             refetchData={refetchInstance}
           />
-        
         </Stack>
       </Stack>
       {currentTab === tabs.resourceInstanceDetails && (
@@ -457,7 +462,18 @@ const InstanceDetailsPage = ({
           refetchInstance={resourceInstanceQuery.refetch}
         />
       )}
-      {currentTab === tabs.importExportRDB && <ResourceImportExportRDB instanceId={instanceId} status={resourceInstanceData.status} />}
+      {currentTab === tabs.importExportRDB && (
+        <ResourceImportExportRDB instanceId={instanceId} status={resourceInstanceData.status} />
+      )}
+      {currentTab === tabs.userAccess && (
+        <ResourceUserAccess
+          instanceId={instanceId}
+          subscriptionId={subscription.id}
+          status={resourceInstanceData.status!}
+          roleType={subscription.roleType}
+          defaultUsername={(resourceInstanceData.resultParameters as any)?.falkordbUser}
+        />
+      )}
       <InstanceDialogs
         variant="details-page"
         isOverlayOpen={isOverlayOpen}
@@ -470,7 +486,7 @@ const InstanceDetailsPage = ({
         subscription={subscription}
         refetchData={refetchInstance}
       />
-    </PageContainer >
+    </PageContainer>
   );
 };
 

@@ -28,13 +28,7 @@ const UsersTableHeader: FC<UsersTableHeaderProps> = ({
   canWrite,
 }) => {
   return (
-    <Stack
-      direction="row"
-      justifyContent="space-between"
-      alignItems="center"
-      p="20px"
-      borderBottom="1px solid #EAECF0"
-    >
+    <Stack direction="row" justifyContent="space-between" alignItems="center" p="20px" borderBottom="1px solid #EAECF0">
       <DataGridHeaderTitle
         title="Users"
         desc="Manage user access to your FalkorDB instance"
@@ -64,9 +58,7 @@ const UsersTableHeader: FC<UsersTableHeaderProps> = ({
                 onClick={onAddUser}
               >
                 Add User
-                {isMutating && (
-                  <LoadingSpinnerSmall sx={{ color: "#7F56D9", marginLeft: "12px" }} />
-                )}
+                {isMutating && <LoadingSpinnerSmall sx={{ color: "#7F56D9", marginLeft: "12px" }} />}
               </Button>
             </span>
           </Tooltip>

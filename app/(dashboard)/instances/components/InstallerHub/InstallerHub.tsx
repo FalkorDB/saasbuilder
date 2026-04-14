@@ -1,6 +1,6 @@
+import { FC, useMemo, useState } from "react";
 import { Box, IconButton, Stack } from "@mui/material";
 import { createColumnHelper } from "@tanstack/react-table";
-import { FC, useMemo, useState } from "react";
 
 import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
 import DataTable from "src/components/DataTable/DataTable";
@@ -8,7 +8,7 @@ import DownloadCLIIcon from "src/components/Icons/SideNavbar/DownloadCLI/Downloa
 import Tooltip from "src/components/Tooltip/Tooltip";
 import useInstallerDownload from "src/hooks/useInstallerDownload";
 import { styleConfig } from "src/providerConfig";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 
 import DataGridHeader from "./DataGridHeader";
 import InstallerUpgraderInstructions from "./InstallerUpgraderInstructions";
@@ -39,7 +39,7 @@ const InstallerHub: FC<InstallerHubProps> = ({ instanceDetails }) => {
         id: instanceDetails?.tierVersion ?? "",
         version: instanceDetails?.tierVersion ?? "",
         type: "Installer",
-        created_on: formatDateUTC(instanceDetails?.created_at),
+        created_on: formatDateLocal(instanceDetails?.created_at),
         status: instanceDetails?.status || "",
         downloadURL: instanceDetails?.onPremInstallerDetails?.downloadURL || "",
       },

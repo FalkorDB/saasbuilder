@@ -6,6 +6,7 @@ type GetTabsParams = {
   isActive: boolean | undefined;
   isResourceBYOA: boolean;
   isCliManagedResource: boolean;
+  productTierName: string | undefined;
   resourceType: string | undefined;
   isBackup: number | undefined;
   isCustomDNS: boolean;

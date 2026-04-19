@@ -7,7 +7,26 @@ import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
 
 const environmentType = getEnvironmentType();
 
+const applyCrossOriginPolicyHeaders = (response) => {
+  response.headers.set("Cross-Origin-Embedder-Policy", "unsafe-none");
+  response.headers.set("Cross-Origin-Opener-Policy", "unsafe-none");
+  response.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  return response;
+};
+
 export async function proxy(request) {
+  // Handle preflight requests early to avoid page-route OPTIONS failures.
+  if (request.method === "OPTIONS") {
+    return applyCrossOriginPolicyHeaders(new NextResponse(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": request.headers.get("origin") || "*",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers") || "*",
+      },
+    }));
+  }
+
   const authToken = request.cookies.get("token");
   const path = request.nextUrl.pathname;
 
@@ -27,10 +46,17 @@ export async function proxy(request) {
 
     const response = NextResponse.redirect(new URL(redirectPath, request.url));
     response.headers.set(`x-middleware-cache`, `no-cache`);
-    return response;
+    return applyCrossOriginPolicyHeaders(response);
   };
 
-  if (!authToken?.value || jwtDecode(authToken.value).exp < Date.now() / 1000) {
+  let tokenExp = 0;
+  try {
+    tokenExp = jwtDecode(authToken.value).exp ?? 0;
+  } catch {
+    return redirectToSignIn();
+  }
+
+  if (!authToken?.value || !tokenExp || tokenExp < Date.now() / 1000) {
     return redirectToSignIn();
   }
 
@@ -46,7 +72,7 @@ export async function proxy(request) {
       return redirectToSignIn();
     }
 
-    if (request.nextUrl.pathname.startsWith("/signin")) {
+    if (request.nextUrl.pathname.startsWith("/signin") || request.nextUrl.pathname.startsWith("/redirect")) {
       let destination = request.nextUrl.searchParams.get("destination");
 
       if (!destination || !PAGE_TITLE_MAP[destination]) {
@@ -55,16 +81,15 @@ export async function proxy(request) {
 
       const response = NextResponse.redirect(new URL(destination, request.url));
       response.headers.set(`x-middleware-cache`, `no-cache`);
-      return response;
+      return applyCrossOriginPolicyHeaders(response);
     }
-  } catch (error) {
-    console.log("Middleware Error", error?.response?.data);
-    redirectToSignIn();
+  } catch (_error) {
+    return redirectToSignIn();
   }
 
   const response = NextResponse.next();
   response.headers.set(`x-middleware-cache`, `no-cache`);
-  return response;
+  return applyCrossOriginPolicyHeaders(response);
 }
 
 /*
@@ -80,6 +105,6 @@ export async function proxy(request) {
 
 export const config = {
   matcher: [
-    "/((?!api/action|api/signup|api/signin|api/reset-password|api/provider-details|idp-auth|api/sign-in-with-idp|privacy-policy|cookie-policy|terms-of-use|favicon.ico|_next/image|_next/static|static|validate-token).*)",
+    "/((?!api/action|api/signup|api/signin|api/reset-password|api/provider-details|idp-auth|api/sign-in-with-idp|privacy-policy|cookie-policy|terms-of-use|favicon.ico|_next/image|_next/static|static|validate-token|mail).*)",
   ],
 };

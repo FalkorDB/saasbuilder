@@ -211,13 +211,18 @@ const HighlightedLogContent = styled("span", {
   }),
 }));
 
+const escapeHtml = (s: string): string =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
 const applyBasicHighlighting = (text: string, format: string | null): string => {
   if (!format) return text;
+
+  const safe = escapeHtml(text);
 
   switch (format) {
     case "json":
       return (
-        text
+        safe
           // Highlight JSON braces and brackets
           .replace(/([{}[\]])/g, '<span class="json-brace">$1</span>')
           // Highlight keys
@@ -235,7 +240,7 @@ const applyBasicHighlighting = (text: string, format: string | null): string => 
     case "log":
     case "bash":
       return (
-        text
+        safe
           // Highlight log levels with stronger emphasis
           .replace(/\b(ERROR|FATAL|CRITICAL)\b/gi, '<span class="log-error">$1</span>')
           .replace(/\b(WARN|WARNING)\b/gi, '<span class="log-warning">$1</span>')
@@ -259,7 +264,7 @@ const applyBasicHighlighting = (text: string, format: string | null): string => 
 
     case "sql":
       return (
-        text
+        safe
           // Highlight SQL keywords
           .replace(
             /\b(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|FROM|WHERE|JOIN|INNER|LEFT|RIGHT|OUTER|GROUP BY|ORDER BY|LIMIT|HAVING|DISTINCT|AS|ON|IN|EXISTS|BETWEEN|LIKE|AND|OR|NOT|IS|NULL)\b/gi,
@@ -281,7 +286,7 @@ const applyBasicHighlighting = (text: string, format: string | null): string => 
 
     case "xml":
       return (
-        text
+        safe
           // Highlight XML brackets
           .replace(/([<>])/g, '<span class="xml-bracket">$1</span>')
           // Highlight tag names
@@ -294,7 +299,7 @@ const applyBasicHighlighting = (text: string, format: string | null): string => 
 
     case "stacktrace":
       return (
-        text
+        safe
           // Highlight exception names
           .replace(/\b(\w*Exception|\w*Error):/g, '<span class="stack-exception">$1</span>:')
           // Highlight 'at' keyword
@@ -309,7 +314,7 @@ const applyBasicHighlighting = (text: string, format: string | null): string => 
 
     case "http":
       return (
-        text
+        safe
           // Highlight HTTP methods
           .replace(/\b(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\b/g, '<span class="http-method">$1</span>')
           // Highlight paths
@@ -325,7 +330,7 @@ const applyBasicHighlighting = (text: string, format: string | null): string => 
 
     case "yaml":
       return (
-        text
+        safe
           // Highlight timestamps first (this fixes the issue where logs are detected as YAML)
           .replace(
             /\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}(\.\d{3})?([+-]\d{2}:\d{2}|Z)?/g,
@@ -344,7 +349,7 @@ const applyBasicHighlighting = (text: string, format: string | null): string => 
 
     case "dockerfile":
       return (
-        text
+        safe
           // Highlight Docker keywords
           .replace(
             /\b(FROM|RUN|COPY|ADD|WORKDIR|CMD|ENTRYPOINT|ENV|ARG|EXPOSE|VOLUME|USER|LABEL)\b/gi,
@@ -363,7 +368,7 @@ const applyBasicHighlighting = (text: string, format: string | null): string => 
       );
 
     default:
-      return text;
+      return safe;
   }
 };
 

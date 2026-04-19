@@ -55,6 +55,16 @@ const SignInForm: FC<SignInFormProps> = ({
 
   const reCaptchaRef = useRef<ReCAPTCHA | null>(null);
 
+  const formik = useFormik({
+    initialValues: {
+      email: email || "",
+      password: "",
+    },
+    // enableReinitialize: true,
+    onSubmit: handleFormSubmit,
+    validationSchema: createSigninValidationSchema,
+  });
+
   useEffect(() => {
     if (redirect_reason === "idp_auth_error") {
       snackbar.showError("Something went wrong. Please retry");
@@ -67,7 +77,16 @@ const SignInForm: FC<SignInFormProps> = ({
 
   function handlePasswordSignInSuccess(jwtToken) {
     if (jwtToken) {
-      Cookies.set("token", jwtToken, { sameSite: "Lax", secure: true });
+      const cookieOptions: { sameSite: "Lax"; secure: boolean; domain?: string } = {
+        sameSite: "Lax",
+        secure: window.location.protocol === "https:",
+      };
+
+      if (process.env.NEXT_PUBLIC_COOKIE_DOMAIN) {
+        cookieOptions.domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN;
+      }
+
+      Cookies.set("token", jwtToken, cookieOptions);
 
       try {
         localStorage.removeItem("loggedInUsingSSO");
@@ -79,12 +98,16 @@ const SignInForm: FC<SignInFormProps> = ({
       const decodedDestination = decodeURIComponent(destination || "");
 
       // Redirect to the Destination URL
+      // Use full page navigation to ensure middleware reads fresh auth cookies.
       if (destination && checkRouteValidity(decodedDestination)) {
-        router.replace(decodedDestination, {}, { showProgressBar: true });
+        window.location.href = decodedDestination;
       } else {
-        router.replace(getInstancesRoute(), {}, { showProgressBar: true });
+        window.location.href = getInstancesRoute();
       }
+      return;
     }
+
+    snackbar.showError("Something went wrong. Please retry");
   }
 
   const passwordSignInMutation = useMutation({
@@ -96,6 +119,21 @@ const SignInForm: FC<SignInFormProps> = ({
       setLoginMethod({
         methodType: "Password",
       });
+
+      if (window["Reo"]?.identify) {
+        try {
+          const identity = {
+            username: formik.values.email,
+            type: "email",
+          };
+          window["Reo"].identify(identity);
+        } catch (error) {
+          console.warn("Failed to identify user for analytics:", error);
+        }
+      } else {
+        console.warn("Reo identify function is not available");
+      }
+
       /*eslint-disable-next-line no-use-before-define*/
       formik.setFieldValue("password", "");
       /*eslint-disable-next-line no-use-before-define*/
@@ -126,16 +164,6 @@ const SignInForm: FC<SignInFormProps> = ({
 
     passwordSignInMutation.mutate(data);
   }
-
-  const formik = useFormik({
-    initialValues: {
-      email: email || "",
-      password: "",
-    },
-    // enableReinitialize: true,
-    onSubmit: handleFormSubmit,
-    validationSchema: createSigninValidationSchema,
-  });
 
   return (
     <>

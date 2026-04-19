@@ -1,8 +1,8 @@
 import { Box, Dialog, styled } from "@mui/material";
 
-function InformationDialogTopCenter({ open, handleClose, children, maxWidth = "550px" }) {
+function InformationDialogTopCenter({ open, handleClose, children, maxWidth = "550px", ...props }) {
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth={"tablet"}>
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth={"tablet"} PaperProps={props.PaperProps}>
       <StyledContainer maxWidth={maxWidth}>{children}</StyledContainer>
     </Dialog>
   );

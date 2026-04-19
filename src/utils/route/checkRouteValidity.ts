@@ -7,6 +7,9 @@ const DYNAMIC_ROUTE_PATTERNS = [
 ];
 
 const checkRouteValidity = (path: string) => {
+  // Reject protocol-relative URLs and backslash paths that could be used for open redirects
+  if (!path || path.startsWith("//") || path.includes("\\")) return false;
+
   // Combine static routes from PAGE_TITLE_MAP and dynamic route patterns
   const allPatterns = [...Object.keys(PAGE_TITLE_MAP), ...DYNAMIC_ROUTE_PATTERNS];
 

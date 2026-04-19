@@ -1,9 +1,9 @@
 import { FC } from "react";
 
-import { Text } from "components/Typography/Typography";
 import Chip from "src/components/Chip/Chip";
 import { TierVersionSet } from "src/types/tier-version-set";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
+import { Text } from "components/Typography/Typography";
 
 import ReleaseNotesCard from "./ReleaseNotesCard";
 
@@ -30,7 +30,7 @@ const ReleaseCard: FC<ReleaseCardProps> = ({ release }) => {
           />
         </Text>
         <Text size="small" weight="medium" color="#535862">
-          {formatDateUTC(release.releasedAt)}
+          {formatDateLocal(release.releasedAt)}
         </Text>
       </div>
 

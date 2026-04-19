@@ -27,15 +27,19 @@ export default async function handleAuth(nextRequest, nextResponse) {
       try {
         const response = await customerSignInWithIdentityProvider(authRequestPayload);
         const jwtToken = response.data.jwtToken;
-        nextResponse.setHeader("Set-Cookie", `token=${jwtToken}; Path=/`);
+        nextResponse.setHeader(
+          "Set-Cookie",
+          `token=${jwtToken}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${60 * 60 * 24}`
+        );
         nextResponse.setHeader("Access-Control-Expose-Headers", "Set-Cookie");
-        nextResponse.redirect(307, "/signin");
+        return nextResponse.redirect(307, "/signin");
       } catch (err) {
-        console.log("IDP AUTH err", err);
+        console.error("IDP AUTH error", { status: err?.response?.status, message: err?.response?.data?.message });
+        return nextResponse.redirect(307, "/signin?redirect_reason=idp_auth_error");
       }
     }
   }
 
-  //something went wrong, redirect to signin page with
-  nextResponse.redirect(307, "/signin?redirect_reason=idp_auth_error");
+  //something went wrong, redirect to signin page
+  return nextResponse.redirect(307, "/signin?redirect_reason=idp_auth_error");
 }

@@ -11,57 +11,57 @@ export default async function handleSignup(nextRequest, nextResponse) {
       const isReCaptchaSetup = checkReCaptchaSetup();
       if (isReCaptchaSetup) {
         const { email, password, name, companyDescription, reCaptchaToken } = requestBody;
-      if (isReCaptchaSetup) {
-        const isVerified = await verifyRecaptchaToken(reCaptchaToken);
-        if (!isVerified) throw new CaptchaVerificationError();
-      }
-
-      if (password && typeof password === "string") {
-        if (!password.match(passwordRegex)) {
-          return nextResponse.status(400).send({ message: passwordRegexFailText });
+        if (isReCaptchaSetup) {
+          const isVerified = await verifyRecaptchaToken(reCaptchaToken);
+          if (!isVerified) throw new CaptchaVerificationError();
         }
-        if (isPasswordSameAsEmail(password, email)) {
-          return nextResponse.status(400).send({ message: passwordMatchesEmailText });
+
+        if (password && typeof password === "string") {
+          if (!password.match(passwordRegex)) {
+            return nextResponse.status(400).send({ message: passwordRegexFailText });
+          }
+          if (isPasswordSameAsEmail(password, email)) {
+            return nextResponse.status(400).send({ message: passwordMatchesEmailText });
+          }
         }
-      }
-      //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
-      //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
-      const clientIP = xForwardedForHeader.split(",").shift().trim();
-      const saasBuilderIP = process.env.POD_IP || "";
+        //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
+        //get the first IP (client IP)
+        const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
+        const clientIP = xForwardedForHeader.split(",").shift().trim();
+        const saasBuilderIP = process.env.POD_IP || "";
 
-      await customerUserSignUp({ email, password, name, companyDescription }, {
-        "Client-IP": clientIP,
-        "SaaSBuilder-IP": saasBuilderIP,
-      });
-
-      return nextResponse.status(200).send();
-    } catch (error) {
-      console.error("Error in signup", { status: error?.response?.status, message: error?.response?.data?.message });
-      const defaultErrorMessage = "Something went wrong. Please retry";
-
-      if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
-        return nextResponse.status(500).send({
-          message: defaultErrorMessage,
+        await customerUserSignUp({ email, password, name, companyDescription }, {
+          "Client-IP": clientIP,
+          "SaaSBuilder-IP": saasBuilderIP,
         });
-      } else {
-        const responseErrorMessage = error.response?.data?.message;
 
-        if (
-          responseErrorMessage?.toLowerCase() === "tenant already exists" ||
-          responseErrorMessage?.toLowerCase() ===
+        return nextResponse.status(200).send();
+      } catch (error) {
+        console.error("Error in signup", { status: error?.response?.status, message: error?.response?.data?.message });
+        const defaultErrorMessage = "Something went wrong. Please retry";
+
+        if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
+          return nextResponse.status(500).send({
+            message: defaultErrorMessage,
+          });
+        } else {
+          const responseErrorMessage = error.response?.data?.message;
+
+          if (
+            responseErrorMessage?.toLowerCase() === "tenant already exists" ||
+            responseErrorMessage?.toLowerCase() ===
             "tenant with a valid token already exists, wait for the current token to expire"
-        ) {
-          return nextResponse.status(200).send();
+          ) {
+            return nextResponse.status(200).send();
+          }
+          return nextResponse.status(error.response?.status || 500).send({
+            message: responseErrorMessage || defaultErrorMessage,
+          });
         }
-        return nextResponse.status(error.response?.status || 500).send({
-          message: responseErrorMessage || defaultErrorMessage,
-        });
       }
+    } else {
+      return nextResponse.status(404).json({
+        message: "Endpoint not found",
+      });
     }
-  } else {
-    return nextResponse.status(404).json({
-      message: "Endpoint not found",
-    });
   }
-}

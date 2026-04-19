@@ -1,4 +1,5 @@
 import { SxProps } from "@mui/material";
+import { fromProvider } from "cloud-regions-country-flags";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 
@@ -9,7 +10,6 @@ import { MenuItem } from "src/types/common/generalTypes";
 import { CustomNetwork } from "src/types/customNetwork";
 import { ServiceOffering } from "src/types/serviceOffering";
 import { Subscription } from "src/types/subscription";
-import { fromProvider } from "cloud-regions-country-flags";
 dayjs.extend(utc);
 
 import { getInstanceHealthStatus } from "src/components/InstanceHealthStatusChip/InstanceHealthStatusChip";
@@ -129,6 +129,10 @@ export const getResourceMenuItems = (offering: ServiceOffering) => {
     });
   });
 
+  if (offering.productTierName === "FalkorDB Pro") {
+    return menuItems.filter((item) => !["Cluster-Single-Zone", "Cluster-Multi-Zone"].includes(item.label));
+  }
+
   return menuItems.sort((a, b) => {
     const order = ["Standalone", "Single-Zone", "Multi-Zone", "Cluster-Single-Zone", "Cluster-Multi-Zone", "Grafana"];
 
@@ -153,7 +157,8 @@ export const getVersionSetResourceMenuItems = (versionSet?: TierVersionSet) => {
     .map((resource) => ({
       label: resource.name,
       value: resource.id,
-    })).sort((a, b) => {
+    }))
+    .sort((a, b) => {
       const order = ["Standalone", "Single-Zone", "Multi-Zone", "Cluster-Single-Zone", "Cluster-Multi-Zone", "Grafana"];
 
       return order.indexOf(a.label) - order.indexOf(b.label);

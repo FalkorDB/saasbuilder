@@ -49,7 +49,14 @@ export async function proxy(request) {
     return applyCrossOriginPolicyHeaders(response);
   };
 
-  if (!authToken?.value || jwtDecode(authToken.value).exp < Date.now() / 1000) {
+  let tokenExp = 0;
+  try {
+    tokenExp = jwtDecode(authToken.value).exp ?? 0;
+  } catch {
+    return redirectToSignIn();
+  }
+
+  if (!authToken?.value || !tokenExp || tokenExp < Date.now() / 1000) {
     return redirectToSignIn();
   }
 

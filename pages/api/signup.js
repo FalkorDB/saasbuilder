@@ -10,12 +10,12 @@ export default async function handleSignup(nextRequest, nextResponse) {
       const requestBody = nextRequest.body || {};
       const isReCaptchaSetup = checkReCaptchaSetup();
       if (isReCaptchaSetup) {
-        const { reCaptchaToken } = requestBody;
+        const { email, password, name, companyDescription, reCaptchaToken } = requestBody;
+      if (isReCaptchaSetup) {
         const isVerified = await verifyRecaptchaToken(reCaptchaToken);
         if (!isVerified) throw new CaptchaVerificationError();
       }
 
-      const { password, email } = requestBody;
       if (password && typeof password === "string") {
         if (!password.match(passwordRegex)) {
           return nextResponse.status(400).send({ message: passwordRegexFailText });
@@ -30,14 +30,14 @@ export default async function handleSignup(nextRequest, nextResponse) {
       const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP || "";
 
-      await customerUserSignUp(nextRequest.body, {
+      await customerUserSignUp({ email, password, name, companyDescription }, {
         "Client-IP": clientIP,
         "SaaSBuilder-IP": saasBuilderIP,
       });
 
       return nextResponse.status(200).send();
     } catch (error) {
-      console.error(error?.response);
+      console.error("Error in signup", { status: error?.response?.status, message: error?.response?.data?.message });
       const defaultErrorMessage = "Something went wrong. Please retry";
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {

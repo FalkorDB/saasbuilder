@@ -22,19 +22,19 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
 
       const saasBuilderIP = process.env.POD_IP || "";
       const requestBody = nextRequest.body || {};
+      const { email, token: resetToken, newPassword, reCaptchaToken } = requestBody;
       const isReCaptchaSetup = checkReCaptchaSetup();
-      const token = nextRequest.cookies?.token;
+      const sessionToken = nextRequest.cookies?.token;
       let tokenValidate = false;
-      if (token) {
-        tokenValidate = await getUser(token);
+      if (sessionToken) {
+        tokenValidate = await getUser(sessionToken);
       }
       if (!tokenValidate && isReCaptchaSetup) {
-        const { reCaptchaToken } = requestBody;
         const isVerified = await verifyRecaptchaToken(reCaptchaToken);
         if (!isVerified) throw new CaptchaVerificationError();
       }
 
-      await customerUserResetPassword(requestBody, {
+      await customerUserResetPassword({ email, token: resetToken, newPassword }, {
         "Client-IP": clientIP,
         "SaaSBuilder-IP": saasBuilderIP,
       });

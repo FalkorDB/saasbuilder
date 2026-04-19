@@ -17,7 +17,7 @@ function fetchProviderAuthToken() {
   }
 
   return axios.post("/signin", signInPayload).catch((error) => {
-    console.error("Provider sign in failure", error);
+    console.error("Provider sign in failure", { status: error?.response?.status, message: error?.response?.data?.message });
     throw new ProviderAuthError();
   });
 }

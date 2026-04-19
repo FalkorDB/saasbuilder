@@ -40,9 +40,11 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       }
 
       environmentType = getEnvironmentType();
+      const { email, password, reCaptchaToken: _rcToken } = requestBody;
       const payload = {
-        ...nextRequest.body,
-        environmentType: environmentType,
+        email,
+        password,
+        environmentType,
       };
       const saasBuilderIP = process.env.POD_IP || "";
 
@@ -73,7 +75,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       // Record failed attempt for rate limiting
       recordAttempt(clientIP);
 
-      console.error("Error in sign in", error);
+      console.error("Error in sign in", { status: error?.response?.status, message: error?.response?.data?.message });
       const defaultErrorMessage = "Failed to sign in. Either the credentials are incorrect or the user does not exist";
 
       //Wait for a random duration b/w 0ms and 150ms to mask the difference b/w response times of api when a user is present vs not present
@@ -83,7 +85,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
           resolve();
         }, delayInMilliseconds);
       });
-      console.error("Error in signin", error);
+      console.error("Error in signin", { status: error?.response?.status, message: error?.response?.data?.message });
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
         return nextResponse.status(400).send({

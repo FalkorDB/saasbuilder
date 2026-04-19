@@ -23,7 +23,11 @@ const ReleaseNotesCard: FC<ReleaseNotesCardProps> = ({ releaseNotes }) => {
               color: "#535862",
             }}
             dangerouslySetInnerHTML={{
-              __html: DOMPurify.sanitize(releaseNotes),
+              __html: DOMPurify.sanitize(releaseNotes, {
+              ALLOWED_TAGS: ["b", "i", "em", "strong", "a", "p", "ul", "ol", "li", "br", "code", "pre", "h1", "h2", "h3", "blockquote", "span"],
+              ALLOWED_ATTR: ["href", "target", "rel", "class"],
+              ALLOWED_URI_REGEXP: /^(https?:|mailto:|\/)/i,
+            }),
             }}
           />
         ) : (

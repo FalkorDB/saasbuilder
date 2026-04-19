@@ -6,9 +6,13 @@ export default async function handleSignIn(nextRequest, nextResponse) {
   if (nextRequest.method === "POST") {
     try {
       const environmentType = getEnvironmentType();
+      const { identityProviderName, authorizationCode, redirectUri, state } = nextRequest.body || {};
       const requestBody = {
-        ...nextRequest.body,
-        environmentType: environmentType,
+        identityProviderName,
+        authorizationCode,
+        redirectUri,
+        state,
+        environmentType,
       };
       const saasDomainURL = getSaaSDomainURL();
 
@@ -27,7 +31,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
 
       nextResponse.status(200).send({ ...response.data });
     } catch (error) {
-      console.log("IDP Error", error);
+      console.error("IDP sign in error", { status: error?.response?.status, message: error?.response?.data?.message });
       const defaultErrorMessage = "Someting went wrong. Please retry";
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {

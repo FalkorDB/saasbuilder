@@ -50,14 +50,14 @@
     "clsx": "^2.1.1",
     "date-fns": "^2.29.3",
     "dayjs": "^1.11.11",
-    "dompurify": "3.3.3",
+    "dompurify": "^3.3.4",
     "dotenv": "^16.4.5",
     "dotted-map": "^2.2.3",
     "ejs": "^3.1.10",
     "express": "^4.21.2",
     "formik": "^2.2.9",
     "generate-password": "^1.7.1",
-    "isomorphic-dompurify": "^2.23.0",
+    "isomorphic-dompurify": "^2.24.0",
     "js-base64": "^3.7.5",
     "js-cookie": "^3.0.1",
     "jwt-decode": "^4.0.0",
@@ -121,8 +121,6 @@
     "wait-on": "^9.0.4"
   },
   "resolutions": {
-    "axios": "1.15.0",
-    "basic-ftp": "5.2.2"
   },
   "packageManager": "yarn@4.5.0"
 }

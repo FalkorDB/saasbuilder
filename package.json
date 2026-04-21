@@ -120,6 +120,5 @@
     "typescript": "^5.8.3",
     "wait-on": "^9.0.4"
   },
-  "resolutions": {},
   "packageManager": "yarn@4.5.0"
 }

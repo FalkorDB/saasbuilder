@@ -93,6 +93,7 @@ const buildCsp = ({ reportOnly = false } = {}) => {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ["isomorphic-dompurify"],
   turbopack: {},
   async redirects() {
     return [

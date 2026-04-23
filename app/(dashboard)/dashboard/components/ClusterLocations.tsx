@@ -1,6 +1,6 @@
-import { Box, Stack, styled } from "@mui/material";
-import dynamic from "next/dynamic";
 import { FC } from "react";
+import dynamic from "next/dynamic";
+import { Box, Stack, styled } from "@mui/material";
 
 import ClusterLocationsIcon from "src/components/Icons/Dashboard/ClusterLocations";
 import { Text } from "src/components/Typography/Typography";

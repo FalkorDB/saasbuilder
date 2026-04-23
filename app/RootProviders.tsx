@@ -82,7 +82,7 @@ const RootProviders = ({
     <AppRouterCacheProvider>
       <Provider store={store}>
         <QueryClientProvider client={queryQlient}>
-          <Suspense>
+          <Suspense fallback={null}>
             <ProviderFavicon />
             <SnackbarProvider>
               <NotificationBarProvider>

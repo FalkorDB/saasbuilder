@@ -9,6 +9,7 @@ import { ResourceInstance } from "src/types/resourceInstance";
 import { getResultParams } from "src/utils/instance";
 const DottedWorldMap = dynamic(() => import("./DottedWorldMap"), {
   ssr: false,
+  loading: () => null,
 });
 
 const ContainerCard = styled(Box)({

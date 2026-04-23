@@ -11,7 +11,7 @@ import useSnackbar from "src/hooks/useSnackbar";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
 import { IdentityProvider } from "src/types/identityProvider";
 
-const SignInForm = dynamic(() => import("./SignInForm"), { ssr: false });
+const SignInForm = dynamic(() => import("./SignInForm"), { ssr: false, loading: () => null });
 
 type SignInPageProps = {
   saasBuilderBaseURL: string;

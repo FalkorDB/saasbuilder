@@ -6,6 +6,7 @@ import useServiceApiDocsData from "src/hooks/useServiceApiDocsData";
 import CardWithTitle from "../Card/CardWithTitle";
 const SwaggerDocs = dynamic(() => import("../SwaggerDocs/SwaggerDocs"), {
   ssr: false,
+  loading: () => null,
 });
 import LoadingSpinner from "../LoadingSpinner/LoadingSpinner";
 import { Text } from "../Typography/Typography";

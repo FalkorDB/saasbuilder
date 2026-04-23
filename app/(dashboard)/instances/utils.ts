@@ -201,6 +201,13 @@ export const getRegionMenuItems = (offering?: ServiceOffering, cloudProvider?: C
         value: region,
       });
     });
+  } else if (cloudProvider === "nebius") {
+    offering.nebiusRegions?.forEach((region: string) => {
+      menuItems.push({
+        label: region,
+        value: region,
+      });
+    });
   }
 
   return menuItems;
@@ -416,6 +423,8 @@ export const getInitialValues = (
     region = offering.azureRegions?.[0];
   } else if (cloudProvider === "oci") {
     region = offering.ociRegions?.[0];
+  } else if (cloudProvider === "nebius") {
+    region = offering.nebiusRegions?.[0];
   }
 
   const resources = getResourceMenuItems(offering);

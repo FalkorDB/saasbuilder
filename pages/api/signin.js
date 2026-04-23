@@ -3,6 +3,7 @@ import _ from "lodash";
 const { customerUserSignIn } = require("src/server/api/customer-user");
 const { getEnvironmentType } = require("src/server/utils/getEnvironmentType");
 const { isRateLimited, recordAttempt, resetAttempts } = require("src/server/utils/rateLimiter");
+import { setAuthCookie, setRefreshCookie } from "src/server/utils/authCookie";
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
 import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
 import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
@@ -66,7 +67,17 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       });
 
       const responseData = response?.data || {};
-      return nextResponse.status(200).send({ ...responseData });
+      const { jwtToken, refreshToken, ...rest } = responseData;
+
+      // Set httpOnly cookies — the client never sees the raw tokens
+      if (jwtToken) {
+        setAuthCookie(nextResponse, jwtToken);
+      }
+      if (refreshToken) {
+        setRefreshCookie(nextResponse, refreshToken);
+      }
+
+      return nextResponse.status(200).send({ ...rest });
     } catch (error) {
       // Extract IP again for error handling (in case of early errors)
       const xForwardedForHeader = nextRequest.get?.("X-Forwarded-For") || "";

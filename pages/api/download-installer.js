@@ -1,5 +1,6 @@
 import { baseDomain } from "src/axios";
 import { getInstallerDownload } from "src/server/api/installer-download";
+import { getAuthToken } from "src/server/utils/authCookie";
 
 export default async function handler(req, res) {
   // Support both GET (browser-managed download) and POST (legacy)
@@ -22,8 +23,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: "Invalid download path" });
   }
 
-  // Auth: prefer Authorization header, fall back to "token" cookie
-  const authToken = req.headers.authorization || (req.cookies?.token ? `Bearer ${req.cookies.token}` : "");
+  // Read auth token from httpOnly cookie
+  const token = getAuthToken(req);
+  if (!token) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+  const authToken = `Bearer ${token}`;
 
   // Read filename from top-level query/body param
   const reqFilename = isGet ? req.query.filename : req.body?.filename;

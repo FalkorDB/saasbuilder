@@ -9,7 +9,6 @@ import Cookies from "js-cookie";
 import ReCAPTCHA from "react-google-recaptcha";
 
 import { customerUserSignin } from "src/api/customer-user";
-import axios from "src/axios";
 import { Text } from "src/components/Typography/Typography";
 import useEnvironmentType from "src/hooks/useEnvironmentType";
 import useSnackbar from "src/hooks/useSnackbar";
@@ -75,47 +74,37 @@ const SignInForm: FC<SignInFormProps> = ({
     /*eslint-disable-next-line react-hooks/exhaustive-deps*/
   }, [redirect_reason]);
 
-  function handlePasswordSignInSuccess(jwtToken) {
-    if (jwtToken) {
-      const cookieOptions: { sameSite: "Lax"; secure: boolean; domain?: string } = {
-        sameSite: "Lax",
-        secure: window.location.protocol === "https:",
-      };
+  function handlePasswordSignInSuccess() {
+    // httpOnly cookie is set server-side by /api/signin — set indicator for UI auth state
+    Cookies.set("omnistrate_logged_in", "true", {
+      expires: 1,
+      sameSite: "Lax",
+      secure: window.location.protocol === "https:",
+    });
+    Cookies.remove("token"); // Clean up legacy cookie from pre-httpOnly migration
 
-      if (process.env.NEXT_PUBLIC_COOKIE_DOMAIN) {
-        cookieOptions.domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN;
-      }
-
-      Cookies.set("token", jwtToken, cookieOptions);
-
-      try {
-        localStorage.removeItem("loggedInUsingSSO");
-      } catch (error) {
-        console.warn("Failed to set SSO state:", error);
-      }
-
-      axios.defaults.headers["Authorization"] = "Bearer " + jwtToken;
-      const decodedDestination = decodeURIComponent(destination || "");
-
-      // Redirect to the Destination URL
-      // Use full page navigation to ensure middleware reads fresh auth cookies.
-      if (destination && checkRouteValidity(decodedDestination)) {
-        window.location.href = decodedDestination;
-      } else {
-        window.location.href = getInstancesRoute();
-      }
-      return;
+    try {
+      localStorage.removeItem("loggedInUsingSSO");
+    } catch (error) {
+      console.warn("Failed to set SSO state:", error);
     }
 
-    snackbar.showError("Something went wrong. Please retry");
+    const decodedDestination = decodeURIComponent(destination || "");
+
+    // Redirect to the Destination URL
+    // Use full page navigation to ensure middleware reads fresh auth cookies.
+    if (destination && checkRouteValidity(decodedDestination)) {
+      window.location.href = decodedDestination;
+    } else {
+      window.location.href = getInstancesRoute();
+    }
   }
 
   const passwordSignInMutation = useMutation({
     mutationFn: (payload) => {
-      delete axios.defaults.headers["Authorization"];
       return customerUserSignin(payload);
     },
-    onSuccess: (response) => {
+    onSuccess: () => {
       setLoginMethod({
         methodType: "Password",
       });
@@ -139,9 +128,7 @@ const SignInForm: FC<SignInFormProps> = ({
       /*eslint-disable-next-line no-use-before-define*/
       formik.setFieldTouched("password", false);
 
-      //@ts-ignore
-      const jwtToken = response?.data?.jwtToken;
-      handlePasswordSignInSuccess(jwtToken);
+      handlePasswordSignInSuccess();
     },
     onError: (error: any) => {
       if (error.response.data && error.response.data.message) {

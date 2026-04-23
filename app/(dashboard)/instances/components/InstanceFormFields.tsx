@@ -185,6 +185,8 @@ export const getStandardInformationFields = (
           setFieldValue("region", offering.azureRegions?.[0] || "");
         } else if (cloudProvider === "oci") {
           setFieldValue("region", offering.ociRegions?.[0] || "");
+        } else if (cloudProvider === "nebius") {
+          setFieldValue("region", offering.nebiusRegions?.[0] || "");
         }
 
         // Set default onprem_platform for on-prem offerings
@@ -246,6 +248,8 @@ export const getStandardInformationFields = (
               setFieldValue("region", offering.azureRegions?.[0] || "");
             } else if (cloudProvider === "oci") {
               setFieldValue("region", offering.ociRegions?.[0] || "");
+            } else if (cloudProvider === "nebius") {
+              setFieldValue("region", offering.nebiusRegions?.[0] || "");
             }
 
             // Set default onprem_platform for on-prem offerings
@@ -416,6 +420,8 @@ export const getStandardInformationFields = (
               setFieldValue("region", offering.azureRegions?.[0] || "");
             } else if (newCloudProvider === "oci") {
               setFieldValue("region", offering.ociRegions?.[0] || "");
+            } else if (newCloudProvider === "nebius") {
+              setFieldValue("region", offering.nebiusRegions?.[0] || "");
             }
           }}
           disabled={formMode !== "create"}
@@ -641,7 +647,9 @@ export const getNetworkConfigurationFields = (
             ? offering.gcpRegions || []
             : values.cloudProvider === "azure"
               ? offering.azureRegions || []
-              : offering.ociRegions || [],
+              : values.cloudProvider === "nebius"
+                ? offering.nebiusRegions || []
+                : offering.ociRegions || [],
         values.region
       ),
       emptyMenuText: "No customer networks available",
@@ -958,7 +966,8 @@ export const getDeploymentConfigurationFields = (
         disabled: formMode !== "create" && param.custom && !param.modifiable,
         name: `requestParams.${param.key}`,
         value: getJsonValue(values.requestParams[param.key]),
-        type: "text-multiline",
+        type: "code-editor",
+        language: "json",
         required: param.required,
         previewValue: getJsonValue(values.requestParams[param.key]),
       });

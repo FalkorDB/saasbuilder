@@ -55,7 +55,7 @@ const IDPAuthPage = () => {
                 username: user.email,
                 type:
                   payload.identityProviderName === IDENTITY_PROVIDER_TYPES.Google
-                    ? "gmail"
+                    ? "email"
                     : payload.identityProviderName === IDENTITY_PROVIDER_TYPES.GitHub
                       ? "github"
                       : "other",

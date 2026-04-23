@@ -127,7 +127,6 @@ const nextConfig = {
             value: "nosniff",
           },
           {
-          {
             key: "Cross-Origin-Embedder-Policy",
             value: "unsafe-none",
           },

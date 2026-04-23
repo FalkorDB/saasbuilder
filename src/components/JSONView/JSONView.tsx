@@ -1,8 +1,14 @@
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
 
-const JSONView = dynamic(() => import("react-json-view").then((mod) => mod.default), {
+const LazyJSONView = dynamic(() => import("react-json-view").then((mod) => mod.default), {
   ssr: false,
-  loading: () => <p>Loading...</p>,
 });
+
+const JSONView = (props: any) => (
+  <Suspense fallback={<p>Loading...</p>}>
+    <LazyJSONView {...props} />
+  </Suspense>
+);
 
 export default JSONView;

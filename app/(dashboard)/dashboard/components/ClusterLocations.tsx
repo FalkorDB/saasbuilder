@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { Box, Stack, styled } from "@mui/material";
 
@@ -9,7 +9,6 @@ import { ResourceInstance } from "src/types/resourceInstance";
 import { getResultParams } from "src/utils/instance";
 const DottedWorldMap = dynamic(() => import("./DottedWorldMap"), {
   ssr: false,
-  loading: () => null,
 });
 
 const ContainerCard = styled(Box)({
@@ -106,7 +105,9 @@ const ClusterLocations: FC<ClusterLocationsProps> = (props) => {
         </Text>
       </Stack>
       <Box marginTop="8px" sx={{ marginInline: "auto", maxWidth: "1200px" }}>
-        <DottedWorldMap regionsWithInstanceCount={regionsWithInstanceCount} />
+        <Suspense fallback={null}>
+          <DottedWorldMap regionsWithInstanceCount={regionsWithInstanceCount} />
+        </Suspense>
       </Box>
     </ContainerCard>
   );

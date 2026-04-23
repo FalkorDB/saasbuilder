@@ -8,7 +8,6 @@ import { Buffer } from "buffer";
 import Cookies from "js-cookie";
 
 import { customerSignInWithIdentityProvider } from "src/api/customer-user";
-import axios from "src/axios";
 import useEnvironmentType from "src/hooks/useEnvironmentType";
 import useSnackbar from "src/hooks/useSnackbar";
 import checkRouteValidity from "src/utils/route/checkRouteValidity";
@@ -30,56 +29,30 @@ const IDPAuthPage = () => {
     async (payload, destination) => {
       try {
         hasAttemptedSignIn.current = true;
-        const response = await customerSignInWithIdentityProvider(payload);
-        // @ts-ignore
-        const jwtToken = response.data.jwtToken;
+        await customerSignInWithIdentityProvider(payload);
         sessionStorage.removeItem("authState");
-        if (jwtToken) {
-          Cookies.set("token", jwtToken, {
-            sameSite: "Lax",
-            secure: true,
-            domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN,
-          });
-          axios.defaults.headers["Authorization"] = "Bearer " + jwtToken;
 
-          try {
-            localStorage.setItem("loggedInUsingSSO", "true");
-          } catch (error) {
-            console.warn("Failed to set SSO state:", error);
-          }
+        // httpOnly cookie is set server-side by /api/sign-in-with-idp — set indicator for UI auth state
+        Cookies.set("omnistrate_logged_in", "true", {
+          expires: 1,
+          sameSite: "Lax",
+          secure: window.location.protocol === "https:",
+        });
+        Cookies.remove("token"); // Clean up legacy cookie from pre-httpOnly migration
 
-          if (window["Reo"]?.identify) {
-            try {
-              const user = await axios.get("/user").then((response) => response.data);
-              const identity = {
-                username: user.email,
-                type:
-                  payload.identityProviderName === IDENTITY_PROVIDER_TYPES.Google
-                    ? "gmail"
-                    : payload.identityProviderName === IDENTITY_PROVIDER_TYPES.GitHub
-                      ? "github"
-                      : "other",
-                firstname: user.name?.split(" ")[0],
-              };
-              window["Reo"].identify(identity);
-            } catch (error) {
-              console.error(error);
-            }
-          } else {
-            console.warn("Reo identify function is not available");
-          }
+        try {
+          localStorage.setItem("loggedInUsingSSO", "true");
+        } catch (error) {
+          console.warn("Failed to set SSO state:", error);
+        }
+        const decodedDestination = decodeURIComponent(destination);
+        hasAttemptedSignIn.current = false;
 
-          const decodedDestination = decodeURIComponent(destination);
-          hasAttemptedSignIn.current = false;
-
-          // Redirect to the Destination URL
-          // Use window.location for full page reload to ensure middleware runs with fresh cookies
-          // This prevents race conditions where middleware might execute with stale cookies
-          if (destination && checkRouteValidity(decodedDestination)) {
-            window.location.href = decodedDestination;
-          } else {
-            window.location.href = getInstancesRoute();
-          }
+        // Use window.location for full page reload to ensure middleware runs with fresh cookies
+        if (destination && checkRouteValidity(decodedDestination)) {
+          window.location.href = decodedDestination;
+        } else {
+          window.location.href = getInstancesRoute();
         }
       } catch (error) {
         sessionStorage.removeItem("authState");

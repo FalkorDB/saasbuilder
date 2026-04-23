@@ -1,14 +1,19 @@
 const { customerSignInWithIdentityProvider } = require("src/server/api/customer-user");
 const { getEnvironmentType } = require("src/server/utils/getEnvironmentType");
+import { setAuthCookie, setRefreshCookie } from "src/server/utils/authCookie";
 import { getSaaSDomainURL } from "src/server/utils/getSaaSDomainURL";
 
 export default async function handleSignIn(nextRequest, nextResponse) {
   if (nextRequest.method === "POST") {
     try {
       const environmentType = getEnvironmentType();
+      const { identityProviderName, authorizationCode, redirectUri, state } = nextRequest.body || {};
       const requestBody = {
-        ...nextRequest.body,
-        environmentType: environmentType,
+        identityProviderName,
+        authorizationCode,
+        redirectUri,
+        state,
+        environmentType,
       };
       const saasDomainURL = getSaaSDomainURL();
 
@@ -25,10 +30,19 @@ export default async function handleSignIn(nextRequest, nextResponse) {
         "SaaSBuilder-IP": saasBuilderIP,
       });
 
-      nextResponse.status(200).send({ ...response.data });
+      const { jwtToken, refreshToken, ...rest } = response.data || {};
+
+      if (jwtToken) {
+        setAuthCookie(nextResponse, jwtToken);
+      }
+      if (refreshToken) {
+        setRefreshCookie(nextResponse, refreshToken);
+      }
+
+      nextResponse.status(200).send({ ...rest });
     } catch (error) {
-      console.log("IDP Error", error);
-      const defaultErrorMessage = "Someting went wrong. Please retry";
+      console.error("IDP sign in error", { status: error?.response?.status, message: error?.response?.data?.message });
+      const defaultErrorMessage = "Something went wrong. Please retry";
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
         nextResponse.status(500).send({

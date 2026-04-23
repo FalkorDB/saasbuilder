@@ -191,7 +191,8 @@ const CloudAccountsPage = () => {
           resultParams?.gcp_project_id?.toLowerCase().includes(searchText.toLowerCase()) ||
           resultParams?.aws_account_id?.toLowerCase().includes(searchText.toLowerCase()) ||
           resultParams?.azure_subscription_id?.toLowerCase().includes(searchText.toLowerCase()) ||
-          resultParams?.oci_tenancy_id?.toLowerCase().includes(searchText.toLowerCase())
+          resultParams?.oci_tenancy_id?.toLowerCase().includes(searchText.toLowerCase()) ||
+          resultParams?.nebius_tenant_id?.toLowerCase().includes(searchText.toLowerCase())
         );
       });
     }
@@ -246,6 +247,7 @@ const CloudAccountsPage = () => {
             resultParams?.aws_account_id ||
             resultParams?.azure_subscription_id ||
             resultParams?.oci_tenancy_id ||
+            resultParams?.nebius_tenant_id ||
             "-"
           );
         },
@@ -259,6 +261,7 @@ const CloudAccountsPage = () => {
               resultParams?.aws_account_id ||
               resultParams?.azure_subscription_id ||
               resultParams?.oci_tenancy_id ||
+              resultParams?.nebius_tenant_id ||
               "-";
 
             return <GridCellExpand value={value} copyButton={value !== "-"} />;
@@ -274,19 +277,17 @@ const CloudAccountsPage = () => {
         cell: (data) => {
           const status = data.row.original.status;
           let statusStylesAndLabel = getResourceInstanceStatusStylesAndLabel(status as string);
-          const showInstructions = [
-            "VERIFYING",
-            "PENDING",
-            "PENDING_DEPENDENCY",
-            "UNKNOWN",
-            "DEPLOYING",
-            "READY",
-            "FAILED",
-          ].includes(status as string);
+          const resultParams = getResultParams(data.row.original);
+          const isNebius = !!resultParams?.nebius_tenant_id;
+
+          const showInstructions =
+            !isNebius &&
+            ["VERIFYING", "PENDING", "PENDING_DEPENDENCY", "UNKNOWN", "DEPLOYING", "READY", "FAILED"].includes(
+              status as string
+            );
 
           let isReadyToOffboard = false;
           let isOffboarding = false;
-          const resultParams = getResultParams(data.row.original);
 
           const linkedAccountConfig = accountConfigsHash[resultParams?.cloud_provider_account_config_id];
 
@@ -438,6 +439,7 @@ const CloudAccountsPage = () => {
           else if (resultParams?.gcp_project_id) cloudProvider = "gcp";
           else if (resultParams?.azure_subscription_id) cloudProvider = "azure";
           else if (resultParams?.oci_tenancy_id) cloudProvider = "oci";
+          else if (resultParams?.nebius_tenant_id) cloudProvider = "nebius";
           return cloudProvider;
         },
         {
@@ -450,6 +452,7 @@ const CloudAccountsPage = () => {
             else if (resultParams?.gcp_project_id) cloudProvider = "gcp";
             else if (resultParams?.azure_subscription_id) cloudProvider = "azure";
             else if (resultParams?.oci_tenancy_id) cloudProvider = "oci";
+            else if (resultParams?.nebius_tenant_id) cloudProvider = "nebius";
 
             return cloudProvider ? cloudProviderLongLogoMap[cloudProvider] : "-";
           },

@@ -3,6 +3,7 @@ import _ from "lodash";
 const { customerUserSignIn } = require("src/server/api/customer-user");
 const { getEnvironmentType } = require("src/server/utils/getEnvironmentType");
 const { isRateLimited, recordAttempt, resetAttempts } = require("src/server/utils/rateLimiter");
+import { setAuthCookie, setRefreshCookie } from "src/server/utils/authCookie";
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
 import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
 import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
@@ -40,9 +41,11 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       }
 
       environmentType = getEnvironmentType();
+      const { email, password, reCaptchaToken: _rcToken } = requestBody;
       const payload = {
-        ...nextRequest.body,
-        environmentType: environmentType,
+        email,
+        password,
+        environmentType,
       };
       const saasBuilderIP = process.env.POD_IP || "";
 
@@ -64,7 +67,17 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       });
 
       const responseData = response?.data || {};
-      return nextResponse.status(200).send({ ...responseData });
+      const { jwtToken, refreshToken, ...rest } = responseData;
+
+      // Set httpOnly cookies — the client never sees the raw tokens
+      if (jwtToken) {
+        setAuthCookie(nextResponse, jwtToken);
+      }
+      if (refreshToken) {
+        setRefreshCookie(nextResponse, refreshToken);
+      }
+
+      return nextResponse.status(200).send({ ...rest });
     } catch (error) {
       // Extract IP again for error handling (in case of early errors)
       const xForwardedForHeader = nextRequest.get?.("X-Forwarded-For") || "";
@@ -73,7 +86,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       // Record failed attempt for rate limiting
       recordAttempt(clientIP);
 
-      console.error("Error in sign in", error);
+      console.error("Error in sign in", { status: error?.response?.status, message: error?.response?.data?.message });
       const defaultErrorMessage = "Failed to sign in. Either the credentials are incorrect or the user does not exist";
 
       //Wait for a random duration b/w 0ms and 150ms to mask the difference b/w response times of api when a user is present vs not present
@@ -83,7 +96,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
           resolve();
         }, delayInMilliseconds);
       });
-      console.error("Error in signin", error);
+      console.error("Error in signin", { status: error?.response?.status, message: error?.response?.data?.message });
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
         return nextResponse.status(400).send({

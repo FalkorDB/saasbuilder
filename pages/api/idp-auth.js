@@ -1,4 +1,5 @@
 import { customerSignInWithIdentityProvider } from "src/server/api/customer-user";
+import { setAuthCookie, setIndicatorCookie, setRefreshCookie } from "src/server/utils/authCookie";
 import { getSaaSDomainURL } from "src/server/utils/getSaaSDomainURL";
 
 export default async function handleAuth(nextRequest, nextResponse) {
@@ -27,18 +28,21 @@ export default async function handleAuth(nextRequest, nextResponse) {
       try {
         const response = await customerSignInWithIdentityProvider(authRequestPayload);
         const jwtToken = response.data.jwtToken;
-        nextResponse.setHeader(
-          "Set-Cookie",
-          `token=${jwtToken}; Path=/; Domain=${process.env.NEXT_PUBLIC_SAAS_BUILDER_DOMAIN}`
-        );
-        nextResponse.setHeader("Access-Control-Expose-Headers", "Set-Cookie");
-        nextResponse.redirect(307, "/signin");
+        const refreshToken = response.data.refreshToken;
+        if (jwtToken) {
+          setAuthCookie(nextResponse, jwtToken);
+        }
+        if (refreshToken) {
+          setRefreshCookie(nextResponse, refreshToken);
+        }
+        setIndicatorCookie(nextResponse);
+        return nextResponse.redirect(307, "/signin");
       } catch (err) {
-        console.log("IDP AUTH err", err);
+        console.error("IDP AUTH error", { status: err?.response?.status, message: err?.response?.data?.message });
       }
     }
   }
 
-  //something went wrong, redirect to signin page with
-  nextResponse.redirect(307, "/signin?redirect_reason=idp_auth_error");
+  //something went wrong, redirect to signin page
+  return nextResponse.redirect(307, "/signin?redirect_reason=idp_auth_error");
 }

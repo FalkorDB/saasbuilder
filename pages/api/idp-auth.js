@@ -38,11 +38,11 @@ export default async function handleAuth(nextRequest, nextResponse) {
         setIndicatorCookie(nextResponse);
         return nextResponse.redirect(307, "/signin");
       } catch (err) {
-        console.error("IDP AUTH error", err);
+        console.error("IDP AUTH error", { status: err?.response?.status, message: err?.response?.data?.message });
       }
     }
   }
 
-  //something went wrong, redirect to signin page with
-  nextResponse.redirect(307, "/signin?redirect_reason=idp_auth_error");
+  //something went wrong, redirect to signin page
+  return nextResponse.redirect(307, "/signin?redirect_reason=idp_auth_error");
 }

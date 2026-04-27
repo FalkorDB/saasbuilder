@@ -8,7 +8,7 @@ import Select from "src/components/FormElementsv2/Select/Select";
 import JobCompleted from "src/components/JobResource/JobCompleted";
 
 import useSnackbar from "../../../hooks/useSnackbar";
-import formatDateUTC from "../../../utils/formatDateUTC";
+import formatDateLocal from "../../../utils/formatDateLocal";
 import Card from "../../Card/Card";
 import LoadingSpinner from "../../LoadingSpinner/LoadingSpinner";
 import { Text } from "../../Typography/Typography";
@@ -166,7 +166,7 @@ function Metrics(props) {
 
     const metrics = data.Metrics;
 
-    const formattedDate = formatDateUTC(messageTime * 1000);
+    const formattedDate = formatDateLocal(messageTime * 1000);
 
     if (isOlderThanFourHours(messageTime)) {
     } else {

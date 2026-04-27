@@ -1,20 +1,12 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import useCustomNetworks from "app/(dashboard)/custom-networks/hooks/useCustomNetworks";
 import { useFormik } from "formik";
 import _, { cloneDeep } from "lodash";
-import { useEffect, useMemo, useState } from "react";
 import type { StringSchema } from "yup";
 import * as yup from "yup";
 
-import Button from "components/Button/Button";
-import CardWithTitle from "components/Card/CardWithTitle";
-import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
-import GridDynamicField from "components/DynamicForm/GridDynamicField";
-import PreviewCard from "components/DynamicForm/PreviewCard";
-import Form from "components/FormElementsv2/Form/Form";
-import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
-import { Text } from "components/Typography/Typography";
 import { $api } from "src/api/query";
 import { productTierTypes } from "src/constants/servicePlan";
 import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
@@ -27,12 +19,20 @@ import { ResourceInstance } from "src/types/resourceInstance";
 import { APIEntity } from "src/types/serviceOffering";
 import { isCloudAccountInstance } from "src/utils/access/byoaResource";
 import { checkBYOADeploymentInstance, getResultParams } from "src/utils/instance";
+import Button from "components/Button/Button";
+import CardWithTitle from "components/Card/CardWithTitle";
+import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
+import GridDynamicField from "components/DynamicForm/GridDynamicField";
+import PreviewCard from "components/DynamicForm/PreviewCard";
+import Form from "components/FormElementsv2/Form/Form";
+import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
+import { Text } from "components/Typography/Typography";
 
 import { REQUEST_PARAMS_FIELDS_TO_FILTER } from "../constants";
 import useCustomerVersionSets from "../hooks/useCustomerVersionSets";
 import useResources from "../hooks/useResources";
 import useResourceSchema from "../hooks/useResourceSchema";
-import { applyCustomDnsNormalization, filterSchemaByCloudProvider, getInitialValues } from "../utils";
+import { filterSchemaByCloudProvider, getInitialValues } from "../utils";
 
 import {
   getDeploymentConfigurationFields,
@@ -180,334 +180,325 @@ const InstanceForm = ({
     validateOnBlur: true,
     validateOnChange: true,
     onSubmit: async (values) => {
-      const offering = serviceOfferingsObj[values.serviceId]?.[values.servicePlanId];
+      try {
+        // Clean up requestParams cloud_provider_native_network_id before submitting
+        if ((values.requestParams as any)?.cloud_provider_native_network_id === "") {
+          delete (values.requestParams as any)?.cloud_provider_native_network_id;
+        }
 
-      // Determine if we should use version set resources or service offering resources
-      // Check for VERSION_SET_OVERRIDE feature with CUSTOMER scope in productTierFeatures
-      const allowCustomerVersionOverride =
-        offering?.productTierFeatures?.some(
-          (feature) => feature.feature === "VERSION_SET_OVERRIDE" && feature.scope === "CUSTOMER"
-        ) || false;
+        const offering = serviceOfferingsObj[values.serviceId]?.[values.servicePlanId];
 
-      let resourceKey = "";
+        // Determine if we should use version set resources or service offering resources
+        // Check for VERSION_SET_OVERRIDE feature with CUSTOMER scope in productTierFeatures
+        const allowCustomerVersionOverride =
+          offering?.productTierFeatures?.some(
+            (feature) => feature.feature === "VERSION_SET_OVERRIDE" && feature.scope === "CUSTOMER"
+          ) || false;
 
-      if (allowCustomerVersionOverride && values.productTierVersion) {
-        // Get resource from the selected version set
-        const selectedVersionSet = customerVersionSets.find(
-          (versionSet) => versionSet.version === values.productTierVersion
-        );
-        const selectedVersionSetResource = selectedVersionSet?.resources?.find(
-          (resource) => resource.id === values.resourceId
-        );
-        // For version set resources, use the resource id as the key
-        resourceKey = selectedVersionSetResource?.urlKey || "";
-      } else {
-        // Get resource from service offering
-        const selectedOfferingResource = offering?.resourceParameters.find(
-          (resource) => resource.resourceId === values.resourceId
-        );
-        // For service offering resources, use the urlKey
-        resourceKey = selectedOfferingResource?.urlKey || "";
-      }
+        let resourceKey = "";
 
-      const data: any = {
-        ...cloneDeep(values),
-      };
+        if (allowCustomerVersionOverride && values.productTierVersion) {
+          // Get resource from the selected version set
+          const selectedVersionSet = customerVersionSets.find(
+            (versionSet) => versionSet.version === values.productTierVersion
+          );
+          const selectedVersionSetResource = selectedVersionSet?.resources?.find(
+            (resource) => resource.id === values.resourceId
+          );
+          // For version set resources, use the resource id as the key
+          resourceKey = selectedVersionSetResource?.urlKey || "";
+        } else {
+          // Get resource from service offering
+          const selectedOfferingResource = offering?.resourceParameters.find(
+            (resource) => resource.resourceId === values.resourceId
+          );
+          // For service offering resources, use the urlKey
+          resourceKey = selectedOfferingResource?.urlKey || "";
+        }
 
-      // Remove productTierVersion if allowCustomerVersionOverride is false or if we're not creating
-      if (!allowCustomerVersionOverride || formMode !== "create") {
-        delete data.productTierVersion;
-      }
+        const data: any = {
+          ...cloneDeep(values),
+        };
 
-      const createSchema =
-        // eslint-disable-next-line no-use-before-define
-        resourceSchemaData?.apis?.find((api) => api.verb === "CREATE")?.inputParameters || [];
+        // Remove productTierVersion if allowCustomerVersionOverride is false or if we're not creating
+        if (!allowCustomerVersionOverride || formMode !== "create") {
+          delete data.productTierVersion;
+        }
 
-      const updateSchema =
-        // eslint-disable-next-line no-use-before-define
-        resourceSchemaData?.apis?.find((api) => api.verb === "UPDATE")?.inputParameters || [];
+        const createSchema =
+          // eslint-disable-next-line no-use-before-define
+          resourceSchemaData?.apis?.find((api) => api.verb === "CREATE")?.inputParameters || [];
 
-      const schema = formMode === "create" ? createSchema : updateSchema;
-      const filterSchema = filterSchemaByCloudProvider(schema, data.cloudProvider);
-      const inputParametersObj = filterSchema.reduce((acc: any, param: any) => {
-        acc[param.key] = param;
-        return acc;
-      }, {});
+        const updateSchema =
+          // eslint-disable-next-line no-use-before-define
+          resourceSchemaData?.apis?.find((api) => api.verb === "UPDATE")?.inputParameters || [];
 
-      if (formMode === "create") {
-        let isTypeError = false;
-        Object.keys(data.requestParams).forEach((key) => {
-          const result = filterSchema.find((schemaParam) => {
-            return schemaParam.key === key;
-          });
+        const schema = formMode === "create" ? createSchema : updateSchema;
+        const filterSchema = filterSchemaByCloudProvider(schema, data.cloudProvider);
+        const inputParametersObj = filterSchema.reduce((acc: any, param: any) => {
+          acc[param.key] = param;
+          return acc;
+        }, {});
 
-          switch (result?.type?.toLowerCase()) {
-            case "number":
-              data.requestParams[key] = Number(data.requestParams[key]);
-              break;
-            case "float64":
-              const output = Number(data.requestParams[key]);
-              if (!Number.isNaN(output)) {
+        if (formMode === "create") {
+          let isTypeError = false;
+          Object.keys(data.requestParams).forEach((key) => {
+            const result = filterSchema.find((schemaParam) => {
+              return schemaParam.key === key;
+            });
+
+            switch (result?.type?.toLowerCase()) {
+              case "number":
+                if (data.requestParams[key] === "") break;
                 data.requestParams[key] = Number(data.requestParams[key]);
-              } else {
-                snackbar.showError(`Invalid data in ${key}`);
+                break;
+              case "float64":
+                if (data.requestParams[key] === "") break;
+                const output = Number(data.requestParams[key]);
+                if (!Number.isNaN(output)) {
+                  data.requestParams[key] = Number(data.requestParams[key]);
+                } else {
+                  snackbar.showError(`Invalid data in ${key}`);
+                  isTypeError = true;
+                }
+                break;
+              case "boolean":
+                if (data.requestParams[key] === "true") data.requestParams[key] = true;
+                else data.requestParams[key] = false;
+                break;
+            }
+
+            if (
+              (key === "nodeInstanceType" &&
+                data.cloudProvider === "aws" &&
+                !data.requestParams["nodeInstanceType"].includes(".")) ||
+              (data.cloudProvider === "gcp" &&
+                data.requestParams?.["nodeInstanceType"] &&
+                !data.requestParams?.["nodeInstanceType"]?.includes("-"))
+            ) {
+              snackbar.showError(`Invalid Node Instance Type`);
+              isTypeError = true;
+            }
+
+            if (key === "falkordbUser") {
+              if (data.requestParams["falkordbUser"] && !/^[_a-zA-Z0-9]+$/.test(data.requestParams["falkordbUser"])) {
+                snackbar.showError(`Invalid FalkorDB User`);
                 isTypeError = true;
               }
-              break;
-            case "boolean":
-              if (data.requestParams[key] === "true") data.requestParams[key] = true;
-              else data.requestParams[key] = false;
-              break;
-            case "any":
-              // Ensure ANY type fields are always sent as strings
-              if (data.requestParams[key] !== undefined && data.requestParams[key] !== null) {
-                if (typeof data.requestParams[key] !== "string") {
-                  try {
-                    data.requestParams[key] = JSON.stringify(data.requestParams[key]);
-                  } catch {
-                    // If stringification fails, convert to empty string
-                    data.requestParams[key] = "";
-                  }
-                }
+              if (data.requestParams["falkordbUser"] && data.requestParams["falkordbUser"].length < 3) {
+                snackbar.showError(`FalkorDB User must be at least 3 characters long`);
               }
-              break;
+            }
+
+            if (key === "falkordbPassword") {
+              if (data.requestParams["falkordbPassword"] && data.requestParams["falkordbPassword"].length < 6) {
+                snackbar.showError(`FalkorDB Password must be at least 6 characters long`);
+                isTypeError = true;
+              }
+            }
+          });
+
+          if (isTypeError) {
+            return;
           }
-        });
-        // Remove Empty Fields from data.requestParams
 
-        for (const key in data.requestParams) {
-          if (
-            REQUEST_PARAMS_FIELDS_TO_FILTER.includes(key) &&
-            (data.requestParams[key] === "" || data.requestParams[key] === null)
-          ) {
-            delete data.requestParams[key];
+          for (const key in data.requestParams) {
+            const value = data.requestParams[key];
+
+            if (value === undefined || (typeof value === "string" && !value.trim())) {
+              delete data.requestParams[key];
+            }
           }
-        }
 
-        // Remove cloud_provider_native_network_id if cloudProvider is gcp or azure
-        if (data.cloudProvider === "gcp" || data.cloudProvider === "azure") {
-          delete data.requestParams.cloud_provider_native_network_id;
-        }
-
-        // Check for Required Fields
-        const requiredFields = filterSchema
-          .filter((field) => !["cloud_provider", "region"].includes(field.key))
-          .filter((schemaParam) => schemaParam.required);
-
-        data.cloud_provider = data.cloudProvider;
-        data.custom_network_id = data.requestParams.custom_network_id;
-
-        // For ON_PREM offerings: copy onprem_platform from root level to requestParams,
-        // and remove cloud_provider/cloudProvider since they're not relevant for on-prem
-        const isOnPremSubmission = offering?.serviceModelType === "ON_PREM" && inputParametersObj["onprem_platform"];
-        if (isOnPremSubmission) {
-          if (data.onprem_platform) {
-            data.requestParams.onprem_platform = data.onprem_platform;
+          // Remove cloud_provider_native_network_id if cloudProvider is gcp or azure
+          if (data.cloudProvider === "gcp" || data.cloudProvider === "azure") {
+            delete data.requestParams.cloud_provider_native_network_id;
           }
-          delete data.cloud_provider;
-          delete data.cloudProvider;
-          delete data.region;
-        } else {
-          delete data.requestParams.onprem_platform;
-        }
 
-        const networkTypeFieldExists =
-          inputParametersObj["cloud_provider"] &&
-          offering?.productTierType !== productTierTypes.OMNISTRATE_MULTI_TENANCY &&
-          offering?.supportsPublicNetwork;
+          // Check for Required Fields
+          const requiredFields = filterSchema
+            .filter((field) => !["cloud_provider", "region"].includes(field.key))
+            .filter((schemaParam) => schemaParam.required);
 
-        if (!data.network_type) {
-          delete data.network_type;
-        }
+          data.cloud_provider = data.cloudProvider;
+          data.custom_network_id = data.requestParams.custom_network_id;
 
-        if (!data.cloudProvider && inputParametersObj["cloud_provider"]) {
-          return snackbar.showError("Cloud Provider is required");
-        } else if (!data.region && inputParametersObj["region"]) {
-          return snackbar.showError("Region is required");
-        } else if (!data.network_type && networkTypeFieldExists) {
-          return snackbar.showError("Network Type is required");
-        }
+          const networkTypeFieldExists =
+            inputParametersObj["cloud_provider"] &&
+            offering?.productTierType !== productTierTypes.OMNISTRATE_MULTI_TENANCY &&
+            offering?.supportsPublicNetwork;
 
-        if (inputParametersObj["custom_dns_configuration"]) {
-          applyCustomDnsNormalization(data.requestParams, resourceKey);
-        }
+          if (!data.network_type) {
+            delete data.network_type;
+          }
 
-        for (const field of requiredFields) {
-          if (field.key === "custom_dns_configuration") {
-            const customDnsConfiguration = data.requestParams.custom_dns_configuration;
-            const hasCustomDnsValue =
-              customDnsConfiguration &&
-              typeof customDnsConfiguration === "object" &&
-              !Array.isArray(customDnsConfiguration) &&
-              Object.values(customDnsConfiguration).some((value) => typeof value === "string" && value.trim());
+          if (!data.cloudProvider && inputParametersObj["cloud_provider"]) {
+            return snackbar.showError("Cloud Provider is required");
+          } else if (!data.region && inputParametersObj["region"]) {
+            return snackbar.showError("Region is required");
+          } else if (!data.network_type && networkTypeFieldExists) {
+            return snackbar.showError("Network Type is required");
+          }
 
-            if (field.required && !hasCustomDnsValue) {
+          if (inputParametersObj["custom_dns_configuration"] && data.requestParams["custom_dns_configuration"]) {
+            data.requestParams.custom_dns_configuration = {
+              [resourceKey]: data.requestParams.custom_dns_configuration,
+            };
+          }
+
+          for (const field of requiredFields) {
+            if (data.requestParams[field.key] === undefined) {
               snackbar.showError(`${field.displayName || field.key} is required`);
               return;
             }
-
-            continue;
           }
 
-          if (data.requestParams[field.key] === undefined || (field.required && data.requestParams[field.key] === "")) {
-            snackbar.showError(`${field.displayName || field.key} is required`);
-            return;
-          }
-        }
-
-        if (!isTypeError) {
-          createInstanceMutation.mutate({
-            params: {
-              path: {
-                serviceProviderId: offering?.serviceProviderId,
-                serviceKey: offering?.serviceURLKey,
-                serviceAPIVersion: offering?.serviceAPIVersion,
-                serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
-                serviceModelKey: offering?.serviceModelURLKey,
-                productTierKey: offering?.productTierURLKey,
-                resourceKey: resourceKey,
+          if (!isTypeError) {
+            createInstanceMutation.mutate({
+              params: {
+                path: {
+                  serviceProviderId: offering?.serviceProviderId,
+                  serviceKey: offering?.serviceURLKey,
+                  serviceAPIVersion: offering?.serviceAPIVersion,
+                  serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
+                  serviceModelKey: offering?.serviceModelURLKey,
+                  productTierKey: offering?.productTierURLKey,
+                  resourceKey: resourceKey,
+                },
+                query: {
+                  subscriptionId: values.subscriptionId,
+                },
               },
-              query: {
-                subscriptionId: values.subscriptionId,
-              },
-            },
 
-            body: data,
-          });
-        }
-      } else {
-        // Only send the fields that have changed
-        const requestParams = {},
-          oldResultParams = getResultParams(selectedInstance);
-
-        for (const key in data.requestParams) {
-          const value = data.requestParams[key];
-          if (oldResultParams[key] !== value) {
-            requestParams[key] = value;
+              body: data,
+            });
           }
-        }
+        } else {
+          // Only send the fields that have changed
+          const requestParams = {},
+            oldResultParams = selectedInstance?.result_params;
 
-        data.requestParams = requestParams;
-        delete data.requestParams.network_type;
-        delete data.requestParams.custom_network_id;
-        delete data.requestParams.custom_availability_zone;
-
-        // Include customTags if they have changed
-        const oldCustomTags = selectedInstance?.customTags || [];
-        const newCustomTags = data.customTags || [];
-
-        let hasCustomTagsChanged = false;
-        if (!_.isEqual(oldCustomTags, newCustomTags)) {
-          data.customTags = newCustomTags.filter((tag) => tag.key && tag.value);
-          hasCustomTagsChanged = true;
-        }
-
-        if (
-          !Object.keys(requestParams).length &&
-          data.network_type === selectedInstance?.network_type &&
-          !hasCustomTagsChanged
-        ) {
-          return snackbar.showError("Please update at least one field before submitting");
-        }
-
-        let isTypeError = false;
-
-        schema.forEach((schemaParam) => {
-          // Skip required validation for these fields as they are handled separately
-          if (REQUEST_PARAMS_FIELDS_TO_FILTER.includes(schemaParam.key)) {
-            return;
+          for (const key in data.requestParams) {
+            const value = data.requestParams[key];
+            if (oldResultParams[key] !== value) {
+              requestParams[key] = value;
+            }
           }
-          if (schemaParam?.required && !oldResultParams[schemaParam?.key] && !data.requestParams[schemaParam?.key]) {
-            snackbar.showError(`${schemaParam.displayName || schemaParam.key} is required`);
-            isTypeError = true;
-            return;
+
+          data.requestParams = requestParams;
+          delete data.requestParams.network_type;
+          delete data.requestParams.custom_network_id;
+          delete data.requestParams.custom_availability_zone;
+
+          // Include customTags if they have changed
+          const oldCustomTags = selectedInstance?.customTags || [];
+          const newCustomTags = data.customTags || [];
+
+          let hasCustomTagsChanged = false;
+          if (!_.isEqual(oldCustomTags, newCustomTags)) {
+            data.customTags = newCustomTags.filter((tag) => tag.key && tag.value);
+            hasCustomTagsChanged = true;
           }
-        });
 
-        Object.keys(data.requestParams).forEach((key) => {
-          const result = schema.find((schemaParam) => {
-            return schemaParam.key === key;
-          });
-
-          // Check if required field is missing or empty
           if (
-            result?.required &&
-            (data.requestParams[key] === undefined ||
-              data.requestParams[key] === null ||
-              data.requestParams[key] === "")
+            !Object.keys(requestParams).length &&
+            data.network_type === selectedInstance?.network_type &&
+            !hasCustomTagsChanged
           ) {
-            snackbar.showError(`${result.displayName || key} is required`);
-            isTypeError = true;
-            return;
+            return snackbar.showError("Please update at least one field before submitting");
           }
 
-          switch (result?.type?.toLowerCase()) {
-            case "number":
-              data.requestParams[key] = Number(data.requestParams[key]);
-              break;
-            case "float64":
-              const output = Number(data.requestParams[key]);
-              if (!Number.isNaN(output)) {
+          let isTypeError = false;
+          Object.keys(data.requestParams).forEach((key) => {
+            const result = schema.find((schemaParam) => {
+              return schemaParam.key === key;
+            });
+
+            // Check if required field is missing or empty
+            if (
+              result?.required &&
+              (data.requestParams[key] === undefined ||
+                data.requestParams[key] === null ||
+                data.requestParams[key] === "")
+            ) {
+              snackbar.showError(`${result.displayName || key} is required`);
+              isTypeError = true;
+              return;
+            }
+
+            switch (result?.type?.toLowerCase()) {
+              case "number":
+                if (data.requestParams[key] === "") break;
                 data.requestParams[key] = Number(data.requestParams[key]);
-              } else {
-                snackbar.showError(`Invalid data in ${key}`);
+                break;
+              case "float64":
+                if (data.requestParams[key] === "") break;
+                const output = Number(data.requestParams[key]);
+                if (!Number.isNaN(output)) {
+                  data.requestParams[key] = Number(data.requestParams[key]);
+                } else {
+                  snackbar.showError(`Invalid data in ${key}`);
+                  isTypeError = true;
+                }
+                break;
+              case "boolean":
+                if (data.requestParams[key] === "true") data.requestParams[key] = true;
+                else data.requestParams[key] = false;
+                break;
+            }
+
+            if (key === "falkordbUser") {
+              if (data.requestParams["falkordbUser"] && !/^[_a-zA-Z0-9]+$/.test(data.requestParams["falkordbUser"])) {
+                snackbar.showError(`Invalid FalkorDB User`);
                 isTypeError = true;
               }
-              break;
-            case "boolean":
-              if (data.requestParams[key] === "true") data.requestParams[key] = true;
-              else data.requestParams[key] = false;
-              break;
-            case "any":
-              // Ensure ANY type fields are always sent as strings
-              if (data.requestParams[key] !== undefined && data.requestParams[key] !== null) {
-                if (typeof data.requestParams[key] !== "string") {
-                  try {
-                    data.requestParams[key] = JSON.stringify(data.requestParams[key]);
-                  } catch {
-                    // If stringification fails, convert to empty string
-                    data.requestParams[key] = "";
-                  }
-                }
+              if (data.requestParams["falkordbUser"] && data.requestParams["falkordbUser"].length < 3) {
+                snackbar.showError(`FalkorDB User must be at least 3 characters long`);
               }
-              break;
-          }
-        });
+            }
 
-        // Remove Empty Fields from data.requestParams
-        for (const key in data.requestParams) {
-          if (
-            REQUEST_PARAMS_FIELDS_TO_FILTER.includes(key) &&
-            (data.requestParams[key] === "" || data.requestParams[key] === null)
-          ) {
-            delete data.requestParams[key];
-          }
-        }
-
-        if (inputParametersObj["custom_dns_configuration"]) {
-          applyCustomDnsNormalization(data.requestParams, resourceKey);
-        }
-
-        if (!isTypeError) {
-          updateInstanceMutation.mutate({
-            params: {
-              path: {
-                serviceProviderId: offering?.serviceProviderId,
-                serviceKey: offering?.serviceURLKey,
-                serviceAPIVersion: offering?.serviceAPIVersion,
-                serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
-                serviceModelKey: offering?.serviceModelURLKey,
-                productTierKey: offering?.productTierURLKey,
-                resourceKey: resourceKey,
-                id: selectedInstance?.id,
-              },
-              query: {
-                subscriptionId: values.subscriptionId,
-              },
-            },
-            body: data,
+            if (key === "falkordbPassword") {
+              if (data.requestParams["falkordbPassword"] && data.requestParams["falkordbPassword"].length < 6) {
+                snackbar.showError(`FalkorDB Password must be at least 6 characters long`);
+                isTypeError = true;
+              }
+            }
           });
+
+          // Remove Empty Fields from data.requestParams
+          for (const key in data.requestParams) {
+            const value = data.requestParams[key];
+
+            if (value === undefined || (typeof value === "string" && !value.trim())) {
+              delete data.requestParams[key];
+            }
+          }
+
+          if (!isTypeError) {
+            updateInstanceMutation.mutate({
+              params: {
+                path: {
+                  serviceProviderId: offering?.serviceProviderId,
+                  serviceKey: offering?.serviceURLKey,
+                  serviceAPIVersion: offering?.serviceAPIVersion,
+                  serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
+                  serviceModelKey: offering?.serviceModelURLKey,
+                  productTierKey: offering?.productTierURLKey,
+                  resourceKey: resourceKey,
+                  id: selectedInstance?.id,
+                },
+                query: {
+                  subscriptionId: values.subscriptionId,
+                },
+              },
+              body: data,
+            });
+          }
         }
+      } catch (error) {
+        console.error("Error submitting form:", error);
+        snackbar.showError("An error occurred while submitting the form.");
+        return;
       }
     },
   });
@@ -728,7 +719,7 @@ const InstanceForm = ({
   // Check if the current offering is on-prem (has onprem_platform in input params)
   const isOnPremOffering = Boolean(
     offering?.serviceModelType === "ON_PREM" &&
-      resourceCreateSchema?.inputParameters?.some((field) => field.key === "onprem_platform")
+    resourceCreateSchema?.inputParameters?.some((field) => field.key === "onprem_platform")
   );
 
   // Update validation schema when requestParams validation changes
@@ -798,6 +789,13 @@ const InstanceForm = ({
 
     const defaultValues = inputParameters.reduce((acc: any, param: any) => {
       acc[param.key] = param.defaultValue || "";
+      if (param.key === "nodeInstanceType") {
+        if (formData.values.cloudProvider === "aws") {
+          acc[param.key] = "m6i.large";
+        } else if (formData.values.cloudProvider === "gcp") {
+          acc[param.key] = "e2-standard-2";
+        }
+      }
       return acc;
     }, {});
 

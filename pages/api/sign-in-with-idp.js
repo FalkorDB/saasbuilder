@@ -7,9 +7,13 @@ export default async function handleSignIn(nextRequest, nextResponse) {
   if (nextRequest.method === "POST") {
     try {
       const environmentType = getEnvironmentType();
+      const { identityProviderName, authorizationCode, redirectUri, state } = nextRequest.body || {};
       const requestBody = {
-        ...nextRequest.body,
-        environmentType: environmentType,
+        identityProviderName,
+        authorizationCode,
+        redirectUri,
+        state,
+        environmentType,
       };
       const saasDomainURL = getSaaSDomainURL();
 
@@ -17,7 +21,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
 
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP;
 
@@ -37,7 +41,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
 
       nextResponse.status(200).send({ ...rest });
     } catch (error) {
-      console.log("IDP Error", error);
+      console.error("IDP sign in error", { status: error?.response?.status, message: error?.response?.data?.message });
       const defaultErrorMessage = "Something went wrong. Please retry";
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {

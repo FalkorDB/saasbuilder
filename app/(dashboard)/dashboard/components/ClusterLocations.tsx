@@ -1,6 +1,6 @@
-import { Box, Stack, styled } from "@mui/material";
+import { FC, Suspense } from "react";
 import dynamic from "next/dynamic";
-import { FC } from "react";
+import { Box, Stack, styled } from "@mui/material";
 
 import ClusterLocationsIcon from "src/components/Icons/Dashboard/ClusterLocations";
 import { Text } from "src/components/Typography/Typography";
@@ -105,7 +105,9 @@ const ClusterLocations: FC<ClusterLocationsProps> = (props) => {
         </Text>
       </Stack>
       <Box marginTop="8px" sx={{ marginInline: "auto", maxWidth: "1200px" }}>
-        <DottedWorldMap regionsWithInstanceCount={regionsWithInstanceCount} />
+        <Suspense fallback={null}>
+          <DottedWorldMap regionsWithInstanceCount={regionsWithInstanceCount} />
+        </Suspense>
       </Box>
     </ContainerCard>
   );

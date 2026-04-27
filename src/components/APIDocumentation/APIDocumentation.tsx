@@ -1,4 +1,5 @@
 // import SwaggerDocs from "../SwaggerDocs/SwaggerDocs";
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
 
 import useServiceApiDocsData from "src/hooks/useServiceApiDocsData";
@@ -31,7 +32,9 @@ const APIDocumentation: React.FC<APIDocumentationProps> = ({ serviceId, serviceA
           </Text>
         </div>
       ) : (
-        <SwaggerDocs data={serviceAPIDocs} />
+        <Suspense fallback={null}>
+          <SwaggerDocs data={serviceAPIDocs} />
+        </Suspense>
       )}
     </CardWithTitle>
   );

@@ -9,13 +9,12 @@ export default async function handleSignup(nextRequest, nextResponse) {
     try {
       const requestBody = nextRequest.body || {};
       const isReCaptchaSetup = checkReCaptchaSetup();
+      const { email, password, name, companyDescription, reCaptchaToken } = requestBody;
       if (isReCaptchaSetup) {
-        const { reCaptchaToken } = requestBody;
         const isVerified = await verifyRecaptchaToken(reCaptchaToken);
         if (!isVerified) throw new CaptchaVerificationError();
       }
 
-      const { password, email } = requestBody;
       if (password && typeof password === "string") {
         if (!password.match(passwordRegex)) {
           return nextResponse.status(400).send({ message: passwordRegexFailText });
@@ -26,22 +25,22 @@ export default async function handleSignup(nextRequest, nextResponse) {
       }
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP || "";
 
-      await customerUserSignUp(nextRequest.body, {
+      await customerUserSignUp({ email, password, name, companyDescription }, {
         "Client-IP": clientIP,
         "SaaSBuilder-IP": saasBuilderIP,
       });
 
-      nextResponse.status(200).send();
+      return nextResponse.status(200).send();
     } catch (error) {
-      console.error(error?.response);
+      console.error("Error in signup", { status: error?.response?.status, message: error?.response?.data?.message });
       const defaultErrorMessage = "Something went wrong. Please retry";
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
-        nextResponse.status(500).send({
+        return nextResponse.status(500).send({
           message: defaultErrorMessage,
         });
       } else {
@@ -50,17 +49,17 @@ export default async function handleSignup(nextRequest, nextResponse) {
         if (
           responseErrorMessage?.toLowerCase() === "tenant already exists" ||
           responseErrorMessage?.toLowerCase() ===
-            "tenant with a valid token already exists, wait for the current token to expire"
+          "tenant with a valid token already exists, wait for the current token to expire"
         ) {
-          nextResponse.status(200).send();
+          return nextResponse.status(200).send();
         }
-        nextResponse.status(error.response?.status || 500).send({
+        return nextResponse.status(error.response?.status || 500).send({
           message: responseErrorMessage || defaultErrorMessage,
         });
       }
     }
   } else {
-    nextResponse.status(404).json({
+    return nextResponse.status(404).json({
       message: "Endpoint not found",
     });
   }

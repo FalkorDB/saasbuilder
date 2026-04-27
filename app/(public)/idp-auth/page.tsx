@@ -14,6 +14,7 @@ import checkRouteValidity from "src/utils/route/checkRouteValidity";
 import { getInstancesRoute } from "src/utils/routes";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import { Text } from "components/Typography/Typography";
+import { IDENTITY_PROVIDER_TYPES } from "app/(public)/(main-image)/signin/constants";
 
 const IDPAuthPage = () => {
   const environmentType = useEnvironmentType();

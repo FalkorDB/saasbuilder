@@ -1,4 +1,5 @@
 import { SxProps } from "@mui/material";
+import { fromProvider } from "cloud-regions-country-flags";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 
@@ -128,7 +129,15 @@ export const getResourceMenuItems = (offering: ServiceOffering) => {
     });
   });
 
-  return menuItems.sort((a, b) => a.label.localeCompare(b.label));
+  if (offering.productTierName === "FalkorDB Pro") {
+    return menuItems.filter((item) => !["Cluster-Single-Zone", "Cluster-Multi-Zone"].includes(item.label));
+  }
+
+  return menuItems.sort((a, b) => {
+    const order = ["Standalone", "Single-Zone", "Multi-Zone", "Cluster-Single-Zone", "Cluster-Multi-Zone", "Grafana"];
+
+    return order.indexOf(a.label) - order.indexOf(b.label);
+  });
 };
 
 export const getVersionSetResourceMenuItems = (versionSet?: TierVersionSet) => {
@@ -148,7 +157,12 @@ export const getVersionSetResourceMenuItems = (versionSet?: TierVersionSet) => {
     .map((resource) => ({
       label: resource.name,
       value: resource.id,
-    }));
+    }))
+    .sort((a, b) => {
+      const order = ["Standalone", "Single-Zone", "Multi-Zone", "Cluster-Single-Zone", "Cluster-Multi-Zone", "Grafana"];
+
+      return order.indexOf(a.label) - order.indexOf(b.label);
+    });
 };
 
 export const getRegionMenuItems = (offering?: ServiceOffering, cloudProvider?: CloudProvider) => {
@@ -161,14 +175,14 @@ export const getRegionMenuItems = (offering?: ServiceOffering, cloudProvider?: C
   if (cloudProvider === "aws") {
     offering.awsRegions?.forEach((region: string) => {
       menuItems.push({
-        label: region,
+        label: `${fromProvider(region, "AWS").flag} ${region}`,
         value: region,
       });
     });
   } else if (cloudProvider === "gcp") {
     offering.gcpRegions?.forEach((region: string) => {
       menuItems.push({
-        label: region,
+        label: `${fromProvider(region, "GCP").flag} ${region}`,
         value: region,
       });
     });
@@ -176,7 +190,7 @@ export const getRegionMenuItems = (offering?: ServiceOffering, cloudProvider?: C
     // @ts-ignore
     offering.azureRegions?.forEach((region: string) => {
       menuItems.push({
-        label: region,
+        label: `${fromProvider(region, "AZURE").flag} ${region}`,
         value: region,
       });
     });

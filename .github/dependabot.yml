@@ -10,25 +10,25 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    groups: 
+    groups:
       github-actions:
         dependency-type: "production"
         update-types:
-        - "minor"
-        - "patch"
+          - "minor"
+          - "patch"
 
-  - package-ecosystem: "npm" 
+  - package-ecosystem: "npm"
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
-    groups: 
+    groups:
       npm-updates:
         dependency-type: "production"
         update-types:
-        - "minor"
-        - "patch"
+          - "minor"
+          - "patch"
 
-  - package-ecosystem: "docker" 
+  - package-ecosystem: "docker"
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"

@@ -29,9 +29,25 @@ function appendSetCookieHeader(res: NextApiResponse, cookie: string) {
 }
 
 /**
+ * Clears a cookie WITHOUT a Domain attribute (host-only cookie).
+ * Used to remove legacy cookies that were set before the domain-scoped cookie
+ * migration so the browser stops sending duplicate cookies with the same name.
+ */
+function clearHostOnlyCookie(res: NextApiResponse, name: string, httpOnly = true) {
+  const parts = [`${name}=`, `Path=/`, `SameSite=Lax`, `Max-Age=0`];
+  if (httpOnly) parts.push("HttpOnly");
+  if (isSecure) parts.push("Secure");
+  appendSetCookieHeader(res, parts.join("; "));
+}
+
+/**
  * Sets the httpOnly auth cookie on the response.
  */
 export function setAuthCookie(res: NextApiResponse, token: string) {
+  // When switching to a domain-scoped cookie, clear the old host-only cookie
+  // to prevent the browser from sending duplicate cookies with the same name.
+  if (cookieDomain) clearHostOnlyCookie(res, COOKIE_NAME);
+
   const parts = [`${COOKIE_NAME}=${token}`, `Path=/`, `HttpOnly`, `SameSite=Lax`, `Max-Age=${MAX_AGE}`];
   if (cookieDomain) parts.push(`Domain=${cookieDomain}`);
   if (isSecure) parts.push("Secure");
@@ -43,6 +59,8 @@ export function setAuthCookie(res: NextApiResponse, token: string) {
  * Sets the httpOnly refresh token cookie on the response.
  */
 export function setRefreshCookie(res: NextApiResponse, refreshToken: string) {
+  if (cookieDomain) clearHostOnlyCookie(res, REFRESH_COOKIE_NAME);
+
   const parts = [
     `${REFRESH_COOKIE_NAME}=${refreshToken}`,
     `Path=/`,
@@ -61,6 +79,8 @@ export function setRefreshCookie(res: NextApiResponse, refreshToken: string) {
  * Used by server-side auth handlers (idp-auth, signin) that redirect before client JS runs.
  */
 export function setIndicatorCookie(res: NextApiResponse) {
+  if (cookieDomain) clearHostOnlyCookie(res, "omnistrate_logged_in", false);
+
   // Not HttpOnly — must be readable by client-side JavaScript
   const parts = [`omnistrate_logged_in=true`, `Path=/`, `SameSite=Lax`, `Max-Age=${REFRESH_MAX_AGE}`];
   if (cookieDomain) parts.push(`Domain=${cookieDomain}`);
@@ -73,6 +93,9 @@ export function setIndicatorCookie(res: NextApiResponse) {
  * Clears the httpOnly auth cookie by setting Max-Age=0.
  */
 export function clearAuthCookie(res: NextApiResponse) {
+  // Also clear the old host-only cookie if we're using domain-scoped cookies
+  if (cookieDomain) clearHostOnlyCookie(res, COOKIE_NAME);
+
   const parts = [`${COOKIE_NAME}=`, `Path=/`, `HttpOnly`, `SameSite=Lax`, `Max-Age=0`];
   if (cookieDomain) parts.push(`Domain=${cookieDomain}`);
   if (isSecure) parts.push("Secure");
@@ -84,6 +107,8 @@ export function clearAuthCookie(res: NextApiResponse) {
  * Clears the httpOnly refresh token cookie by setting Max-Age=0.
  */
 export function clearRefreshCookie(res: NextApiResponse) {
+  if (cookieDomain) clearHostOnlyCookie(res, REFRESH_COOKIE_NAME);
+
   const parts = [`${REFRESH_COOKIE_NAME}=`, `Path=/`, `HttpOnly`, `SameSite=Lax`, `Max-Age=0`];
   if (cookieDomain) parts.push(`Domain=${cookieDomain}`);
   if (isSecure) parts.push("Secure");

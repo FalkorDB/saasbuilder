@@ -11,6 +11,13 @@ const REFRESH_MAX_AGE = 604800;
 const isSecure = process.env.NODE_ENV === "production";
 
 /**
+ * Optional shared cookie domain (e.g. ".falkordb.cloud").
+ * When set, auth cookies are accessible to all subdomains under this domain,
+ * which allows the Grafana iframe (on a sibling subdomain) to receive them.
+ */
+const cookieDomain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN;
+
+/**
  * Appends a Set-Cookie header without overwriting existing ones.
  * Next.js's res.setHeader("Set-Cookie", ...) overwrites previous values,
  * so we read existing cookies and append to the array.
@@ -26,6 +33,7 @@ function appendSetCookieHeader(res: NextApiResponse, cookie: string) {
  */
 export function setAuthCookie(res: NextApiResponse, token: string) {
   const parts = [`${COOKIE_NAME}=${token}`, `Path=/`, `HttpOnly`, `SameSite=Lax`, `Max-Age=${MAX_AGE}`];
+  if (cookieDomain) parts.push(`Domain=${cookieDomain}`);
   if (isSecure) parts.push("Secure");
 
   appendSetCookieHeader(res, parts.join("; "));
@@ -42,6 +50,7 @@ export function setRefreshCookie(res: NextApiResponse, refreshToken: string) {
     `SameSite=Lax`,
     `Max-Age=${REFRESH_MAX_AGE}`,
   ];
+  if (cookieDomain) parts.push(`Domain=${cookieDomain}`);
   if (isSecure) parts.push("Secure");
 
   appendSetCookieHeader(res, parts.join("; "));
@@ -54,6 +63,7 @@ export function setRefreshCookie(res: NextApiResponse, refreshToken: string) {
 export function setIndicatorCookie(res: NextApiResponse) {
   // Not HttpOnly — must be readable by client-side JavaScript
   const parts = [`omnistrate_logged_in=true`, `Path=/`, `SameSite=Lax`, `Max-Age=${REFRESH_MAX_AGE}`];
+  if (cookieDomain) parts.push(`Domain=${cookieDomain}`);
   if (isSecure) parts.push("Secure");
 
   appendSetCookieHeader(res, parts.join("; "));
@@ -64,6 +74,7 @@ export function setIndicatorCookie(res: NextApiResponse) {
  */
 export function clearAuthCookie(res: NextApiResponse) {
   const parts = [`${COOKIE_NAME}=`, `Path=/`, `HttpOnly`, `SameSite=Lax`, `Max-Age=0`];
+  if (cookieDomain) parts.push(`Domain=${cookieDomain}`);
   if (isSecure) parts.push("Secure");
 
   appendSetCookieHeader(res, parts.join("; "));
@@ -74,6 +85,7 @@ export function clearAuthCookie(res: NextApiResponse) {
  */
 export function clearRefreshCookie(res: NextApiResponse) {
   const parts = [`${REFRESH_COOKIE_NAME}=`, `Path=/`, `HttpOnly`, `SameSite=Lax`, `Max-Age=0`];
+  if (cookieDomain) parts.push(`Domain=${cookieDomain}`);
   if (isSecure) parts.push("Secure");
 
   appendSetCookieHeader(res, parts.join("; "));
@@ -89,7 +101,11 @@ type CookieRequest = NextApiRequest | { cookies: { get(name: string): { value: s
  * Works with both Pages API routes (req.cookies is plain object) and Edge middleware (req.cookies.get()).
  */
 export function getAuthToken(req: CookieRequest): string | undefined {
-  if (req.cookies && typeof req.cookies === "object" && !("get" in req.cookies && typeof req.cookies.get === "function")) {
+  if (
+    req.cookies &&
+    typeof req.cookies === "object" &&
+    !("get" in req.cookies && typeof req.cookies.get === "function")
+  ) {
     return (req.cookies as Record<string, string>)[COOKIE_NAME];
   }
   return (req.cookies as { get(name: string): { value: string } | undefined })?.get(COOKIE_NAME)?.value;
@@ -99,7 +115,11 @@ export function getAuthToken(req: CookieRequest): string | undefined {
  * Reads the refresh token from the request cookies.
  */
 export function getRefreshToken(req: CookieRequest): string | undefined {
-  if (req.cookies && typeof req.cookies === "object" && !("get" in req.cookies && typeof req.cookies.get === "function")) {
+  if (
+    req.cookies &&
+    typeof req.cookies === "object" &&
+    !("get" in req.cookies && typeof req.cookies.get === "function")
+  ) {
     return (req.cookies as Record<string, string>)[REFRESH_COOKIE_NAME];
   }
   return (req.cookies as { get(name: string): { value: string } | undefined })?.get(REFRESH_COOKIE_NAME)?.value;

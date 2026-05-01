@@ -1,5 +1,5 @@
 import { Box } from "@mui/system";
-import DOMPurify from "isomorphic-dompurify";
+import { sanitizeHtml } from "src/utils/sanitizeHtml";
 import { FC } from "react";
 
 import { Text } from "components/Typography/Typography";
@@ -23,7 +23,7 @@ const ReleaseNotesCard: FC<ReleaseNotesCardProps> = ({ releaseNotes }) => {
               color: "#535862",
             }}
             dangerouslySetInnerHTML={{
-              __html: DOMPurify.sanitize(releaseNotes),
+              __html: sanitizeHtml(releaseNotes),
             }}
           />
         ) : (

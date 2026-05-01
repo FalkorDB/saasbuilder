@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Tab, Tabs } from "@mui/material";
-import DOMPurify from "isomorphic-dompurify";
+import { sanitizeHtml } from "src/utils/sanitizeHtml";
 
 import useDownloadCLI from "src/hooks/useDownloadCLI";
 import { colors } from "src/themeConfig";
@@ -91,7 +91,7 @@ const ServicePlanDetails: React.FC<ServicePlanDetailsProps> = ({ serviceOffering
               className={"ql-editor"}
               style={{ wordBreak: "break-word" }}
               dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(
+                __html: sanitizeHtml(
                   currentTab === "plan-details"
                     ? serviceOffering.productTierPlanDescription
                     : currentTab === "documentation"

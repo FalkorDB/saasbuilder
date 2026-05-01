@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { Box } from "@mui/material";
-import DOMPurify from "isomorphic-dompurify";
+import { sanitizeHtml } from "src/utils/sanitizeHtml";
 
 import { styleConfig } from "src/providerConfig";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
@@ -179,7 +179,7 @@ const PrivacyPolicyPage = () => {
                 },
               }}
               dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(orgPrivacyPolicy),
+                __html: sanitizeHtml(orgPrivacyPolicy),
               }}
             />
           </article>

@@ -102,7 +102,7 @@ async function verifyEnvironmentVariables() {
       envVariablesStatus["MAIL_USER_EMAIL"] = environmentVariableStatuses.Verified;
       envVariablesStatus["MAIL_USER_PASSWORD"] = environmentVariableStatuses.Verified;
 
-      ("Mail credentials verification success");
+      console.log("Mail credentials verification success");
     } catch (error) {
       console.error(error);
       envVariablesStatus["MAIL_USER_EMAIL"] = environmentVariableStatuses.Invalid;

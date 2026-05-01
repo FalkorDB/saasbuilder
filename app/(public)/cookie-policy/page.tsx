@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Box, styled } from "@mui/material";
-import DOMPurify from "isomorphic-dompurify";
+import { sanitizeHtml } from "src/utils/sanitizeHtml";
 
 import { styleConfig } from "src/providerConfig";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
@@ -137,7 +137,7 @@ const CookiePolicyPage = () => {
                 },
               }}
               dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(orgCookiePolicy),
+                __html: sanitizeHtml(orgCookiePolicy),
               }}
             />
           </article>

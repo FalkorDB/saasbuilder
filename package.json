@@ -49,7 +49,6 @@
     "express": "^4.21.2",
     "formik": "^2.2.9",
     "generate-password": "^1.7.1",
-    "isomorphic-dompurify": "^2.23.0",
     "js-base64": "^3.7.5",
     "js-cookie": "^3.0.1",
     "jwt-decode": "^4.0.0",

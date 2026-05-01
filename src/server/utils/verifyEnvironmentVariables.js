@@ -83,12 +83,13 @@ async function verifyEnvironmentVariables() {
         environmentVariableStatuses.Verified;
 
       console.log("Provider credentials verification success");
-    } catch {
+    } catch (error) {
+      console.error(error);
       envVariablesStatus["PROVIDER_EMAIL"] = environmentVariableStatuses.Invalid;
       envVariablesStatus[isUsingHashedPassword ? "PROVIDER_HASHED_PASS" : "PROVIDER_PASSWORD"] =
         environmentVariableStatuses.Invalid;
 
-      console.log("Provider credentials verification failure");
+      console.error("Provider credentials verification failure");
     }
   }
 
@@ -101,13 +102,13 @@ async function verifyEnvironmentVariables() {
       envVariablesStatus["MAIL_USER_EMAIL"] = environmentVariableStatuses.Verified;
       envVariablesStatus["MAIL_USER_PASSWORD"] = environmentVariableStatuses.Verified;
 
-      console.log("Mail credentials verification success");
+      ("Mail credentials verification success");
     } catch (error) {
       console.error(error);
       envVariablesStatus["MAIL_USER_EMAIL"] = environmentVariableStatuses.Invalid;
       envVariablesStatus["MAIL_USER_PASSWORD"] = environmentVariableStatuses.Invalid;
 
-      console.log("Mail credentials verification failure");
+      console.error("Mail credentials verification failure");
     }
   }
 

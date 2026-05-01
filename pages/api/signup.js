@@ -9,7 +9,7 @@ export default async function handleSignup(nextRequest, nextResponse) {
     try {
       const requestBody = nextRequest.body || {};
       const isReCaptchaSetup = checkReCaptchaSetup();
-      const { email, password, name, companyDescription, reCaptchaToken } = requestBody;
+      const { email, password, name, legalCompanyName, companyUrl, companyDescription, reCaptchaToken } = requestBody;
       if (isReCaptchaSetup) {
         const isVerified = await verifyRecaptchaToken(reCaptchaToken);
         if (!isVerified) throw new CaptchaVerificationError();
@@ -29,7 +29,7 @@ export default async function handleSignup(nextRequest, nextResponse) {
       const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP || "";
 
-      await customerUserSignUp({ email, password, name, companyDescription }, {
+      await customerUserSignUp({ email, password, name, legalCompanyName, companyUrl, companyDescription }, {
         "Client-IP": clientIP,
         "SaaSBuilder-IP": saasBuilderIP,
       });

@@ -40,7 +40,7 @@ const signupValidationSchema = Yup.object({
   confirmPassword: Yup.string()
     .required("Re-enter your password")
     .oneOf([Yup.ref("password"), null], "Passwords must match"),
-  legalcompanyname: Yup.string().required("Company name is required"),
+  legalCompanyName: Yup.string().required("Company name is required"),
 });
 
 const SignupPage = (props) => {
@@ -113,9 +113,9 @@ const SignupPage = (props) => {
       email: "",
       password: "",
       confirmPassword: "",
-      legalcompanyname: "",
-      companydescription: "",
-      companyurl: "",
+      legalCompanyName: "",
+      companyDescription: "",
+      companyUrl: "",
       userSource: "",
     },
     enableReinitialize: true,
@@ -137,10 +137,10 @@ const SignupPage = (props) => {
     const updatedValues: any = {};
 
     if (org) {
-      updatedValues.legalcompanyname = decodeURIComponent(org).trim();
+      updatedValues.legalCompanyName = decodeURIComponent(org).trim();
     }
     if (orgUrl) {
-      updatedValues.companyurl = decodeURIComponent(orgUrl).trim();
+      updatedValues.companyUrl = decodeURIComponent(orgUrl).trim();
     }
     if (email) {
       updatedValues.email = decodeURIComponent(email).trim();
@@ -159,7 +159,7 @@ const SignupPage = (props) => {
     }));
 
     if (org && orgUrl && email) {
-      const readOnlyFields = ["legalcompanyname", "companyurl", "email"];
+      const readOnlyFields = ["legalCompanyName", "companyUrl", "email"];
 
       readOnlyFields.forEach((fieldName) => {
         const field = document.querySelector(`[name=${fieldName}]`);

@@ -15,5 +15,3 @@ export const sanitizeHtml = (html: string | undefined | null): string => {
   if (typeof window === "undefined") return "";
   return DOMPurify.sanitize(html);
 };
-
-export default sanitizeHtml;

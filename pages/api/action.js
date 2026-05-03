@@ -4,6 +4,7 @@ import { baseDomain } from "src/api/client";
 import { isAllowedRoute, normalizeEndpoint } from "src/server/utils/allowedRoutes";
 import { getAuthToken } from "src/server/utils/authCookie";
 import { httpRequestMethods } from "src/server/utils/constants/httpsRequestMethods";
+import { checkIsNonProtectedEndpoint } from "src/utils/authUtils";
 import {
   isPasswordSameAsEmail,
   passwordMatchesEmailText,
@@ -69,10 +70,13 @@ export default async function handleAction(nextRequest, nextResponse) {
             ? nextRequest.headers.authorization
             : undefined;
 
+        // Non-protected endpoints (e.g. /validate-token) do not require auth
+        const isNonProtected = checkIsNonProtectedEndpoint(normalizedEndpoint);
+
         // No auth token → return 401 so client-side refresh logic triggers
         // (without this, the backend returns 400 "token is missing" which
         // the client doesn't treat as an auth failure)
-        if (!authorization) {
+        if (!authorization && !isNonProtected) {
           return nextResponse.status(401).json({ message: "Not authenticated" });
         }
 

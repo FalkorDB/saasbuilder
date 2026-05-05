@@ -1,7 +1,7 @@
 # syntax = docker/dockerfile:1
 
 # Adjust NODE_VERSION as desired
-ARG NODE_VERSION=20.11.1
+ARG NODE_VERSION=24
 FROM node:${NODE_VERSION}-slim as base
 
 # App lives here
@@ -9,8 +9,9 @@ WORKDIR /app
 
 # Set production environment
 ENV NODE_ENV="production"
-ARG YARN_VERSION=1.22.21
-RUN npm install -g yarn@$YARN_VERSION --force
+
+# Enable Corepack to use the Yarn version specified in package.json's "packageManager" field
+RUN corepack enable && corepack prepare yarn@4.5.0 --activate
 
 
 # Throw-away build stage to reduce size of final image
@@ -21,8 +22,9 @@ RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
 
 # Install node modules
-COPY --link package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --production=false
+COPY --link package.json yarn.lock .yarnrc.yml ./
+COPY --link .yarn .yarn
+RUN yarn install --immutable
 
 # Copy application code
 COPY --link . .
@@ -31,7 +33,7 @@ COPY --link . .
 RUN yarn run build:mail
 
 # Remove development dependencies
-RUN yarn install --production=true
+RUN yarn workspaces focus --production
 
 
 # Final stage for app image

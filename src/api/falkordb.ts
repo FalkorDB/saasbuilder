@@ -6,12 +6,12 @@ import { TaskBase } from "src/components/ResourceInstance/ImportExportRDB/hooks/
 const axiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_FALKORDB_API_BASE_URL,
   headers: {
-    Authorization: "Bearer " + Cookies.get("token"),
+    Authorization: "Bearer " + (Cookies.get("omnistrate_token") ?? Cookies.get("token")),
   },
 });
 
 axios.interceptors.request.use((config) => {
-  config.headers.Authorization = "Bearer " + Cookies.get("token");
+  config.headers.Authorization = "Bearer " + (Cookies.get("omnistrate_token") ?? Cookies.get("token"));
   return config;
 });
 
@@ -93,7 +93,7 @@ const ldapAxiosInstance = axios.create({
 });
 
 ldapAxiosInstance.interceptors.request.use((config) => {
-  config.headers.Authorization = "Bearer " + Cookies.get("token");
+  config.headers.Authorization = "Bearer " + (Cookies.get("omnistrate_token") ?? Cookies.get("token"));
   return config;
 });
 

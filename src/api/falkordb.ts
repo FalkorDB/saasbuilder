@@ -1,18 +1,9 @@
 import axios, { AxiosProgressEvent, AxiosResponse } from "axios";
-import Cookies from "js-cookie";
 
 import { TaskBase } from "src/components/ResourceInstance/ImportExportRDB/hooks/useTasks";
 
 const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_FALKORDB_API_BASE_URL,
-  headers: {
-    Authorization: "Bearer " + (Cookies.get("omnistrate_token") ?? Cookies.get("token")),
-  },
-});
-
-axios.interceptors.request.use((config) => {
-  config.headers.Authorization = "Bearer " + (Cookies.get("omnistrate_token") ?? Cookies.get("token"));
-  return config;
+  baseURL: "/api/falkordb",
 });
 
 export const getInstanceTasks = (instanceId: string, config = {}) => {
@@ -88,13 +79,7 @@ export const uploadFile = (
 // --- Customer LDAP (User Access) ---
 
 const ldapAxiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_FALKORDB_LDAP_API_BASE_URL,
-  withCredentials: true,
-});
-
-ldapAxiosInstance.interceptors.request.use((config) => {
-  config.headers.Authorization = "Bearer " + (Cookies.get("omnistrate_token") ?? Cookies.get("token"));
-  return config;
+  baseURL: "/api/falkordb-ldap",
 });
 
 export type UserACL = {

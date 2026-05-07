@@ -22,7 +22,7 @@ export type TaskBase = {
     readUrl?: string;
     numberOfKeys?: number;
   };
-  error?: string;
+  errors?: string[];
 };
 
 export type TasksResponse = {

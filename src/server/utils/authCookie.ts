@@ -52,13 +52,7 @@ export function setAuthCookie(res: NextApiResponse, token: string) {
   // to prevent the browser from sending duplicate cookies with the same name.
   if (cookieDomain) clearHostOnlyCookie(res, COOKIE_NAME);
 
-  const parts = [
-    `${COOKIE_NAME}=${token}`,
-    `Path=/`,
-    `HttpOnly`,
-    `SameSite=Lax`,
-    `Max-Age=${maxAgeFromJWT(token)}`,
-  ];
+  const parts = [`${COOKIE_NAME}=${token}`, `Path=/`, `HttpOnly`, `SameSite=Lax`, `Max-Age=${maxAgeFromJWT(token)}`];
   if (cookieDomain) parts.push(`Domain=${cookieDomain}`);
   if (isSecureCookie) parts.push("Secure");
 

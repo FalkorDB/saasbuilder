@@ -20,6 +20,7 @@ export type Category = {
 export type CategoryWithoutServices = Omit<Category, "services">;
 
 export type CookieConsent = {
+  version: number;
   consentGiven: boolean;
   categories: Category[];
 };

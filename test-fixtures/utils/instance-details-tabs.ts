@@ -6,7 +6,7 @@ import { GlobalStateManager } from "test-utils/global-state-manager";
 import { UserAPIClient } from "test-utils/user-api-client";
 
 import { ResourceInstance } from "src/types/resourceInstance";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { getResultParams } from "src/utils/instance";
 
 // describeSubscription is a direct HTTP call (bypasses browser HAR interception),
@@ -54,8 +54,8 @@ export const TestInstanceDetailsTab = async (
 
   // Check the Instance Details Table
   await expect(page.getByTestId(dataTestIds.deploymentId)).toContainText(instance.id || "");
-  await expect(page.getByTestId(dataTestIds.createdAt)).toContainText(formatDateUTC(instance.created_at));
-  await expect(page.getByTestId(dataTestIds.modifiedAt)).toContainText(formatDateUTC(instance.last_modified_at));
+  await expect(page.getByTestId(dataTestIds.createdAt)).toContainText(formatDateLocal(instance.created_at));
+  await expect(page.getByTestId(dataTestIds.modifiedAt)).toContainText(formatDateLocal(instance.last_modified_at));
   await expect(page.getByTestId(dataTestIds.highAvailabilityStatus)).toContainText(
     instance.highAvailability ? "Enabled" : "Disabled"
   );
@@ -77,7 +77,7 @@ export const TestInstanceDetailsTab = async (
 
     const license = instance.subscriptionLicense;
     const isExpired = license?.expirationDate ? new Date(license.expirationDate) < new Date() : false;
-    await expect(licenseStatusTable.getByText(formatDateUTC(license?.expirationDate))).toBeVisible();
+    await expect(licenseStatusTable.getByText(formatDateLocal(license?.expirationDate))).toBeVisible();
     await expect(licenseStatusTable.getByText(isExpired ? "Expired" : "Active")).toBeVisible();
 
     // Download the License File
@@ -273,6 +273,6 @@ export const TestEventsTab = async (instanceDetailsPage: InstanceDetailsPage, in
     await expect(row).toBeVisible();
 
     await expect(row).toContainText(event.eventSource);
-    await expect(row).toContainText(formatDateUTC(event.time));
+    await expect(row).toContainText(formatDateLocal(event.time));
   }
 };

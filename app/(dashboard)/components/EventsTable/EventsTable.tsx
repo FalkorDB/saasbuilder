@@ -13,7 +13,7 @@ import ServiceNameWithLogo from "src/components/ServiceNameWithLogo/ServiceNameW
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { AuditEvent } from "src/types/auditEvent";
 import { EventType } from "src/types/event";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { getAccessControlRoute } from "src/utils/route/access/accessRoute";
 
 const columnHelper = createColumnHelper<AuditEvent>();
@@ -109,10 +109,10 @@ const EventsTable = ({
         header: "Resource Name",
         enableSorting: false,
       }),
-      time: columnHelper.accessor((row) => formatDateUTC(row.time), {
+      time: columnHelper.accessor((row) => formatDateLocal(row.time), {
         id: "time",
         header: "Time",
-        cell: (data) => (data.row.original.time ? formatDateUTC(data.row.original.time) : "-"),
+        cell: (data) => (data.row.original.time ? formatDateLocal(data.row.original.time) : "-"),
         meta: {
           minWidth: 200,
         },

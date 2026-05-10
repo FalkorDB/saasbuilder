@@ -7,7 +7,7 @@ import { Box } from "@mui/material";
 import Footer from "src/components/NonDashboardComponents/Footer";
 import useEnvironmentType from "src/hooks/useEnvironmentType";
 
-import MainImg from "public/assets/images/non-dashboard/signin-main.svg";
+import MainImg from "public/assets/images/non-dashboard/signin-main.webp";
 
 import NonProdPortalBanner from "./signin/components/NonProdPortalBanner";
 

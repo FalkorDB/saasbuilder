@@ -1,5 +1,8 @@
 "use client";
 
+import { use, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { Box, CircularProgress, Collapse, Stack } from "@mui/material";
@@ -11,25 +14,14 @@ import InstanceDialogs from "app/(dashboard)/instances/components/InstanceDialog
 import useInstances from "app/(dashboard)/instances/hooks/useInstances";
 import { Overlay } from "app/(dashboard)/instances/page";
 import { platformToCloudProviderMap } from "app/(dashboard)/instances/utils";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { use, useEffect, useMemo, useState } from "react";
 import { RiArrowGoBackFill } from "react-icons/ri";
 import { useDispatch, useSelector } from "react-redux";
 
-import Button from "components/Button/Button";
-import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
-import AuditLogs from "components/ResourceInstance/AuditLogs/AuditLogs";
-import Backup from "components/ResourceInstance/Backup/Backup";
-import Connectivity from "components/ResourceInstance/Connectivity/Connectivity";
-import Logs from "components/ResourceInstance/Logs/Logs";
-import Metrics from "components/ResourceInstance/Metrics/Metrics";
-import NodesTable from "components/ResourceInstance/NodesTable/NodesTable";
-import ResourceInstanceDetails from "components/ResourceInstance/ResourceInstanceDetails/ResourceInstanceDetails";
-import ResourceInstanceOverview from "components/ResourceInstance/ResourceInstanceOverview/ResourceInstanceOverview";
-import { DisplayText } from "components/Typography/Typography";
+import { connectToInstance } from "src/api/resourceInstance";
+import ConnectIcon from "src/components/Icons/Connect/Connect";
 import RefreshWithToolTip from "src/components/RefreshWithTooltip/RefreshWithToolTip";
 import ResourceCustomDNS from "src/components/ResourceInstance/Connectivity/ResourceCustomDNS";
+import ResourceUserAccess from "src/components/ResourceInstance/UserAccess/ResourceUserAccess";
 import { Tab, Tabs } from "src/components/Tab/Tab";
 import { CLI_MANAGED_RESOURCES } from "src/constants/resource";
 import useResourceInstance from "src/hooks/useResourceInstance";
@@ -40,6 +32,16 @@ import {
   toggleInstanceDetailsSummaryVisibility,
 } from "src/slices/genericSlice";
 import { NetworkType } from "src/types/common/enums";
+import Button from "components/Button/Button";
+import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
+import AuditLogs from "components/ResourceInstance/AuditLogs/AuditLogs";
+import Backup from "components/ResourceInstance/Backup/Backup";
+import Connectivity from "components/ResourceInstance/Connectivity/Connectivity";
+import ResourceImportExportRDB from "components/ResourceInstance/ImportExportRDB/ResourceImportExportRDB";
+import NodesTable from "components/ResourceInstance/NodesTable/NodesTable";
+import ResourceInstanceDetails from "components/ResourceInstance/ResourceInstanceDetails/ResourceInstanceDetails";
+import ResourceInstanceOverview from "components/ResourceInstance/ResourceInstanceOverview/ResourceInstanceOverview";
+import { DisplayText } from "components/Typography/Typography";
 
 import { checkCustomDNSEndpoint, getTabs } from "./utils";
 
@@ -52,7 +54,8 @@ export type CurrentTab =
   | "Audit Logs"
   | "Backups"
   | "Snapshots"
-  | "Custom DNS";
+  | "Custom DNS"
+  | "User Access";
 
 const isResourceBYOA = false;
 
@@ -133,8 +136,10 @@ const InstanceDetailsPage = ({
   const tabs = useMemo(
     () =>
       getTabs({
-        isMetricsEnabled: resourceInstanceData?.isMetricsEnabled,
-        isLogsEnabled: resourceInstanceData?.isLogsEnabled,
+        isMetricsEnabled: offering?.productTierName !== "FalkorDB Free", // Metrics is not available for FalkorDB Free tier
+        tierVersion: resourceInstanceData?.unprocessedData?.tierVersion,
+        isLogsEnabled: false,
+        productTierName: offering?.productTierName,
         isActive: resourceInstanceData?.active,
         isResourceBYOA,
         isCliManagedResource,
@@ -209,6 +214,11 @@ const InstanceDetailsPage = ({
       cloudProvider = resourceInstanceData?.resultParameters?.cloud_provider;
     }
   }
+  const componentName = Object.entries(resourceInstanceData.detailedNetworkTopology).filter(([_, v]) => {
+    return (v as any).clusterEndpoint && !(v as any).resourceName.startsWith("Omnistrate");
+  })?.[0]?.[0];
+
+  const url = window.location.href;
 
   return (
     <PageContainer>
@@ -270,6 +280,30 @@ const InstanceDetailsPage = ({
         <Stack direction="row" alignItems="center" gap="16px">
           <div className="flex items-center">{resourceInstanceQuery.isFetching && <CircularProgress size={20} />}</div>
           <RefreshWithToolTip disabled={resourceInstanceQuery.isFetching} refetch={refetchInstance} />
+          {resourceInstanceData.networkType !== "INTERNAL" && (
+            <Button
+              variant="contained"
+              size="common"
+              disabled={resourceInstanceData.status !== "RUNNING"}
+              disabledMessage="Instance must be running to connect"
+              onClick={() =>
+                connectToInstance({
+                  host: (resourceInstanceData.detailedNetworkTopology[componentName] as any)?.clusterEndpoint,
+                  port: (resourceInstanceData.detailedNetworkTopology[componentName] as any).clusterPorts?.[0],
+                  username: (resourceInstanceData.resultParameters as any)?.falkordbUser,
+                  region: resourceInstanceData.region,
+                  tls: (resourceInstanceData.resultParameters as any)?.enableTLS,
+                })
+              }
+            >
+              <ConnectIcon
+                color="white"
+                disabled={resourceInstanceData.status !== "RUNNING"}
+                style={{ marginRight: "8px" }}
+              />
+              Connect
+            </Button>
+          )}
           <InstanceActionMenu
             variant="details-page"
             instance={resourceInstanceData?.unprocessedData}
@@ -311,6 +345,7 @@ const InstanceDetailsPage = ({
           maintenanceTasks={resourceInstanceData.maintenanceTasks}
           licenseDetails={resourceInstanceData?.subscriptionLicense}
           tierVersion={resourceInstanceData?.unprocessedData?.tierVersion}
+          versionDetails={resourceInstanceData?.unprocessedData?.productTierVersionDetail}
           customTags={resourceInstanceData?.customTags}
         />
       )}
@@ -346,18 +381,41 @@ const InstanceDetailsPage = ({
         />
       )}
       {currentTab === tabs.metrics && (
-        <Metrics
-          resourceInstanceId={instanceId}
-          nodes={resourceInstanceData.nodes}
-          socketBaseURL={resourceInstanceData.metricsSocketURL}
-          instanceStatus={resourceInstanceData.status}
-          resourceKey={resourceInstanceData.resourceKey}
-          customMetrics={resourceInstanceData.customMetrics || []}
-          mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
-          productTierType={offering.productTierType}
-        />
+        // <Metrics
+        //   resourceInstanceId={instanceId}
+        //   nodes={resourceInstanceData.nodes}
+        //   socketBaseURL={resourceInstanceData.metricsSocketURL}
+        //   instanceStatus={resourceInstanceData.status}
+        //   resourceKey={resourceInstanceData.resourceKey}
+        //   customMetrics={resourceInstanceData.customMetrics || []}
+        //   mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
+        //   productTierType={offering.productTierType}
+        // />
+
+        <Stack
+          marginTop="16px"
+          sx={{
+            //marginTop: "46px",
+            flexDirection: "row",
+            justifyContent: "space-between",
+          }}
+          alignItems="center"
+        >
+          {url.includes("falkordb.cloud") ? (
+            <iframe
+              width="100%"
+              style={{
+                minHeight: "700px",
+              }}
+              src={process.env.NEXT_PUBLIC_GRAFANA_URL + "/d/" + instanceId + "?orgId=" + subscription.id}
+            />
+          ) : (
+            <DisplayText>You must be on FalkorDB Cloud to view metrics.</DisplayText>
+          )}
+        </Stack>
       )}
-      {currentTab === tabs.logs && (
+
+      {/* {currentTab === tabs.logs && (
         <Logs
           resourceInstanceId={instanceId}
           nodes={resourceInstanceData.nodes}
@@ -366,7 +424,7 @@ const InstanceDetailsPage = ({
           resourceKey={resourceInstanceData.resourceKey}
           mainResourceHasCompute={resourceInstanceData.mainResourceHasCompute}
         />
-      )}
+      )} */}
 
       {currentTab === tabs.auditLogs && <AuditLogs instanceId={instanceId} subscriptionId={subscriptionId} />}
       {currentTab === tabs.backups && (
@@ -414,7 +472,18 @@ const InstanceDetailsPage = ({
           refetchInstance={resourceInstanceQuery.refetch}
         />
       )}
-
+      {currentTab === tabs.importExportRDB && (
+        <ResourceImportExportRDB instanceId={instanceId} status={resourceInstanceData.status} />
+      )}
+      {currentTab === tabs.userAccess && (
+        <ResourceUserAccess
+          instanceId={instanceId}
+          subscriptionId={subscription.id}
+          status={resourceInstanceData.status!}
+          roleType={subscription.roleType}
+          defaultUsername={(resourceInstanceData.resultParameters as any)?.falkordbUser}
+        />
+      )}
       <InstanceDialogs
         variant="details-page"
         isOverlayOpen={isOverlayOpen}

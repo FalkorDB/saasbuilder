@@ -43,6 +43,7 @@ const TextField = forwardRef(function StyledTextFieldRef(props, ref) {
   return (
     <Box display="flex">
       <StyledTextField
+        type="text"
         fullWidth
         InputProps={{
           inputRef: ref,

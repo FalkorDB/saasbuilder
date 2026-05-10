@@ -1,6 +1,7 @@
 "use client";
 
 import CloseIcon from "@mui/icons-material/Close";
+import DOMPurify from "isomorphic-dompurify";
 import {
   Dialog as MuiDialog,
   DialogActions as MuiDialogActions,
@@ -106,7 +107,7 @@ const TextConfirmationDialog = (props) => {
           <Text size="medium" weight="semibold" mt="20px">
             {subtitle}
           </Text>
-          <Text size="small" weight="medium" color="#344054" mt="9px" dangerouslySetInnerHTML={{ __html: message }} />
+          <Text size="small" weight="medium" color="#344054" mt="9px" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message) }} />
           <TextField
             id="confirmationText"
             name="confirmationText"

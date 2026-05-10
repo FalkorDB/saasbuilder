@@ -14,9 +14,9 @@ type CookieConsentContextType = {
 // Default value for context
 const defaultContextValue: CookieConsentContextType = {
   consentState: getCookieConsentInitialObject() as CookieConsent,
-  updateConsent: () => {},
+  updateConsent: () => { },
   isConsentModalOpen: false,
-  setIsConsentModalOpen: () => {},
+  setIsConsentModalOpen: () => { },
 };
 
 export const CookieConsentContext = createContext<CookieConsentContextType>(defaultContextValue);
@@ -27,8 +27,9 @@ type CookieConsentProviderProps = {
 };
 
 export default function CookieConsentProvider({ children, googleAnalyticsTagID }: CookieConsentProviderProps) {
+  const defaultCookieConsentObj = getCookieConsentInitialObject(googleAnalyticsTagID) as CookieConsent;
   const [consentState, setConsentState] = useState(
-    getCookieConsentInitialObject(googleAnalyticsTagID) as CookieConsent
+    defaultCookieConsentObj
   );
   const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
 
@@ -38,9 +39,15 @@ export default function CookieConsentProvider({ children, googleAnalyticsTagID }
   useEffect(() => {
     try {
       const storedConsent = localStorage.getItem("cookieConsent");
-      const parsedConsent = storedConsent ? JSON.parse(storedConsent) : null;
+      let parsedConsent: CookieConsent | null = storedConsent ? JSON.parse(storedConsent) : null;
 
       if (parsedConsent) {
+
+        if ((parsedConsent?.version ?? 0) < defaultCookieConsentObj.version) {
+          const consentGiven = parsedConsent.consentGiven;
+          parsedConsent = defaultCookieConsentObj
+          parsedConsent.consentGiven = consentGiven
+        }
         // Sync presence/absence or change of GA measurement ID.
         const analyticsCategoryIndex = parsedConsent.categories.findIndex((c) => c.category === "analytics");
         const analyticsCategory = analyticsCategoryIndex >= 0 ? parsedConsent.categories[analyticsCategoryIndex] : null;

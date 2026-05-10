@@ -13,6 +13,13 @@ import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
 
 const environmentType = getEnvironmentType();
 
+const applyCrossOriginPolicyHeaders = (response) => {
+  response.headers.set("Cross-Origin-Embedder-Policy", "unsafe-none");
+  response.headers.set("Cross-Origin-Opener-Policy", "unsafe-none");
+  response.headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+  return response;
+};
+
 function isTokenMissingOrExpired(tokenValue) {
   if (!tokenValue) return true;
   try {
@@ -25,6 +32,20 @@ function isTokenMissingOrExpired(tokenValue) {
 }
 
 export async function proxy(request) {
+  // Handle preflight requests early to avoid page-route OPTIONS failures.
+  if (request.method === "OPTIONS") {
+    return applyCrossOriginPolicyHeaders(
+      new NextResponse(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": request.headers.get("origin") || "*",
+          "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+          "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers") || "*",
+        },
+      })
+    );
+  }
+
   const authToken = request.cookies.get(COOKIE_NAME);
   const refreshToken = request.cookies.get(REFRESH_COOKIE_NAME);
   const path = request.nextUrl.pathname;
@@ -59,7 +80,7 @@ export async function proxy(request) {
     const response = NextResponse.redirect(new URL(redirectPath, request.url));
     response.headers.set("x-middleware-cache", "no-cache");
     clearAllAuthCookies(response);
-    return response;
+    return applyCrossOriginPolicyHeaders(response);
   };
 
   const tokenExpired = isTokenMissingOrExpired(authToken?.value);
@@ -72,7 +93,7 @@ export async function proxy(request) {
       // 401 and logs the user out.
       const passthrough = NextResponse.next();
       passthrough.headers.set("x-middleware-cache", "no-cache");
-      return passthrough;
+      return applyCrossOriginPolicyHeaders(passthrough);
     }
     return redirectToSignIn();
   }
@@ -94,7 +115,7 @@ export async function proxy(request) {
     // catches real issues.
   }
 
-  if (path.startsWith("/signin")) {
+  if (path.startsWith("/signin") || path.startsWith("/redirect")) {
     let destination = request.nextUrl.searchParams.get("destination");
 
     if (!destination || destination.startsWith("//") || !destination.startsWith("/") || !PAGE_TITLE_MAP[destination]) {
@@ -103,12 +124,12 @@ export async function proxy(request) {
 
     const response = NextResponse.redirect(new URL(destination, request.url));
     response.headers.set("x-middleware-cache", "no-cache");
-    return response;
+    return applyCrossOriginPolicyHeaders(response);
   }
 
   const response = NextResponse.next();
   response.headers.set("x-middleware-cache", "no-cache");
-  return response;
+  return applyCrossOriginPolicyHeaders(response);
 }
 
 /*
@@ -124,6 +145,6 @@ export async function proxy(request) {
 
 export const config = {
   matcher: [
-    "/((?!api/action|api/signup|api/signin|api/logout|api/refresh-token|api/reset-password|api/provider-details|api/download-cli|api/download-installer|idp-auth|api/sign-in-with-idp|privacy-policy|cookie-policy|terms-of-use|favicon.ico|_next/image|_next/static|static|validate-token).*)",
+    "/((?!api/action|api/signup|api/signin|api/logout|api/refresh-token|api/reset-password|api/provider-details|api/download-cli|api/download-installer|idp-auth|api/sign-in-with-idp|privacy-policy|cookie-policy|terms-of-use|favicon.ico|_next/image|_next/static|static|validate-token|mail).*)",
   ],
 };

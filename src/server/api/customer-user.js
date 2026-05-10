@@ -12,7 +12,7 @@ function customerUserSignUp(payload, ipHeaders = {}) {
       headers: ipHeaders,
     })
     .catch((error) => {
-      console.log("Sign up error", error);
+      console.error("Sign up failed", { status: error?.response?.status, message: error?.response?.data?.message });
       if (error.response && error.response.status === 401) {
         throw new ProviderAuthError();
       } else {
@@ -27,7 +27,7 @@ function customerUserSignIn(payload, ipHeaders = {}) {
       headers: ipHeaders,
     })
     .catch((error) => {
-      console.log("Sign in error", error);
+      console.error("Sign in failed", { status: error?.response?.status, message: error?.response?.data?.message });
       if (error.response && error.response.status === 401) {
         throw new ProviderAuthError();
       } else {
@@ -42,7 +42,7 @@ function customerSignInWithIdentityProvider(payload, ipHeaders = {}) {
       headers: ipHeaders,
     })
     .catch((error) => {
-      console.log("IDP Sign in error", error);
+      console.error("IDP sign in failed", { status: error?.response?.status, message: error?.response?.data?.message });
       if (error.response && error.response.status === 401) {
         throw new ProviderAuthError();
       } else {
@@ -57,7 +57,7 @@ function customerUserResetPassword(payload, ipHeaders = {}) {
       headers: ipHeaders,
     })
     .catch((error) => {
-      console.log("Reset password error", error);
+      console.error("Reset password failed", { status: error?.response?.status, message: error?.response?.data?.message });
       if (error.response && error.response.status === 401) {
         throw new ProviderAuthError();
       } else {
@@ -68,7 +68,7 @@ function customerUserResetPassword(payload, ipHeaders = {}) {
 
 function getProviderOrgDetails() {
   return axios.get("/user").catch((error) => {
-    console.log("getProviderOrgDetails error", error);
+    console.error("getProviderOrgDetails failed", { status: error?.response?.status, message: error?.response?.data?.message });
     if (error.response && error.response.status === 401) {
       throw new ProviderAuthError();
     } else {

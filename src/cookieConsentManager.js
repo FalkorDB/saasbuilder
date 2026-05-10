@@ -1,23 +1,30 @@
-// Build initial consent object; include analytics only if a GA Measurement ID is provided.
-export const getCookieConsentInitialObject = (googleAnalyticsTagID) => {
-  const base = {
-    consentGiven: false,
-    categories: [
-      {
-        category: "necessary",
-        services: [
-          { type: "auth", name: "Authentication", cookies: ["omnistrate_token", "omnistrate_refresh_token", "omnistrate_logged_in"] },
-          { type: "OAuth_providers", name: "OAuth" },
-        ],
-        hide: false,
-        editable: false,
-        enabled: true,
-      },
-    ],
-  };
+import Cookies from "js-cookie";
+import { jwtDecode } from "jwt-decode";
+import { clarity } from "react-microsoft-clarity";
+import { loadReoScript } from 'reodotdev'
 
-  if (googleAnalyticsTagID) {
-    base.categories.push({
+export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
+  version: 1,
+  consentGiven: false,
+  categories: [
+    {
+      category: "necessary",
+      services: [
+        {
+          type: "auth",
+          name: "token",
+          cookies: ["token"],
+        },
+        {
+          type: "OAuth_providers",
+          name: "OAuth",
+        },
+      ],
+      hide: false,
+      editable: false,
+      enabled: true,
+    },
+    {
       category: "analytics",
       services: [
         {
@@ -25,31 +32,132 @@ export const getCookieConsentInitialObject = (googleAnalyticsTagID) => {
           name: "googletagmanager",
           gtag: googleAnalyticsTagID,
           cookies: ["_ga", "_ga_*", "_gid"],
-          handleEnable: "grantAnalyticsConsent",
-          handleDisable: "revokeAnalyticsConsent",
+          handleEnable: "addGoogleAnalytics",
+          handleDisable: "removeGoogleAnalyticsScriptsAndCookies",
+        },
+        {
+          // clarity
+          type: "script",
+          src: "https://cdn.clarity.ms/gdpr/consent.js",
+          name: "clarity",
+          "consent-category": "analytics",
+          handleEnable: "addClarity",
+          handleDisable: "removeClarity",
         },
       ],
       hide: false,
       editable: true,
       enabled: false, // user must opt-in to enable
-    });
-  }
-
-  return base;
-};
+    }
+  ]
+})
 
 const handlerMap = {
-  grantAnalyticsConsent,
-  revokeAnalyticsConsent,
-  removeGoogleAnalyticsScriptsAndCookies: revokeAnalyticsConsent,
-  addGoogleAnalytics: grantAnalyticsConsent,
+  addGoogleAnalytics,
+  removeGoogleAnalyticsScriptsAndCookies,
+  addClarity,
+  removeClarity,
 };
 
-function grantAnalyticsConsent() {
-  if (typeof window === "undefined" || typeof window.gtag !== "function" || !this.gtag) return;
-  window.gtag("consent", "update", { analytics_storage: "granted" });
-  window.gtag("config", this.gtag);
+const googleConsentDenied = {
+  ad_storage: "denied",
+  analytics_storage: "denied",
+  ad_user_data: "denied",
+  ad_personalization: "denied",
+  functionality_storage: "denied",
+  personalization_storage: "denied",
+  security_storage: "granted",
+};
+
+const googleConsentGranted = {
+  ad_storage: "granted",
+  analytics_storage: "granted",
+  ad_user_data: "granted",
+  ad_personalization: "granted",
+  functionality_storage: "granted",
+  personalization_storage: "granted",
+  security_storage: "granted",
+};
+
+function updateGoogleConsent(granted) {
+  const consent = granted ? googleConsentGranted : googleConsentDenied;
+
+  window.dataLayer = window.dataLayer || [];
+
+  if (typeof window.gtag === "function") {
+    window.gtag("consent", "update", consent);
+    return;
+  }
+
+  window.dataLayer.push(["consent", "update", consent]);
 }
+
+function addGoogleAnalytics() {
+  if (!this.gtag || this.gtag.toLowerCase() === "undefined") return;
+
+  updateGoogleConsent(true);
+
+  const id = `gtm-script-${this.name}`;
+  if (document.getElementById(id)) return; // Avoid duplicate GTM script
+
+  // Prime dataLayer before loading GTM so startup events are captured.
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    "gtm.start": new Date().getTime(),
+    event: "gtm.js",
+  });
+
+  // Create GTM script dynamically
+  const script = document.createElement("script");
+  script.id = id;
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtm.js?id=${this.gtag}`;
+
+  document.head.appendChild(script);
+
+  script.onload = () => {
+    console.info(`Google Tag Manager (${this.gtag}) installed.`);
+    initializeGoogleAnalytics.call(this);
+  };
+
+  script.onerror = () => {
+    console.error(`Failed to load GTM script (${this.gtag}).`);
+  };
+}
+
+function initializeGoogleAnalytics() {
+  if (!this.gtag || this.gtag.toLowerCase() === "undefined") return;
+
+  const id = `gtm-noscript-${this.name}`;
+  if (document.getElementById(id)) return; // Avoid duplicate noscript
+
+  // Create a <noscript> element with the GTM iframe
+  const noscript = document.createElement("noscript");
+  noscript.id = id;
+
+  const iframe = document.createElement("iframe");
+  iframe.src = `https://www.googletagmanager.com/ns.html?id=${this.gtag}`;
+  iframe.height = "0";
+  iframe.width = "0";
+  iframe.style.display = "none";
+  iframe.style.visibility = "hidden";
+
+  noscript.appendChild(iframe);
+
+  // Append <noscript> to <body>
+  document.body.appendChild(noscript);
+
+  console.info(`Google Tag Manager (noscript) initialized for ${this.gtag}.`);
+
+  startReo()
+}
+
+const removeScript = (id) => {
+  const script = document.getElementById(id);
+  if (script) {
+    script.parentNode.removeChild(script);
+  }
+};
 
 const removeCookies = (cookieNames) => {
   cookieNames?.forEach((name) => {
@@ -76,23 +184,84 @@ const removeCookies = (cookieNames) => {
   });
 };
 
-function revokeAnalyticsConsent() {
-  if (typeof window === "undefined" || typeof window.gtag !== "function" || !this.gtag) return;
+function removeGoogleAnalyticsScriptsAndCookies() {
+  updateGoogleConsent(false);
 
-  window.gtag("consent", "update", { analytics_storage: "denied" });
-  if (this.cookies?.length) removeCookies(this.cookies);
+  // Remove the main GTM <script> tag
+  removeScript(`gtm-script-${this.name}`);
+
+  // Remove the <noscript> iframe block
+  const noscript = document.getElementById(`gtm-noscript-${this.name}`);
+  if (noscript) {
+    noscript.remove();
+  }
+
+  // Remove any related cookies
+  if (this.cookies && Array.isArray(this.cookies)) {
+    removeCookies(this.cookies);
+  }
+
+  // Clear GTM-related globals
+  window.dataLayer = undefined;
+  window.google_tag_manager = undefined;
+
+  console.info(`Google Tag Manager (${this.gtag}) scripts and cookies removed.`);
+}
+
+
+function addClarity() {
+  try {
+    if (process.env.NEXT_PUBLIC_CLARITY_ID) {
+      if (!clarity) return;
+      clarity.init(process.env.NEXT_PUBLIC_CLARITY_ID);
+      clarity.consent();
+      const token = Cookies.get("token");
+      if (token) {
+        const payload = jwtDecode(token);
+        if (payload.userID) {
+          clarity.identify(payload.userID);
+        }
+      }
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function removeClarity() {
+  try {
+    if (clarity && typeof clarity.clear === "function") {
+      clarity.clear();
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function startReo() {
+  const clientID = process.env.NEXT_PUBLIC_REO_CLIENT_ID;
+  if (!clientID || clientID.toLowerCase() === "undefined") return;
+
+  // Resolve promise to get access to methods on Reo
+  const reoPromise = loadReoScript({ clientID });
+  reoPromise
+    .then(Reo => {
+      Reo.init({ clientID });
+    })
+    .catch(error => {
+      console.error('Error loading Reo', error);
+    })
 }
 
 export const handleConsentChanges = (categories) => {
-  categories?.forEach((cat) => {
-    cat.services?.forEach((srv) => {
-      if (srv.type === "script") {
-        if (cat.enabled) {
-          if (srv.handleEnable) handlerMap[srv.handleEnable]?.call(srv);
-        } else {
-          if (srv.handleDisable) handlerMap[srv.handleDisable]?.call(srv);
-        }
+  for (const cat of categories) {
+    for (const svc of cat.services) {
+      if (svc.type == "script" && cat.enabled) {
+        handlerMap[svc.handleEnable]?.call(svc);
       }
-    });
-  });
+      if (svc.type == "script" && !cat.enabled) {
+        handlerMap[svc.handleDisable]?.call(svc);
+      }
+    }
+  }
 };

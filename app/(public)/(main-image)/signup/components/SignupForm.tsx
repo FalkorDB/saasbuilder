@@ -244,17 +244,17 @@ const SignupForm: React.FC<SignupFormProps> = ({
               <FieldLabel required>Company Name</FieldLabel>
               {/* @ts-ignore */}
               <TextField
-                id="legalcompanyname"
-                name="legalcompanyname"
+                id="legalCompanyName"
+                name="legalCompanyName"
                 placeholder="Enter your company's name"
-                value={values.legalcompanyname}
+                value={values.legalCompanyName}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 disabled={Boolean(org)}
-                error={touched.legalcompanyname && errors.legalcompanyname}
+                error={touched.legalCompanyName && errors.legalCompanyName}
               />
               <FieldError sx={{ paddingLeft: "13px" }}>
-                {touched.legalcompanyname && errors.legalcompanyname}
+                {touched.legalCompanyName && errors.legalCompanyName}
               </FieldError>
             </FieldContainer>
 
@@ -262,16 +262,16 @@ const SignupForm: React.FC<SignupFormProps> = ({
               <FieldLabel>Company URL</FieldLabel>
               {/* @ts-ignore */}
               <TextField
-                id="companyurl"
-                name="companyurl"
+                id="companyUrl"
+                name="companyUrl"
                 placeholder="https://companyurl.com"
-                value={values.companyurl}
+                value={values.companyUrl}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                error={touched.companyurl && errors.companyurl}
+                error={touched.companyUrl && errors.companyUrl}
                 disabled={Boolean(orgUrl)}
               />
-              <FieldError sx={{ paddingLeft: "13px" }}>{touched.companyurl && errors.companyurl}</FieldError>
+              <FieldError sx={{ paddingLeft: "13px" }}>{touched.companyUrl && errors.companyUrl}</FieldError>
             </FieldContainer>
 
             <FieldContainer>

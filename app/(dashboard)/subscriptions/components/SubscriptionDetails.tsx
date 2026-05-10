@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import DetailsTable from "components/DetailsTable/DetailsTable";
 import GridCellExpand from "components/GridCellExpand/GridCellExpand";
 import SubscriptionTypeDirectIcon from "components/Icons/SubscriptionType/SubscriptionTypeDirectIcon";
@@ -36,7 +36,7 @@ const SubscriptionDetails = ({ subscription, serviceOfferingsObj }) => {
       },
       {
         title: "Subscription Date",
-        content: subscription?.createdAt ? formatDateUTC(subscription.createdAt) : "-",
+        content: subscription?.createdAt ? formatDateLocal(subscription.createdAt) : "-",
       },
       {
         title: "Subscription Owner",

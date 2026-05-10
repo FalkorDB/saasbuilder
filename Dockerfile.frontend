@@ -27,7 +27,14 @@ RUN YARN_ENABLE_SCRIPTS=false yarn install --immutable --network-timeout 1000000
 # ---------- build: compile the Next.js application ----------
 FROM deps AS build
 COPY --link . .
-RUN yarn run build
+
+# Build application
+RUN --mount=type=cache,target=/root/.cache/yarn \
+    yarn run build:frontend
+
+# Remove development dependencies
+RUN --mount=type=cache,target=/root/.cache/yarn \
+    yarn install --production=true --network-timeout 1000000
 
 # ---------- prod-deps: production-only node_modules from a clean state ----------
 # Must be FROM base (not FROM deps) — `yarn workspaces focus` only adds, it

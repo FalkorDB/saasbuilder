@@ -1,6 +1,6 @@
 "use client";
 
-import { FC, useEffect } from "react";
+import { FC, Suspense, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next-nprogress-bar";
@@ -56,12 +56,14 @@ const SigninPage: FC<SignInPageProps> = (props) => {
         )}
       </Box>
       <Box>
-        <SignInForm
-          identityProviders={identityProviders}
-          isPasswordLoginEnabled={isPasswordLoginEnabled}
-          isReCaptchaSetup={isReCaptchaSetup}
-          googleReCaptchaSiteKey={googleReCaptchaSiteKey}
-        />
+        <Suspense fallback={null}>
+          <SignInForm
+            identityProviders={identityProviders}
+            isPasswordLoginEnabled={isPasswordLoginEnabled}
+            isReCaptchaSetup={isReCaptchaSetup}
+            googleReCaptchaSiteKey={googleReCaptchaSiteKey}
+          />
+        </Suspense>
       </Box>
     </Box>
   );

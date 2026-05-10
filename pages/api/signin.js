@@ -3,8 +3,8 @@ import _ from "lodash";
 const { customerUserSignIn } = require("src/server/api/customer-user");
 const { getEnvironmentType } = require("src/server/utils/getEnvironmentType");
 const { isRateLimited, recordAttempt, resetAttempts } = require("src/server/utils/rateLimiter");
-import { setAuthCookie, setRefreshCookie } from "src/server/utils/authCookie";
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
+import { setAuthCookie, setIndicatorCookie, setRefreshCookie } from "src/server/utils/authCookie";
 import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
 import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
 
@@ -69,9 +69,13 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       const responseData = response?.data || {};
       const { jwtToken, refreshToken, ...rest } = responseData;
 
-      // Set httpOnly cookies — the client never sees the raw tokens
+      // Set httpOnly cookies — the client never sees the raw tokens.
+      // Setting the indicator cookie here (not client-side) keeps its Max-Age
+      // aligned with REFRESH_MAX_AGE, so client pages don't have to hardcode
+      // an expiry that drifts from the backend's refresh lifetime.
       if (jwtToken) {
         setAuthCookie(nextResponse, jwtToken);
+        setIndicatorCookie(nextResponse);
       }
       if (refreshToken) {
         setRefreshCookie(nextResponse, refreshToken);

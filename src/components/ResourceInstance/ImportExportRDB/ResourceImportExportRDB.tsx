@@ -112,7 +112,7 @@ function ResourceImportExportRDB(props) {
           const statusStylesAndMap = getResourceInstanceTaskStatusStylesAndLabel(status);
           if (status === "failed") {
             return (
-              <Tooltip title={params.row.error}>
+              <Tooltip title={params.row.errors?.[0] ?? "Unknown error"}>
                 <StatusChip status={status} {...statusStylesAndMap} />
               </Tooltip>
             );
@@ -143,7 +143,7 @@ function ResourceImportExportRDB(props) {
         valueGetter: (params: { row: TaskBase }) => params.row.output?.readUrl,
         renderCell: (params: { row: TaskBase; value?: string }) => {
           if (params.row.status === "failed") {
-            return <Link underline="hover" onClick={() => snackbar.showError(params.row.error)}><Text ellipsis={true}>{params.row.error}</Text></Link>
+            return <Link underline="hover" onClick={() => snackbar.showError(params.row.errors?.[0] ?? "Unknown error")}><Text ellipsis={true}>{params.row.errors?.[0] ?? "Unknown error"}</Text></Link>
           }
           if (params.row.status !== 'completed') {
             return <Text> </Text>

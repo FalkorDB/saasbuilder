@@ -1,992 +1,1059 @@
-import SubscriptionMenu from "app/(dashboard)/components/SubscriptionMenu/SubscriptionMenu";
-import Link from "next/link";
+"use client";
 
-import { Field } from "src/components/DynamicForm/types";
-import StatusChip from "src/components/StatusChip/StatusChip";
-import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
+import { useEffect, useMemo, useState } from "react";
+import useCustomNetworks from "app/(dashboard)/custom-networks/hooks/useCustomNetworks";
+import { useFormik } from "formik";
+import _, { cloneDeep } from "lodash";
+import type { StringSchema } from "yup";
+import * as yup from "yup";
+
+import { $api } from "src/api/query";
 import { productTierTypes } from "src/constants/servicePlan";
-import { getVersionSetStatusStylesAndLabel } from "src/constants/statusChipStyles/versionSet";
-import { AvailabilityZone } from "src/types/availabilityZone";
-import { CloudProvider, FormMode } from "src/types/common/enums";
-import { CustomNetwork } from "src/types/customNetwork";
+import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
+import useResourcesInstanceIds from "src/hooks/useResourcesInstanceIds";
+import useSnackbar from "src/hooks/useSnackbar";
+import { useGlobalData } from "src/providers/GlobalDataProvider";
+import { colors } from "src/themeConfig";
+import { CloudProvider } from "src/types/common/enums";
 import { ResourceInstance } from "src/types/resourceInstance";
-import { APIEntity, ServiceOffering } from "src/types/serviceOffering";
-import { Subscription } from "src/types/subscription";
-import { TierVersionSet } from "src/types/tier-version-set";
+import { APIEntity } from "src/types/serviceOffering";
+import { isCloudAccountInstance } from "src/utils/access/byoaResource";
+import { checkBYOADeploymentInstance, getResultParams } from "src/utils/instance";
+import Button from "components/Button/Button";
+import CardWithTitle from "components/Card/CardWithTitle";
+import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
+import GridDynamicField from "components/DynamicForm/GridDynamicField";
+import PreviewCard from "components/DynamicForm/PreviewCard";
+import Form from "components/FormElementsv2/Form/Form";
+import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
+import { Text } from "components/Typography/Typography";
 
-import CloudProviderRadio from "../../components/CloudProviderRadio/CloudProviderRadio";
-import KubernetesDistributionsMultiSelect from "../../components/KubernetesDistributionsMultiSelect/KubernetesDistributionsMultiSelect";
-import SubscriptionPlanRadio from "../../components/SubscriptionPlanRadio/SubscriptionPlanRadio";
 import { REQUEST_PARAMS_FIELDS_TO_FILTER } from "../constants";
-import { ResourceSummary } from "../hooks/useResources";
+import useCustomerVersionSets from "../hooks/useCustomerVersionSets";
+import useResources from "../hooks/useResources";
+import useResourceSchema from "../hooks/useResourceSchema";
+import { filterSchemaByCloudProvider, getInitialValues } from "../utils";
+
 import {
-  cloudProviderToPlatformMap,
-  filterSchemaByCloudProvider,
-  getCustomNetworksMenuItems,
-  getJsonValue,
-  getRegionMenuItems,
-  getResourceMenuItems,
-  getServiceMenuItems,
-  getValidSubscriptionForInstanceCreation,
-  getVersionSetResourceMenuItems,
-  normalizeCustomDnsValue,
-  platformToCloudProviderMap,
-} from "../utils";
+  getDeploymentConfigurationFields,
+  getNetworkConfigurationFields,
+  getStandardInformationFields,
+} from "./InstanceFormFields";
 
-import AccountConfigDescription from "./AccountConfigDescription";
-import CustomNetworkDescription from "./CustomNetworkDescription";
-import CustomTagsField from "./CustomTagsField";
+type ValidationSchema =
+  | StringSchema<string | undefined>
+  | StringSchema<string | null | undefined>
+  | ReturnType<typeof yup.mixed>;
 
-export const getStandardInformationFields = (
-  servicesObj,
-  serviceOfferings: ServiceOffering[],
-  serviceOfferingsObj: Record<string, Record<string, ServiceOffering>>,
-  isFetchingServiceOfferings: boolean,
-  subscriptions: Subscription[],
-  subscriptionsObj: Record<string, Subscription>,
-  isFetchingSubscriptions: boolean,
-  formData: any,
-  resourceSchema: APIEntity,
-  formMode: FormMode,
-  customAvailabilityZones: AvailabilityZone[],
-  isFetchingCustomAvailabilityZones: boolean,
-  instances: ResourceInstance[],
-  versionSets: TierVersionSet[],
-  isFetchingVersionSets: boolean
-) => {
-  if (isFetchingServiceOfferings) return [];
+const InstanceForm = ({
+  formMode,
+  instances,
+  selectedInstance,
+  refetchInstances,
+  setOverlayType,
+  setIsOverlayOpen,
+  setCreateInstanceModalData,
+  setSelectedRows,
+}) => {
+  const snackbar = useSnackbar();
 
-  //subscriptionID -> key, number of instances -> value
-  const subscriptionInstanceCountHash: Record<string, number> = {};
-  instances.forEach((instance) => {
-    if (subscriptionInstanceCountHash[instance?.subscriptionId as string]) {
-      subscriptionInstanceCountHash[instance.subscriptionId as string] =
-        subscriptionInstanceCountHash[instance.subscriptionId as string] + 1;
-    } else {
-      subscriptionInstanceCountHash[instance.subscriptionId as string] = 1;
+  // State for validation schema
+  const [validationSchema, setValidationSchema] = useState(() =>
+    yup.object({
+      serviceId: yup.string().required("Product is required"),
+      servicePlanId: yup.string().required("A plan with a valid subscription is required"),
+      subscriptionId: yup.string().required("Subscription is required"),
+      resourceId: yup.string().required("Resource is required"),
+      customTags: yup.array().of(
+        yup.object().shape({
+          key: yup.string().required("Name is required"),
+          value: yup.string().required("Value is required"),
+        })
+      ),
+      // requestParams validation will be added dynamically
+    })
+  );
+
+  const {
+    subscriptions,
+    serviceOfferings,
+    serviceOfferingsObj,
+    servicesObj,
+    isFetchingServiceOfferings,
+    subscriptionsObj,
+    isFetchingSubscriptions,
+  } = useGlobalData();
+
+  const nonCloudAccountInstances = useMemo(() => {
+    return instances.filter((instance) => !isCloudAccountInstance(instance));
+  }, [instances]);
+
+  const createInstanceMutation = $api.useMutation(
+    "post",
+    "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}",
+    {
+      onSuccess: async (response) => {
+        const instanceId = response?.id;
+
+        snackbar.showSuccess("Instance created successfully");
+        setIsOverlayOpen(false);
+        formData.resetForm();
+
+        let isBYOAInstance = false;
+        let isFirstInstanceInRegion = false;
+        let lifecycleStatus = "DEPLOYING";
+
+        try {
+          const instancesQueryResponse = await refetchInstances();
+
+          const instances: ResourceInstance[] = instancesQueryResponse?.data || [];
+          const createdInstance = instances.find((instance) => instance.id === instanceId);
+
+          if (createdInstance) {
+            lifecycleStatus = createdInstance?.status || "DEPLOYING";
+            isBYOAInstance = checkBYOADeploymentInstance(createdInstance);
+            if (isBYOAInstance) {
+              isFirstInstanceInRegion =
+                instances.filter((instance) => {
+                  const isBYOAInstance = checkBYOADeploymentInstance(instance);
+                  if (!isBYOAInstance) return false;
+                  const instanceAccountId =
+                    instance?.awsAccountID ||
+                    instance?.gcpProjectID ||
+                    instance?.azureSubscriptionID ||
+                    instance?.ociTenancyID;
+                  const createdInstanceAccountId =
+                    createdInstance?.awsAccountID ||
+                    createdInstance?.gcpProjectID ||
+                    createdInstance?.azureSubscriptionID ||
+                    createdInstance?.ociTenancyID;
+
+                  const isFromSameAccount =
+                    instanceAccountId && createdInstanceAccountId && instanceAccountId === createdInstanceAccountId;
+                  const isFromSameRegion = instance.region === createdInstance.region;
+
+                  return isFromSameAccount && isFromSameRegion;
+                }).length === 1;
+            }
+          }
+        } catch {}
+
+        setCreateInstanceModalData({
+          isCustomDNS: (formData.values.requestParams as Record<string, any>)?.custom_dns_configuration,
+          instanceId: response?.id as string,
+          isFirstInstanceInRegion: isFirstInstanceInRegion,
+          lifecycleStatus: lifecycleStatus as string,
+        });
+
+        // Show the Create Instance Dialog
+        setIsOverlayOpen(true);
+        setOverlayType("create-instance-dialog");
+      },
     }
+  );
+
+  const updateInstanceMutation = $api.useMutation(
+    "patch",
+    "/2022-09-01-00/resource-instance/{serviceProviderId}/{serviceKey}/{serviceAPIVersion}/{serviceEnvironmentKey}/{serviceModelKey}/{productTierKey}/{resourceKey}/{id}",
+    {
+      onSuccess: () => {
+        refetchInstances();
+        formData.resetForm();
+        snackbar.showSuccess("Updated Deployment Instance");
+        setIsOverlayOpen(false);
+        setSelectedRows([]);
+      },
+    }
+  );
+
+  // Memoize initialValues so that subscriptions list changes (e.g. after subscribing)
+  // don't cause formik to reinitialize and wipe out requestParams defaults
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialValues = useMemo(
+    () =>
+      getInitialValues(
+        selectedInstance,
+        subscriptions,
+        serviceOfferingsObj,
+        serviceOfferings,
+        nonCloudAccountInstances,
+        [] // Will be updated later when customerVersionSets loads
+      ),
+    // Only recompute when the selected instance changes (modify mode) or on first mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedInstance?.id]
+  );
+
+  const formData = useFormik({
+    initialValues,
+    enableReinitialize: true,
+    validationSchema: validationSchema,
+    validateOnBlur: true,
+    validateOnChange: true,
+    onSubmit: async (values) => {
+      try {
+        // Clean up requestParams cloud_provider_native_network_id before submitting
+        if ((values.requestParams as any)?.cloud_provider_native_network_id === "") {
+          delete (values.requestParams as any)?.cloud_provider_native_network_id;
+        }
+
+        const offering = serviceOfferingsObj[values.serviceId]?.[values.servicePlanId];
+
+        // Determine if we should use version set resources or service offering resources
+        // Check for VERSION_SET_OVERRIDE feature with CUSTOMER scope in productTierFeatures
+        const allowCustomerVersionOverride =
+          offering?.productTierFeatures?.some(
+            (feature) => feature.feature === "VERSION_SET_OVERRIDE" && feature.scope === "CUSTOMER"
+          ) || false;
+
+        let resourceKey = "";
+
+        if (allowCustomerVersionOverride && values.productTierVersion) {
+          // Get resource from the selected version set
+          const selectedVersionSet = customerVersionSets.find(
+            (versionSet) => versionSet.version === values.productTierVersion
+          );
+          const selectedVersionSetResource = selectedVersionSet?.resources?.find(
+            (resource) => resource.id === values.resourceId
+          );
+          // For version set resources, use the resource id as the key
+          resourceKey = selectedVersionSetResource?.urlKey || "";
+        } else {
+          // Get resource from service offering
+          const selectedOfferingResource = offering?.resourceParameters.find(
+            (resource) => resource.resourceId === values.resourceId
+          );
+          // For service offering resources, use the urlKey
+          resourceKey = selectedOfferingResource?.urlKey || "";
+        }
+
+        const data: any = {
+          ...cloneDeep(values),
+        };
+
+        // Remove productTierVersion if allowCustomerVersionOverride is false or if we're not creating
+        if (!allowCustomerVersionOverride || formMode !== "create") {
+          delete data.productTierVersion;
+        }
+
+        const createSchema =
+          // eslint-disable-next-line no-use-before-define
+          resourceSchemaData?.apis?.find((api) => api.verb === "CREATE")?.inputParameters || [];
+
+        const updateSchema =
+          // eslint-disable-next-line no-use-before-define
+          resourceSchemaData?.apis?.find((api) => api.verb === "UPDATE")?.inputParameters || [];
+
+        const schema = formMode === "create" ? createSchema : updateSchema;
+        const filterSchema = filterSchemaByCloudProvider(schema, data.cloudProvider);
+        const inputParametersObj = filterSchema.reduce((acc: any, param: any) => {
+          acc[param.key] = param;
+          return acc;
+        }, {});
+
+        if (formMode === "create") {
+          let isTypeError = false;
+          Object.keys(data.requestParams).forEach((key) => {
+            const result = filterSchema.find((schemaParam) => {
+              return schemaParam.key === key;
+            });
+
+            switch (result?.type?.toLowerCase()) {
+              case "number":
+                if (data.requestParams[key] === "") break;
+                data.requestParams[key] = Number(data.requestParams[key]);
+                break;
+              case "float64":
+                if (data.requestParams[key] === "") break;
+                const output = Number(data.requestParams[key]);
+                if (!Number.isNaN(output)) {
+                  data.requestParams[key] = Number(data.requestParams[key]);
+                } else {
+                  snackbar.showError(`Invalid data in ${key}`);
+                  isTypeError = true;
+                }
+                break;
+              case "boolean":
+                if (data.requestParams[key] === "true") data.requestParams[key] = true;
+                else data.requestParams[key] = false;
+                break;
+            }
+
+            if (
+              (key === "nodeInstanceType" &&
+                data.cloudProvider === "aws" &&
+                !data.requestParams["nodeInstanceType"].includes(".")) ||
+              (data.cloudProvider === "gcp" &&
+                data.requestParams?.["nodeInstanceType"] &&
+                !data.requestParams?.["nodeInstanceType"]?.includes("-"))
+            ) {
+              snackbar.showError(`Invalid Node Instance Type`);
+              isTypeError = true;
+            }
+
+            if (key === "falkordbUser") {
+              if (data.requestParams["falkordbUser"] && !/^[_a-zA-Z0-9]+$/.test(data.requestParams["falkordbUser"])) {
+                snackbar.showError(`Invalid FalkorDB User`);
+                isTypeError = true;
+              }
+              if (data.requestParams["falkordbUser"] && data.requestParams["falkordbUser"].length < 3) {
+                snackbar.showError(`FalkorDB User must be at least 3 characters long`);
+              }
+            }
+
+            if (key === "falkordbPassword") {
+              if (data.requestParams["falkordbPassword"] && data.requestParams["falkordbPassword"].length < 6) {
+                snackbar.showError(`FalkorDB Password must be at least 6 characters long`);
+                isTypeError = true;
+              }
+            }
+          });
+
+          if (isTypeError) {
+            return;
+          }
+
+          for (const key in data.requestParams) {
+            const value = data.requestParams[key];
+
+            if (value === undefined || (typeof value === "string" && !value.trim())) {
+              delete data.requestParams[key];
+            }
+          }
+
+          // Remove cloud_provider_native_network_id if cloudProvider is gcp or azure
+          if (data.cloudProvider === "gcp" || data.cloudProvider === "azure") {
+            delete data.requestParams.cloud_provider_native_network_id;
+          }
+
+          // Check for Required Fields
+          const requiredFields = filterSchema
+            .filter((field) => !["cloud_provider", "region"].includes(field.key))
+            .filter((schemaParam) => schemaParam.required);
+
+          data.cloud_provider = data.cloudProvider;
+          data.custom_network_id = data.requestParams.custom_network_id;
+
+          const networkTypeFieldExists =
+            inputParametersObj["cloud_provider"] &&
+            offering?.productTierType !== productTierTypes.OMNISTRATE_MULTI_TENANCY &&
+            offering?.supportsPublicNetwork;
+
+          if (!data.network_type) {
+            delete data.network_type;
+          }
+
+          if (!data.cloudProvider && inputParametersObj["cloud_provider"]) {
+            return snackbar.showError("Cloud Provider is required");
+          } else if (!data.region && inputParametersObj["region"]) {
+            return snackbar.showError("Region is required");
+          } else if (!data.network_type && networkTypeFieldExists) {
+            return snackbar.showError("Network Type is required");
+          }
+
+          if (inputParametersObj["custom_dns_configuration"] && data.requestParams["custom_dns_configuration"]) {
+            data.requestParams.custom_dns_configuration = {
+              [resourceKey]: data.requestParams.custom_dns_configuration,
+            };
+          }
+
+          for (const field of requiredFields) {
+            if (data.requestParams[field.key] === undefined) {
+              snackbar.showError(`${field.displayName || field.key} is required`);
+              return;
+            }
+          }
+
+          if (!isTypeError) {
+            createInstanceMutation.mutate({
+              params: {
+                path: {
+                  serviceProviderId: offering?.serviceProviderId,
+                  serviceKey: offering?.serviceURLKey,
+                  serviceAPIVersion: offering?.serviceAPIVersion,
+                  serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
+                  serviceModelKey: offering?.serviceModelURLKey,
+                  productTierKey: offering?.productTierURLKey,
+                  resourceKey: resourceKey,
+                },
+                query: {
+                  subscriptionId: values.subscriptionId,
+                },
+              },
+
+              body: data,
+            });
+          }
+        } else {
+          // Only send the fields that have changed
+          const requestParams = {},
+            oldResultParams = selectedInstance?.result_params;
+
+          for (const key in data.requestParams) {
+            const value = data.requestParams[key];
+            if (oldResultParams[key] !== value) {
+              requestParams[key] = value;
+            }
+          }
+
+          data.requestParams = requestParams;
+          delete data.requestParams.network_type;
+          delete data.requestParams.custom_network_id;
+          delete data.requestParams.custom_availability_zone;
+
+          // Include customTags if they have changed
+          const oldCustomTags = selectedInstance?.customTags || [];
+          const newCustomTags = data.customTags || [];
+
+          let hasCustomTagsChanged = false;
+          if (!_.isEqual(oldCustomTags, newCustomTags)) {
+            data.customTags = newCustomTags.filter((tag) => tag.key && tag.value);
+            hasCustomTagsChanged = true;
+          }
+
+          if (
+            !Object.keys(requestParams).length &&
+            data.network_type === selectedInstance?.network_type &&
+            !hasCustomTagsChanged
+          ) {
+            return snackbar.showError("Please update at least one field before submitting");
+          }
+
+          let isTypeError = false;
+          Object.keys(data.requestParams).forEach((key) => {
+            const result = schema.find((schemaParam) => {
+              return schemaParam.key === key;
+            });
+
+            // Check if required field is missing or empty
+            if (
+              result?.required &&
+              (data.requestParams[key] === undefined ||
+                data.requestParams[key] === null ||
+                data.requestParams[key] === "")
+            ) {
+              snackbar.showError(`${result.displayName || key} is required`);
+              isTypeError = true;
+              return;
+            }
+
+            switch (result?.type?.toLowerCase()) {
+              case "number":
+                if (data.requestParams[key] === "") break;
+                data.requestParams[key] = Number(data.requestParams[key]);
+                break;
+              case "float64":
+                if (data.requestParams[key] === "") break;
+                const output = Number(data.requestParams[key]);
+                if (!Number.isNaN(output)) {
+                  data.requestParams[key] = Number(data.requestParams[key]);
+                } else {
+                  snackbar.showError(`Invalid data in ${key}`);
+                  isTypeError = true;
+                }
+                break;
+              case "boolean":
+                if (data.requestParams[key] === "true") data.requestParams[key] = true;
+                else data.requestParams[key] = false;
+                break;
+            }
+
+            if (key === "falkordbUser") {
+              if (data.requestParams["falkordbUser"] && !/^[_a-zA-Z0-9]+$/.test(data.requestParams["falkordbUser"])) {
+                snackbar.showError(`Invalid FalkorDB User`);
+                isTypeError = true;
+              }
+              if (data.requestParams["falkordbUser"] && data.requestParams["falkordbUser"].length < 3) {
+                snackbar.showError(`FalkorDB User must be at least 3 characters long`);
+              }
+            }
+
+            if (key === "falkordbPassword") {
+              if (data.requestParams["falkordbPassword"] && data.requestParams["falkordbPassword"].length < 6) {
+                snackbar.showError(`FalkorDB Password must be at least 6 characters long`);
+                isTypeError = true;
+              }
+            }
+          });
+
+          // Remove Empty Fields from data.requestParams
+          for (const key in data.requestParams) {
+            const value = data.requestParams[key];
+
+            if (value === undefined || (typeof value === "string" && !value.trim())) {
+              delete data.requestParams[key];
+            }
+          }
+
+          if (!isTypeError) {
+            updateInstanceMutation.mutate({
+              params: {
+                path: {
+                  serviceProviderId: offering?.serviceProviderId,
+                  serviceKey: offering?.serviceURLKey,
+                  serviceAPIVersion: offering?.serviceAPIVersion,
+                  serviceEnvironmentKey: offering?.serviceEnvironmentURLKey,
+                  serviceModelKey: offering?.serviceModelURLKey,
+                  productTierKey: offering?.productTierURLKey,
+                  resourceKey: resourceKey,
+                  id: selectedInstance?.id,
+                },
+                query: {
+                  subscriptionId: values.subscriptionId,
+                },
+              },
+              body: data,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error submitting form:", error);
+        snackbar.showError("An error occurred while submitting the form.");
+        return;
+      }
+    },
   });
 
-  const { values, setFieldValue, setFieldTouched } = formData;
-  const { serviceId, servicePlanId, resourceId, cloudProvider, region, requestParams } = values;
+  const { values } = formData;
 
-  const serviceMenuItems = getServiceMenuItems(serviceOfferings);
-  const offering = serviceOfferingsObj[serviceId]?.[servicePlanId];
+  const offering = serviceOfferingsObj[values.serviceId]?.[values.servicePlanId];
 
-  // Check for VERSION_SET_OVERRIDE feature with CUSTOMER scope in productTierFeatures
+  const { data: customNetworks = [], isFetching: isFetchingCustomNetworks } = useCustomNetworks({
+    enabled: (values.requestParams as Record<string, any>)?.custom_network_id !== undefined, // Fetch only if custom_network_id is present
+    refetchOnWindowFocus: true, // User can create a custom network and come back to this tab
+  });
+
   const allowCustomerVersionOverride =
     offering?.productTierFeatures?.some(
       (feature) => feature.feature === "VERSION_SET_OVERRIDE" && feature.scope === "CUSTOMER"
     ) || false;
 
-  const subscriptionMenuItems = subscriptions.filter((sub) => sub.productTierId === servicePlanId);
+  //fetch product tier versions
+  const { data: customerVersionSets = [], isFetching: isFetchingVersionSets } = useCustomerVersionSets(
+    {
+      serviceId: values.serviceId,
+      productTierId: values.servicePlanId,
+    },
+    {
+      // Only fetch customer version sets if the offering supports VERSION_SET_OVERRIDE feature
+      enabled: allowCustomerVersionOverride && !!values.serviceId && !!values.servicePlanId,
+    }
+  );
 
-  const serviceOfferingResourceMenuItems = getResourceMenuItems(serviceOfferingsObj[serviceId]?.[servicePlanId]);
+  const { data: resourceSchemaData, isFetching: isFetchingResourceSchema } = useResourceSchema({
+    serviceId: values.serviceId,
+    resourceId: selectedInstance?.resourceID || values.resourceId,
+    instanceId: selectedInstance?.id,
+    productTierId: allowCustomerVersionOverride ? values.servicePlanId : "",
+    productTierVersion: allowCustomerVersionOverride ? values.productTierVersion : "",
+  });
 
-  const selectedVersionSet = versionSets?.find((versionSet) => versionSet.version === values.productTierVersion);
+  const { data: resources = [] } = useResources({
+    serviceId: values.serviceId,
+    productTierId: values.servicePlanId,
+    productTierVersion: allowCustomerVersionOverride ? values.productTierVersion : "",
+  });
 
-  const tierVersionSetResourceMenuItems = getVersionSetResourceMenuItems(selectedVersionSet);
+  const resourceCreateSchema = resourceSchemaData?.apis?.find((api) => api.verb === "CREATE") as APIEntity;
+  const resourceModifySchema = resourceSchemaData?.apis?.find((api) => api.verb === "UPDATE") as APIEntity;
 
-  //if allowCustomerVersionOverride is true, use resources from version set else use service offering resources
-  const resourceMenuItems = allowCustomerVersionOverride
-    ? tierVersionSetResourceMenuItems
-    : serviceOfferingResourceMenuItems;
+  const requestParamsCreateValidationSchema = useMemo(() => {
+    const inputParams = filterSchemaByCloudProvider(
+      resourceCreateSchema?.inputParameters || [],
+      formData.values.cloudProvider
+    ).filter((param) => !REQUEST_PARAMS_FIELDS_TO_FILTER.includes(param.key));
 
-  const inputParametersObj = (resourceSchema?.inputParameters || []).reduce((acc: any, param: any) => {
-    acc[param.key] = param;
-    return acc;
-  }, {});
+    // Create validation rules for requestParams
+    const requestParamsValidation: Record<string, ValidationSchema> = {};
 
-  const cloudProviderFieldExists = inputParametersObj["cloud_provider"];
-  const regionFieldExists = inputParametersObj["region"];
-  const customAvailabilityZoneFieldExists = inputParametersObj["custom_availability_zone"];
+    inputParams.forEach((param) => {
+      if (param.custom === true && param.type?.toUpperCase() === "ANY") {
+        // Add JSON validation for ANY type fields
+        const fieldValidation = yup.mixed().test("json-validation", "Invalid JSON format", function (value) {
+          if (!value) return true; // Empty values handled by required validation
 
-  const isOnPrem =
+          // If it's already an object or array (from API default), it's valid
+          if (typeof value === "object") return true;
+
+          // If it's a string, validate JSON syntax
+          if (typeof value === "string") {
+            if (value.trim() === "") return true;
+            try {
+              JSON.parse(value);
+              return true;
+            } catch {
+              return false;
+            }
+          }
+
+          return true;
+        });
+        requestParamsValidation[param.key] = fieldValidation;
+      } else if (param.custom === true && ["STRING", "PASSWORD", "SECRET"].includes(param.type?.toUpperCase())) {
+        // Only add regex validation if regex is defined and not empty
+        if (param.regex && param.regex.trim()) {
+          // Test if the regex pattern is valid before adding validation
+          let isValidRegex = false;
+          try {
+            new RegExp(param.regex);
+            isValidRegex = true;
+          } catch (error) {
+            console.warn(`Invalid regex pattern for parameter '${param.key}':`, param.regex, error);
+            isValidRegex = false;
+          }
+
+          if (isValidRegex) {
+            let fieldValidation: ValidationSchema = yup
+              .string()
+              .test("regex-validation", `Value does not match the required pattern: ${param.regex}`, function (value) {
+                if (!value) return true; // Empty values handled by required validation
+
+                const regex = new RegExp(param.regex as string);
+
+                // Handle array values (for multi-select fields)
+                if (Array.isArray(value)) {
+                  if (value.length === 0) return true;
+                  return value.every((item) => !item || regex.test(item));
+                }
+
+                if (value && typeof value === "object") {
+                  return Object.values(value as Record<string, unknown>).every(
+                    (item) => !item || regex.test(String(item))
+                  );
+                }
+
+                // Handle single values
+                return regex.test(value);
+              });
+
+            // Add nullable() if parameter has options
+            if (param.options) {
+              fieldValidation = fieldValidation.nullable();
+            }
+
+            requestParamsValidation[param.key] = fieldValidation;
+          }
+        }
+      }
+    });
+
+    return yup.object().shape(requestParamsValidation);
+  }, [resourceSchemaData, formData.values.cloudProvider]);
+
+  const requestParamsModifyValidationSchema = useMemo(() => {
+    const inputParams = filterSchemaByCloudProvider(
+      resourceModifySchema?.inputParameters || [],
+      formData.values.cloudProvider
+    ).filter((param) => !REQUEST_PARAMS_FIELDS_TO_FILTER.includes(param.key));
+
+    // Create validation rules for requestParams
+    const requestParamsValidation: Record<string, ValidationSchema> = {};
+
+    inputParams.forEach((param) => {
+      if (param.custom === true && param.modifiable === true && param.type?.toUpperCase() === "ANY") {
+        // Add JSON validation for ANY type fields
+        const fieldValidation = yup.mixed().test("json-validation", "Invalid JSON format", function (value) {
+          if (!value) return true; // Empty values handled by required validation
+
+          // If it's already an object or array (from API default), it's valid
+          if (typeof value === "object") return true;
+
+          // If it's a string, validate JSON syntax
+          if (typeof value === "string") {
+            if (value.trim() === "") return true;
+            try {
+              JSON.parse(value);
+              return true;
+            } catch {
+              return false;
+            }
+          }
+
+          return true;
+        });
+        requestParamsValidation[param.key] = fieldValidation;
+      } else if (
+        param.custom === true &&
+        param.modifiable === true &&
+        ["STRING", "PASSWORD", "SECRET"].includes(param.type?.toUpperCase())
+      ) {
+        // Only add regex validation if regex is defined and not empty
+        if (param.regex && param.regex.trim()) {
+          // Test if the regex pattern is valid before adding validation
+          let isValidRegex = false;
+          try {
+            new RegExp(param.regex);
+            isValidRegex = true;
+          } catch (error) {
+            console.warn(`Invalid regex pattern for parameter '${param.key}':`, param.regex, error);
+            isValidRegex = false;
+          }
+
+          if (isValidRegex) {
+            let fieldValidation: ValidationSchema = yup
+              .string()
+              .test("regex-validation", `Value does not match the required pattern: ${param.regex}`, function (value) {
+                if (!value) return true; // Empty values handled by required validation
+
+                const regex = new RegExp(param.regex as string);
+
+                // Handle array values (for multi-select fields)
+                if (Array.isArray(value)) {
+                  if (value.length === 0) return true;
+                  return value.every((item) => !item || regex.test(item));
+                }
+
+                if (value && typeof value === "object") {
+                  return Object.values(value as Record<string, unknown>).every(
+                    (item) => !item || regex.test(String(item))
+                  );
+                }
+
+                // Handle single values
+                return regex.test(value);
+              });
+
+            // Add nullable() if parameter has options
+            if (param.options) {
+              fieldValidation = fieldValidation.nullable();
+            }
+
+            requestParamsValidation[param.key] = fieldValidation;
+          }
+        }
+      }
+    });
+
+    return yup.object().shape(requestParamsValidation);
+  }, [resourceSchemaData, formData.values.cloudProvider]);
+
+  // Check if the current offering is on-prem (has onprem_platform in input params)
+  const isOnPremOffering = Boolean(
     offering?.serviceModelType === "ON_PREM" &&
-    resourceSchema?.inputParameters.find((field) => field.key === "onprem_platform");
+    resourceCreateSchema?.inputParameters?.some((field) => field.key === "onprem_platform")
+  );
 
-  const cloudProviderOptions: string[] = (() => {
-    const options: string[] = [];
-    if (isOnPrem) {
-      const onPremPlatforms = offering?.onPremPlatforms || [];
-      if (onPremPlatforms.includes("EKS")) {
-        options.push("aws");
-      }
-      if (onPremPlatforms.includes("GKE")) {
-        options.push("gcp");
-      }
-      if (onPremPlatforms.includes("AKS")) {
-        options.push("azure");
-      }
-      if (onPremPlatforms.includes("OKE")) {
-        options.push("oci");
-      }
-      if (onPremPlatforms.includes("Generic")) {
-        options.push("private");
-      }
-    }
-    return options;
-  })();
-
-  const onPremPlatformOptions: string[] = (() => {
-    const options: string[] = [];
-    const currentCloudProvider = formData.values.cloudProvider;
-    const mappedPlatform = cloudProviderToPlatformMap[currentCloudProvider];
-    if (mappedPlatform) {
-      options.push(mappedPlatform);
-    }
-    if (!options.includes("Generic")) {
-      options.push("Generic");
-    }
-    return options;
-  })();
-
-  const fields: Field[] = [
-    {
-      dataTestId: "service-name-select",
-      label: "Product Name",
-      subLabel: "Select the Product you want to deploy",
-      name: "serviceId",
-      type: "select",
-      required: true,
-      disabled: formMode !== "create",
-      emptyMenuText: "No Products available",
-      menuItems: serviceMenuItems,
-      isHidden: serviceMenuItems.length === 1,
-      onChange: (e) => {
-        const serviceId = e.target.value;
-
-        const subscription = getValidSubscriptionForInstanceCreation(
-          serviceOfferingsObj,
-          subscriptions,
-          instances,
-          serviceId
-        );
-
-        const servicePlanId = subscription?.productTierId || "";
-        const subscriptionId = subscription?.id || "";
-        setFieldValue("servicePlanId", servicePlanId);
-        setFieldValue("subscriptionId", subscriptionId);
-
-        const offering = serviceOfferingsObj[serviceId]?.[servicePlanId];
-        const isOfferingOnPrem = offering?.serviceModelType === "ON_PREM";
-        const cloudProvider = isOfferingOnPrem
-          ? platformToCloudProviderMap[offering?.onPremPlatforms?.[0] || ""] || ""
-          : offering?.cloudProviders?.[0] || "";
-
-        setFieldValue("cloudProvider", cloudProvider);
-        if (cloudProvider === "aws") {
-          setFieldValue("region", offering.awsRegions?.[0] || "");
-        } else if (cloudProvider === "gcp") {
-          setFieldValue("region", offering.gcpRegions?.[0] || "");
-        } else if (cloudProvider === "azure") {
-          setFieldValue("region", offering.azureRegions?.[0] || "");
-        } else if (cloudProvider === "oci") {
-          setFieldValue("region", offering.ociRegions?.[0] || "");
-        } else if (cloudProvider === "nebius") {
-          setFieldValue("region", offering.nebiusRegions?.[0] || "");
-        }
-
-        // Set default onprem_platform for on-prem offerings
-        if (isOfferingOnPrem) {
-          setFieldValue("onprem_platform", cloudProviderToPlatformMap[cloudProvider] || "");
-        } else {
-          setFieldValue("onprem_platform", "");
-        }
-
-        const resources = getResourceMenuItems(offering);
-        setFieldValue("productTierVersion", "");
-        setFieldValue("resourceId", resources[0]?.value || "");
-        setFieldValue("requestParams", {});
-
-        setFieldTouched("servicePlanId", false);
-        setFieldTouched("subscriptionId", false);
-        setFieldTouched("resourceId", false);
-      },
-      previewValue: servicesObj[values.serviceId]?.serviceName,
-    },
-    {
-      label: "Subscription Plan",
-      subLabel: "Select the subscription plan",
-      name: "servicePlanId",
-      required: true,
-      customComponent: (
-        <SubscriptionPlanRadio
-          servicePlans={Object.values(serviceOfferingsObj[serviceId] || {}).sort((a: any, b: any) =>
-            a.productTierName.localeCompare(b.productTierName)
-          )}
-          name="servicePlanId"
-          formData={formData}
-          disabled={formMode !== "create"}
-          // @ts-ignore
-          onChange={(
-            servicePlanId: string,
-            subscriptionId?: string // This is very specific to when we subscribe to the plan for the first time
-          ) => {
-            const isPlanChanging = servicePlanId !== values.servicePlanId;
-            const offering = serviceOfferingsObj[serviceId]?.[servicePlanId];
-            const isOfferingOnPrem = offering?.serviceModelType === "ON_PREM";
-            const cloudProvider = isOfferingOnPrem
-              ? platformToCloudProviderMap[offering?.onPremPlatforms?.[0] || ""] || ""
-              : offering?.cloudProviders?.[0] || "";
-
-            setFieldValue("cloudProvider", cloudProvider);
-            if (cloudProvider === "aws") {
-              setFieldValue("region", offering.awsRegions?.[0] || "");
-            } else if (cloudProvider === "gcp") {
-              setFieldValue("region", offering.gcpRegions?.[0] || "");
-            } else if (cloudProvider === "azure") {
-              setFieldValue("region", offering.azureRegions?.[0] || "");
-            } else if (cloudProvider === "oci") {
-              setFieldValue("region", offering.ociRegions?.[0] || "");
-            } else if (cloudProvider === "nebius") {
-              setFieldValue("region", offering.nebiusRegions?.[0] || "");
-            }
-
-            // Set default onprem_platform for on-prem offerings
-            if (isOfferingOnPrem) {
-              setFieldValue("onprem_platform", cloudProviderToPlatformMap[cloudProvider] || "");
-            } else {
-              setFieldValue("onprem_platform", "");
-            }
-
-            const resources = getResourceMenuItems(offering);
-            // Only reset requestParams, productTierVersion, and resourceId when the plan actually changes.
-            // When the user subscribes to the already-selected plan, the plan ID doesn't
-            // change, so we should preserve existing selections and default parameter values.
-            if (isPlanChanging) {
-              setFieldValue("resourceId", resources[0]?.value || "");
-              setFieldValue("requestParams", {});
-              setFieldValue("productTierVersion", "");
-            } else {
-              // If the current resourceId is not in the new resource list, reset it
-              // and clear requestParams since the resource context changed
-              const currentResourceId = values.resourceId;
-              const resourceIds = resources.map((r) => r.value);
-              if (!currentResourceId || !resourceIds.includes(currentResourceId)) {
-                setFieldValue("resourceId", resources[0]?.value || "");
-                setFieldValue("requestParams", {});
-              }
-            }
-
-            const subscription = getValidSubscriptionForInstanceCreation(
-              serviceOfferingsObj,
-              subscriptions,
-              instances,
-              serviceId,
-              servicePlanId
-            );
-
-            setFieldValue("subscriptionId", subscriptionId || subscription?.id || "");
-
-            setFieldTouched("subscriptionId", false);
-            setFieldTouched("resourceId", false);
-          }}
-          subscriptionInstancesNumHash={subscriptionInstanceCountHash}
-        />
-      ),
-      previewValue: offering?.productTierName,
-    },
-    {
-      dataTestId: "subscription-select",
-      label: "Subscription",
-      subLabel: "Select the subscription",
-      name: "subscriptionId",
-      required: true,
-      isHidden: subscriptionMenuItems.length === 0,
-      customComponent: (
-        <SubscriptionMenu
-          field={{
-            name: "subscriptionId",
-            value: values.subscriptionId,
-            isLoading: isFetchingSubscriptions,
-            disabled: formMode !== "create",
-            emptyMenuText: !serviceId
-              ? "Select a Product"
-              : !servicePlanId
-                ? "Select a subscription plan"
-                : "No subscriptions available",
-            onChange: () => {
-              // We filter the cloud accounts based on the selected subscription
-              // So we need to reset the selected cloud account
-              if (values.requestParams?.cloud_provider_account_config_id) {
-                setFieldValue("requestParams.cloud_provider_account_config_id", "");
-              }
-            },
-          }}
-          formData={formData}
-          subscriptions={subscriptionMenuItems}
-          subscriptionInstanceCountHash={subscriptionInstanceCountHash}
-        />
-      ),
-      previewValue: subscriptionsObj[values.subscriptionId]?.id,
-    },
-  ];
-
-  // Add Product Tier Version field if feature is enabled and version sets are available
-  if (allowCustomerVersionOverride && versionSets?.length > 0) {
-    // Create menu items from customerVersionSets with status chips for preferred versions
-    const versionMenuItems = versionSets.map((versionSet) => {
-      const isPreferred = versionSet.status === "Preferred";
-
-      return {
-        label: isPreferred ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span>{versionSet.version}</span>
-            <StatusChip {...getVersionSetStatusStylesAndLabel("Preferred")} />
-          </div>
-        ) : (
-          versionSet.version
-        ),
-        value: versionSet.version,
-      };
-    });
-
-    // Find the default value (version set with status 'Preferred')
-    const preferredVersionSet = versionSets.find((versionSet) => versionSet.status === "Preferred");
-    const defaultValue = preferredVersionSet?.version || versionSets[0]?.version || "";
-
-    fields.push({
-      dataTestId: "product-tier-version-select",
-      label: "Service Plan Version",
-      subLabel: "Select the service plan version",
-      name: "productTierVersion",
-      type: "select",
-      required: true,
-      emptyMenuText: "No plan versions available",
-      menuItems: versionMenuItems,
-      previewValue: values.productTierVersion,
-      disabled: formMode !== "create",
-      onChange: (e) => {
-        const selectedVersion = e.target.value;
-        const selectedVersionSet = versionSets.find((versionSet) => versionSet.version === selectedVersion);
-        if (!selectedVersionSet) return;
-        const resourceMenuItems = getVersionSetResourceMenuItems(selectedVersionSet);
-        const firstResource = resourceMenuItems[0];
-        if (firstResource) {
-          setFieldValue("resourceId", firstResource.value);
-        } else {
-          setFieldValue("resourceId", "");
-        }
-        setFieldValue("productTierVersion", selectedVersion);
-        // Reset requestParams when version changes
-        setFieldValue("requestParams", {});
-      },
-      isLoading: isFetchingVersionSets,
-    });
-
-    // Set default value if not already set (only in create mode)
-    if (!values.productTierVersion && defaultValue && formMode === "create") {
-      setFieldValue("productTierVersion", defaultValue);
-    }
-  }
-
-  fields.push({
-    dataTestId: "resource-type-select",
-    label: "Resource Name",
-    subLabel: "Select the resource",
-    name: "resourceId",
-    type: "select",
-    required: true,
-    emptyMenuText: !serviceId
-      ? "Select a Product"
-      : !servicePlanId
-        ? "Select a subscription plan"
-        : "No resources available",
-    menuItems: resourceMenuItems,
-    previewValue: resourceMenuItems.find((item) => item.value === values.resourceId)?.label,
-    disabled: formMode !== "create",
-    onChange: () => {
-      setFieldValue("requestParams", {});
-    },
-    isHidden: resourceMenuItems.length <= 1,
-  });
-
-  if (cloudProviderFieldExists) {
-    fields.push({
-      label: "Cloud Provider",
-      subLabel: "Select the cloud provider",
-      name: "cloudProvider",
-      required: true,
-      customComponent: (
-        <CloudProviderRadio
-          cloudProviders={offering?.cloudProviders || []}
-          name="cloudProvider"
-          formData={formData}
-          // @ts-ignore
-          onChange={(newCloudProvider: CloudProvider) => {
-            if (newCloudProvider === "aws") {
-              setFieldValue("region", offering.awsRegions?.[0] || "");
-            } else if (newCloudProvider === "gcp") {
-              setFieldValue("region", offering.gcpRegions?.[0] || "");
-            } else if (newCloudProvider === "azure") {
-              setFieldValue("region", offering.azureRegions?.[0] || "");
-            } else if (newCloudProvider === "oci") {
-              setFieldValue("region", offering.ociRegions?.[0] || "");
-            } else if (newCloudProvider === "nebius") {
-              setFieldValue("region", offering.nebiusRegions?.[0] || "");
-            }
-          }}
-          disabled={formMode !== "create"}
-        />
-      ),
-      previewValue: values.cloudProvider
-        ? () => {
-            const cloudProvider = values.cloudProvider;
-            return cloudProviderLongLogoMap[cloudProvider];
-          }
-        : null,
-    });
-  }
-
-  if (regionFieldExists) {
-    fields.push({
-      dataTestId: "region-select",
-      label: "Region",
-      subLabel: "Select the region",
-      name: "region",
-      required: true,
-      type: "select",
-      emptyMenuText: !resourceId
-        ? "Select a resource"
-        : !cloudProvider
-          ? "Select a cloud provider"
-          : "No regions available",
-      menuItems: getRegionMenuItems(serviceOfferingsObj[serviceId]?.[servicePlanId], cloudProvider),
-      disabled: formMode !== "create",
-    });
-  }
-
-  if (isOnPrem) {
-    fields.push({
-      label: "Kubernetes Platform",
-      subLabel: "Select the Kubernetes platform",
-      name: "kubernetesPlatform",
-      required: true,
-      customComponent: (
-        <CloudProviderRadio
-          cloudProviders={cloudProviderOptions.length > 0 ? cloudProviderOptions : offering?.cloudProviders || []}
-          name="cloudProvider"
-          formData={formData}
-          // @ts-ignore
-          onChange={(newCloudProvider: CloudProvider) => {
-            const platform = cloudProviderToPlatformMap[newCloudProvider] || "Generic";
-            setFieldValue("onprem_platform", platform);
-            setFieldValue("cloudProvider", newCloudProvider);
-          }}
-          disabled={formMode !== "create"}
-        />
-      ),
-      previewValue: values.cloudProvider
-        ? () => {
-            const cloudProvider = values.cloudProvider;
-            return cloudProviderLongLogoMap[cloudProvider];
-          }
-        : null,
-    });
-  }
-
-  if (isOnPrem) {
-    fields.push({
-      label: "Kubernetes Distribution",
-      subLabel: "Choose the Kubernetes distribution supported by the selected platform",
-      name: "kubernetesDistribution",
-      required: true,
-      customComponent: (
-        <KubernetesDistributionsMultiSelect
-          onPremPlatforms={formData.values.onprem_platform}
-          setFieldValue={formData.setFieldValue}
-          onPremPlatformOptions={onPremPlatformOptions as ("EKS" | "GKE" | "AKS" | "Generic")[]}
-          disabled={formMode !== "create"}
-        />
-      ),
-      previewValue: values.onprem_platform || null,
-    });
-  }
-
-  if (customAvailabilityZoneFieldExists) {
-    fields.push({
-      dataTestId: "custom-availability-zone-select",
-      label: "Custom Availability Zone",
-      subLabel: "Select a specific availability zone for deploying your instance",
-      name: "requestParams.custom_availability_zone",
-      value: requestParams.custom_availability_zone || "",
-      type: "select",
-      menuItems: customAvailabilityZones.map((zone) => ({
-        label: `${zone.cloudProviderName} - ${zone.code}`,
-        value: zone.code,
-      })),
-      isLoading: isFetchingCustomAvailabilityZones,
-      required: true,
-      emptyMenuText: region ? "No availability zones" : "Please select a region first",
-      disabled: formMode !== "create",
-      previewValue: requestParams.custom_availability_zone,
-    });
-  }
-
-  fields.push({
-    dataTestId: "instance-custom-tags",
-    label: "Tags",
-    subLabel: "Add tags to your instance",
-    name: "customTags",
-    customComponent: <CustomTagsField formData={formData} />,
-    previewValue: formData?.values.customTags?.filter((tag) => tag.key && tag.value)?.length
-      ? formData.values.customTags
-          ?.filter((tag) => tag.key && tag.value)
-          ?.map((tag) => `${tag.key}:${tag.value}`)
-          .join(", ")
-      : null,
-  });
-
-  return fields;
-};
-
-export const getNetworkConfigurationFields = (
-  formMode: FormMode,
-  formData,
-  values,
-  resourceSchema: APIEntity,
-  serviceOfferingsObj: Record<string, Record<string, ServiceOffering>>,
-  resources: ResourceSummary[],
-  customNetworks: CustomNetwork[],
-  isFetchingCustomNetworks: boolean
-) => {
-  const fields: Field[] = [];
-  const { serviceId, servicePlanId } = values;
-  const offering = serviceOfferingsObj[serviceId]?.[servicePlanId];
-  const isMultiTenancy = offering?.productTierType === productTierTypes.OMNISTRATE_MULTI_TENANCY;
-
-  const inputParametersObj = (resourceSchema?.inputParameters || []).reduce((acc, param) => {
-    acc[param.key] = param;
-    return acc;
-  }, {});
-
-  const cloudProviderFieldExists = inputParametersObj["cloud_provider"];
-  const customNetworkFieldExists = inputParametersObj["custom_network_id"];
-  const cloudProviderNativeNetworkIdFieldExists = inputParametersObj["cloud_provider_native_network_id"];
-  const customDNSFieldExists = inputParametersObj["custom_dns_configuration"];
-
-  const getCustomDnsInputValue = (resourceKey: string): string => {
-    const customDnsConfiguration = values?.requestParams?.custom_dns_configuration;
-
-    if (!resourceKey) {
-      return "";
-    }
-
-    if (
-      customDnsConfiguration &&
-      typeof customDnsConfiguration === "object" &&
-      !Array.isArray(customDnsConfiguration)
-    ) {
-      const configuredValue = customDnsConfiguration[resourceKey];
-
-      if (typeof configuredValue !== "string") {
-        return "";
-      }
-
-      try {
-        const parsedValue = JSON.parse(configuredValue);
-        return parsedValue?.[resourceKey] ?? configuredValue;
-      } catch {
-        return configuredValue;
-      }
-    }
-
-    if (typeof customDnsConfiguration === "string") {
-      return normalizeCustomDnsValue(resourceKey, customDnsConfiguration);
-    }
-
-    return "";
-  };
-
-  const networkTypeFieldExists = cloudProviderFieldExists && !isMultiTenancy && offering?.supportsPublicNetwork;
-
-  if (networkTypeFieldExists) {
-    fields.push({
-      label: "Network Type",
-      subLabel: "Type of Network",
-      name: "network_type",
-      value: values.network_type || "",
-      type: "radio",
-      required: true,
-      options: [
-        {
-          dataTestId: "public-radio",
-          label: "Public",
-          value: "PUBLIC",
-        },
-        {
-          dataTestId: "private-radio",
-          label: "Private",
-          value: "INTERNAL",
-        },
-      ],
-      previewValue: values.network_type,
-    });
-  }
-
-  if (customNetworkFieldExists) {
-    fields.push({
-      dataTestId: "custom-network-id-select",
-      label: "Customer Network ID",
-      subLabel: "Select the customer network ID",
-      description: <CustomNetworkDescription overlay="create" />,
-      name: "requestParams.custom_network_id",
-      value: values.requestParams.custom_network_id || "",
-      type: "select",
-      required: true,
-      disabled: formMode !== "create",
-      menuItems: getCustomNetworksMenuItems(
-        customNetworks,
-        values.cloudProvider,
-        values.cloudProvider === "aws"
-          ? offering.awsRegions || []
-          : values.cloudProvider === "gcp"
-            ? offering.gcpRegions || []
-            : values.cloudProvider === "azure"
-              ? offering.azureRegions || []
-              : values.cloudProvider === "nebius"
-                ? offering.nebiusRegions || []
-                : offering.ociRegions || [],
-        values.region
-      ),
-      emptyMenuText: "No customer networks available",
-      isLoading: isFetchingCustomNetworks,
-      previewValue: customNetworks.find((network) => network.id === values.requestParams.custom_network_id)?.name,
-    });
-  }
-
-  if (
-    cloudProviderNativeNetworkIdFieldExists &&
-    cloudProviderFieldExists &&
-    values.cloudProvider !== "gcp" &&
-    values.cloudProvider !== "azure"
-  ) {
-    const param = inputParametersObj["cloud_provider_native_network_id"];
-    fields.push({
-      dataTestId: `${param.key}-input`,
-      label: param.displayName || param.key,
-      subLabel: (
-        <>
-          {param.description && <br />}
-          If you&apos;d like to deploy within your VPC, enter its ID. Please ensure your VPC meets the{" "}
-          <Link
-            style={{
-              textDecoration: "underline",
-              color: "blue",
-            }}
-            href="https://docs.omnistrate.com/usecases/byoc/?#bring-your-own-vpc-byo-vpc"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            prerequisites
-          </Link>
-          .
-        </>
-      ),
-      disabled: formMode !== "create",
-      name: `requestParams.${param.key}`,
-      value: values.requestParams[param.key] || "",
-      type: "text-multiline",
-      required: formMode !== "modify" && param.required,
-      previewValue: values.requestParams[param.key],
-    });
-  }
-
-  if (customDNSFieldExists) {
-    const param = inputParametersObj["custom_dns_configuration"];
-    const customDnsResources = (resources || []).filter((resource) => resource?.customDNS === true);
-
-    if (customDnsResources.length) {
-      customDnsResources.forEach((resource) => {
-        const resourceKey = resource?.key || resource?.id;
-        if (!resourceKey) {
-          return;
-        }
-
-        fields.push({
-          dataTestId: `${param.key}.${resourceKey}`,
-          label: `${resource?.name || resourceKey} Custom DNS`,
-          subLabel: `Enter custom DNS value for ${resource?.name || resourceKey}`,
-          disabled: formMode !== "create",
-          name: `requestParams.${param.key}.${resourceKey}`,
-          value: getCustomDnsInputValue(resourceKey),
-          type: "text-multiline",
-          required: formMode !== "modify" && param.required,
-          previewValue: getCustomDnsInputValue(resourceKey),
-          skipFormikHandleChange: true,
-          onChange: (event) => {
-            const currentConfig = values?.requestParams?.custom_dns_configuration;
-            const normalizedConfig =
-              currentConfig && typeof currentConfig === "object" && !Array.isArray(currentConfig) ? currentConfig : {};
-
-            formData.setFieldValue("requestParams.custom_dns_configuration", {
-              ...normalizedConfig,
-              [resourceKey]: event.target.value,
-            });
-          },
-        });
-      });
-    }
-  }
-
-  return fields;
-};
-
-export const getDeploymentConfigurationFields = (
-  formMode: FormMode,
-  values: any,
-  resourceSchema: APIEntity,
-  resourceIdInstancesHashMap,
-  isFetchingResourceInstanceIds: boolean,
-  cloudAccountInstances
-) => {
-  const stripCloudProviderPrefix = (label: string) => label.replace(/^(?:GCP|AWS)\s+/i, "").trim();
-
-  const getSingleSelectMenuItems = (param: any) => {
-    const labeledOptions = param?.labeledOptions;
-
-    if (labeledOptions && typeof labeledOptions === "object") {
-      const entries = Object.entries(labeledOptions).filter(
-        ([label, value]) => typeof label === "string" && typeof value === "string"
-      );
-
-      if (entries.length > 0) {
-        return entries.map(([label, value]) => ({
-          label: stripCloudProviderPrefix(label),
-          value: value as string,
-        }));
-      }
-    }
-
-    if (Array.isArray(param?.options)) {
-      return param.options.map((option) => {
-        const optionValue = String(option);
-        return {
-          label: stripCloudProviderPrefix(optionValue),
-          value: optionValue,
-        };
-      });
-    }
-
-    return [];
-  };
-
-  const getMultiSelectMenuItems = (param: any) => {
-    const labeledOptions = param?.labeledOptions;
-
-    if (labeledOptions && typeof labeledOptions === "object") {
-      const entries = Object.entries(labeledOptions).filter(
-        ([label, value]) => typeof label === "string" && typeof value === "string"
-      );
-
-      if (entries.length > 0) {
-        return entries
-          .map(([label, value]) => ({
-            label: stripCloudProviderPrefix(label),
-            value: value as string,
-          }))
-          .sort((a, b) => a.label.localeCompare(b.label));
-      }
-    }
-
-    if (Array.isArray(param?.options)) {
-      return [...param.options]
-        .map((option) => {
-          const optionValue = String(option);
-          return {
-            label: stripCloudProviderPrefix(optionValue),
-            value: optionValue,
-          };
+  // Update validation schema when requestParams validation changes
+  useEffect(() => {
+    const baseFields = {
+      serviceId: yup.string().required("Product is required"),
+      servicePlanId: yup.string().required("A plan with a valid subscription is required"),
+      subscriptionId: yup.string().required("Subscription is required"),
+      resourceId: yup.string().required("Resource is required"),
+      customTags: yup.array().of(
+        yup.object().shape({
+          key: yup.string().required("Name is required"),
+          value: yup.string().required("Value is required"),
         })
-        .sort((a, b) => a.label.localeCompare(b.label));
-    }
+      ),
+      // Add onprem_platform as required only for on-prem offerings
+      ...(isOnPremOffering && {
+        onprem_platform: yup.string().required("Kubernetes Distribution is required"),
+      }),
+    };
 
-    return [];
-  };
-
-  const fields: Field[] = [];
-  if (!resourceSchema?.inputParameters) return fields;
-
-  const filteredSchema = filterSchemaByCloudProvider(resourceSchema?.inputParameters || [], values.cloudProvider)
-    .filter((param) => !REQUEST_PARAMS_FIELDS_TO_FILTER.includes(param.key))
-    .sort((a, b) => {
-      if (a.tabIndex === undefined || b.tabIndex === undefined) {
-        return 0;
-      }
-      return a.tabIndex - b.tabIndex;
-    });
-
-  filteredSchema.forEach((param) => {
-    if (param.type?.toLowerCase() === "password") {
-      fields.push({
-        dataTestId: `${param.key}-input`,
-        label: param.displayName || param.key,
-        subLabel: param.description,
-        name: `requestParams.${param.key}`,
-        value: values.requestParams[param.key] || "",
-        type: "password",
-        required: param.required,
-        showPasswordGenerator: true,
-        previewValue: values.requestParams[param.key] ? "********" : "",
-        disabled: formMode !== "create" && param.custom && !param.modifiable,
+    if (formMode === "modify" && selectedInstance) {
+      const newValidationSchema = yup.object({
+        ...baseFields,
+        requestParams: requestParamsModifyValidationSchema,
       });
-    } else if (param.dependentResourceID && param.key !== "cloud_provider_account_config_id") {
-      const dependentResourceId = param.dependentResourceID;
-      const options = resourceIdInstancesHashMap[dependentResourceId]
-        ? resourceIdInstancesHashMap[dependentResourceId]
-        : [];
-
-      fields.push({
-        dataTestId: `${param.key}-select`,
-        label: param.displayName || param.key,
-        subLabel: param.description,
-        name: `requestParams.${param.key}`,
-        value: values.requestParams[param.key],
-        type: "select",
-        menuItems: options.map((option) => ({
-          label: option,
-          value: option,
-        })),
-        required: param.required,
-        isLoading: isFetchingResourceInstanceIds,
-        emptyMenuText: "No dependent instances available",
-        previewValue: values.requestParams[param.key],
-        disabled: formMode !== "create" && param.custom && !param.modifiable,
-      });
-    } else if (param.type?.toLowerCase() === "boolean") {
-      fields.push({
-        label: param.displayName || param.key,
-        subLabel: param.description,
-        name: `requestParams.${param.key}`,
-        value: values.requestParams[param.key] || "",
-        type: "radio",
-        options: [
-          {
-            dataTestId: `${param.key}-true-radio`,
-            label: "True",
-            value: "true",
-            disabled: formMode !== "create" && param.custom && !param.modifiable,
-          },
-          {
-            dataTestId: `${param.key}-false-radio`,
-            label: "False",
-            value: "false",
-            disabled: formMode !== "create" && param.custom && !param.modifiable,
-          },
-        ],
-        required: param.required,
-        previewValue: values.requestParams[param.key] === "true" ? "true" : "false",
-        disabled: formMode !== "create" && param.custom && !param.modifiable,
-      });
-    } else if ((param.labeledOptions !== undefined || param.options !== undefined) && param.isList === true) {
-      const menuItems = getMultiSelectMenuItems(param);
-      const selectedValues: string[] = Array.isArray(values.requestParams[param.key]) ? values.requestParams[param.key] : [];
-      const selectedLabels = selectedValues.map((selectedValue) => {
-        return menuItems.find((item) => item.value === selectedValue)?.label || selectedValue;
-      });
-
-      fields.push({
-        dataTestId: `${param.key}-select`,
-        label: param.displayName || param.key,
-        subLabel: param.description,
-        name: `requestParams.${param.key}`,
-        value: values.requestParams[param.key] || "",
-        type: "multi-select-autocomplete",
-        menuItems,
-        required: param.required,
-        previewValue: selectedLabels.join(", "),
-        disabled: formMode !== "create" && param.custom && !param.modifiable,
-      });
-    } else if ((param.labeledOptions !== undefined || param.options !== undefined) && param.isList === false) {
-      const menuItems = getSingleSelectMenuItems(param);
-
-      fields.push({
-        dataTestId: `${param.key}-select`,
-        label: param.displayName || param.key,
-        subLabel: param.description,
-        name: `requestParams.${param.key}`,
-        value: values.requestParams[param.key] || "",
-        type: "select",
-        menuItems,
-        required: param.required,
-        previewValue:
-          menuItems.find((item) => item.value === values.requestParams[param.key])?.label ||
-          values.requestParams[param.key],
-        disabled: formMode !== "create" && param.custom && !param.modifiable,
-      });
-    } else if (param.key === "cloud_provider_account_config_id") {
-      fields.push({
-        dataTestId: `${param.key}-select`,
-        label: param.displayName || param.key,
-        subLabel: param.description,
-        name: `requestParams.${param.key}`,
-        description: (
-          <AccountConfigDescription
-            serviceId={values.serviceId}
-            servicePlanId={values.servicePlanId}
-            subscriptionId={values.subscriptionId}
-          />
-        ),
-        value: values.requestParams[param.key] || "",
-        type: "select",
-        menuItems: cloudAccountInstances
-          // Filter cloud accounts based on the selected subscription
-          ?.filter((el) => el.subscriptionId === values.subscriptionId)
-          .map((config) => ({
-            label: config.label,
-            value: config.id,
-          })),
-        required: param.required,
-        disabled: formMode !== "create",
-        previewValue: cloudAccountInstances.find((config) => config.id === values.requestParams[param.key])?.label,
-        emptyMenuText: "No cloud accounts available",
-      });
-    } else if (param.type?.toUpperCase() === "ANY") {
-      // Handle JSON type fields
-      fields.push({
-        dataTestId: `${param.key}-input`,
-        label: param.displayName || param.key,
-        subLabel: param.description,
-        disabled: formMode !== "create" && param.custom && !param.modifiable,
-        name: `requestParams.${param.key}`,
-        value: getJsonValue(values.requestParams[param.key]),
-        type: "code-editor",
-        language: "json",
-        required: param.required,
-        previewValue: getJsonValue(values.requestParams[param.key]),
-      });
+      setValidationSchema(newValidationSchema);
     } else {
-      if (param.key === "cloud_provider_account_config_id") {
-        return;
-      }
-
-      if (param.type?.toLowerCase() === "float64" || param.type?.toLowerCase() === "number") {
-        fields.push({
-          dataTestId: `${param.key}-input`,
-          label: param.displayName || param.key,
-          subLabel: param.description,
-          name: `requestParams.${param.key}`,
-          value: values.requestParams[param.key],
-          type: "number",
-          required: param.required,
-          previewValue: values.requestParams[param.key],
-        });
-      } else {
-        fields.push({
-          dataTestId: `${param.key}-input`,
-          label: param.displayName || param.key,
-          subLabel: param.description,
-          disabled: formMode !== "create" && param.custom && !param.modifiable,
-          name: `requestParams.${param.key}`,
-          value: values.requestParams[param.key] || "",
-          type: "text-multiline",
-          required: param.required,
-          previewValue: values.requestParams[param.key],
-        });
-      }
+      const newValidationSchema = yup.object({
+        ...baseFields,
+        requestParams: requestParamsCreateValidationSchema,
+      });
+      setValidationSchema(newValidationSchema);
     }
+  }, [
+    requestParamsCreateValidationSchema,
+    requestParamsModifyValidationSchema,
+    formMode,
+    selectedInstance,
+    isOnPremOffering,
+  ]);
+
+  const { data: customAvailabilityZoneData, isLoading: isFetchingCustomAvailabilityZones } = useAvailabilityZone({
+    regionCode: values.region,
+    cloudProviderName: values.cloudProvider as CloudProvider,
+    hasCustomAvailabilityZoneField:
+      (values.requestParams as Record<string, any>)?.custom_availability_zone !== undefined,
   });
 
-  return fields;
+  const { isFetching: isFetchingResourceInstanceIds, data: resourceIdInstancesHashMap = {} } = useResourcesInstanceIds(
+    offering?.serviceProviderId,
+    offering?.serviceURLKey,
+    offering?.serviceAPIVersion,
+    offering?.serviceEnvironmentURLKey,
+    offering?.serviceModelURLKey,
+    offering?.productTierURLKey,
+    offering?.resourceParameters,
+    subscriptionsObj[values.subscriptionId]?.productTierId === values.servicePlanId && values.subscriptionId
+  );
+
+  // Sets the Default Values for the Request Parameters
+  useEffect(() => {
+    const inputParameters = filterSchemaByCloudProvider(
+      resourceCreateSchema?.inputParameters || [],
+      formData.values.cloudProvider
+    );
+
+    const defaultValues = inputParameters.reduce((acc: any, param: any) => {
+      acc[param.key] = param.defaultValue || "";
+      if (param.key === "nodeInstanceType") {
+        if (formData.values.cloudProvider === "aws") {
+          acc[param.key] = "m6i.large";
+        } else if (formData.values.cloudProvider === "gcp") {
+          acc[param.key] = "e2-standard-2";
+        }
+      }
+      return acc;
+    }, {});
+
+    if (inputParameters.length && formMode === "create") {
+      formData.setValues((prev) => ({
+        ...prev,
+        requestParams: defaultValues,
+      }));
+
+      const isMultiTenancy = offering?.productTierType === productTierTypes.OMNISTRATE_MULTI_TENANCY;
+
+      const networkTypeFieldExists =
+        inputParameters.find((param) => param.key === "cloud_provider") &&
+        !isMultiTenancy &&
+        offering?.supportsPublicNetwork;
+
+      if (networkTypeFieldExists) {
+        formData.setFieldValue("network_type", "PUBLIC");
+      } else {
+        formData.setFieldValue("network_type", "");
+      }
+    }
+  }, [resourceCreateSchema, formMode, offering, formData.values.cloudProvider]);
+
+  const customAvailabilityZones = useMemo(() => {
+    // @ts-expect-error TODO: Ask someone on the backend to fix the docs
+    const availabilityZones = customAvailabilityZoneData?.availabilityZones || [];
+    return availabilityZones.sort(function (a, b) {
+      if (a.code < b.code) return -1;
+      else if (a.code > b.code) {
+        return 1;
+      }
+      return -1;
+    });
+    // @ts-expect-error TODO: Ask someone on the backend to fix the docs
+  }, [customAvailabilityZoneData?.availabilityZones]);
+
+  const cloudAccountInstances = useMemo(
+    () =>
+      instances
+        .filter((instance) => isCloudAccountInstance(instance))
+        .filter((instance) => {
+          const resultParams = getResultParams(instance);
+          if (resultParams?.gcp_project_id) {
+            return values.cloudProvider === "gcp";
+          } else if (resultParams?.aws_account_id) {
+            return values.cloudProvider === "aws";
+          } else if (resultParams?.azure_subscription_id) {
+            return values.cloudProvider === "azure";
+          } else if (resultParams?.oci_tenancy_id) {
+            return values.cloudProvider === "oci";
+          }
+        })
+        .filter((instance) => ["READY", "RUNNING"].includes(instance.status))
+        .map((instance) => {
+          const resultParams = getResultParams(instance);
+          return {
+            ...instance,
+            label: resultParams?.gcp_project_id
+              ? `${instance.id} (Project ID - ${resultParams?.gcp_project_id})`
+              : resultParams?.aws_account_id
+                ? `${instance.id} (Account ID - ${resultParams?.aws_account_id})`
+                : resultParams?.oci_tenancy_id
+                  ? `${instance.id} (Tenancy ID - ${resultParams?.oci_tenancy_id})`
+                  : `${instance.id} (Subscription ID - ${resultParams?.azure_subscription_id})`,
+          };
+        }),
+    [instances, values.cloudProvider]
+  );
+
+  const standardInformationFields = useMemo(() => {
+    return getStandardInformationFields(
+      servicesObj,
+      serviceOfferings,
+      serviceOfferingsObj,
+      isFetchingServiceOfferings,
+      subscriptions,
+      subscriptionsObj,
+      isFetchingSubscriptions,
+      formData,
+      resourceCreateSchema,
+      formMode,
+      customAvailabilityZones,
+      isFetchingCustomAvailabilityZones,
+      nonCloudAccountInstances,
+      customerVersionSets,
+      isFetchingVersionSets
+    );
+  }, [
+    formMode,
+    formData.values,
+    resourceCreateSchema,
+    customAvailabilityZones,
+    subscriptions,
+    nonCloudAccountInstances,
+    customerVersionSets,
+    isFetchingVersionSets,
+  ]);
+
+  const networkConfigurationFields = useMemo(() => {
+    return getNetworkConfigurationFields(
+      formMode,
+      formData,
+      formData.values,
+      resourceCreateSchema,
+      serviceOfferingsObj,
+      resources,
+      customNetworks,
+      isFetchingCustomNetworks
+    );
+  }, [
+    formMode,
+    formData.values,
+    resourceCreateSchema,
+    serviceOfferingsObj,
+    resources,
+    customNetworks,
+    isFetchingCustomNetworks,
+  ]);
+
+  const deploymentConfigurationFields = useMemo(() => {
+    return getDeploymentConfigurationFields(
+      formMode,
+      formData.values,
+      resourceCreateSchema,
+      resourceIdInstancesHashMap,
+      isFetchingResourceInstanceIds,
+      cloudAccountInstances
+    );
+  }, [
+    formMode,
+    formData.values,
+    resourceCreateSchema,
+    resourceIdInstancesHashMap,
+    isFetchingResourceInstanceIds,
+    cloudAccountInstances,
+  ]);
+
+  const sections = useMemo(
+    () => [
+      {
+        title: "Standard Information",
+        fields: standardInformationFields,
+      },
+      {
+        title: "Network Configuration",
+        fields: networkConfigurationFields,
+      },
+      {
+        title: "Deployment Configuration",
+        fields: deploymentConfigurationFields,
+      },
+    ],
+    [standardInformationFields, networkConfigurationFields, deploymentConfigurationFields]
+  );
+
+  if (isFetchingServiceOfferings || isFetchingSubscriptions || !initialValues) {
+    return <LoadingSpinner />;
+  }
+
+  return (
+    // @ts-ignore
+    <Form className="grid grid-cols-7 gap-8" onSubmit={formData.handleSubmit}>
+      <div className="space-y-6 col-span-5">
+        <CardWithTitle title="Standard Information">
+          <div className="space-y-6">
+            {standardInformationFields.map((field, index) => {
+              return <GridDynamicField key={index} field={field} formData={formData} />;
+            })}
+          </div>
+        </CardWithTitle>
+
+        {isFetchingVersionSets || isFetchingResourceSchema || !networkConfigurationFields.length ? null : (
+          <CardWithTitle title="Network Configuration">
+            <div className="space-y-6">
+              {networkConfigurationFields.map((field, index) => {
+                return <GridDynamicField key={index} field={field} formData={formData} />;
+              })}
+            </div>
+          </CardWithTitle>
+        )}
+        {isFetchingVersionSets || isFetchingResourceSchema ? (
+          <LoadingSpinner />
+        ) : !deploymentConfigurationFields.length ? null : (
+          <CardWithTitle title="Deployment Configuration">
+            <div className="space-y-6">
+              {deploymentConfigurationFields.map((field, index) => {
+                return <GridDynamicField key={index} field={field} formData={formData} />;
+              })}
+            </div>
+          </CardWithTitle>
+        )}
+      </div>
+
+      <div className="col-span-2">
+        <div
+          style={{
+            position: "sticky",
+            top: "104px",
+            minHeight: "660px",
+            border: `1px solid ${colors.gray300}`,
+            boxShadow: "0px 2px 2px -1px #0A0D120A, 0px 4px 6px -2px #0A0D1208",
+          }}
+          className="bg-white rounded-xl flex flex-col"
+        >
+          <div className="py-4 px-6 border-b border-gray-200">
+            <Text size="large" weight="semibold" color={colors.purple600}>
+              Deployment Instance Summary
+            </Text>
+          </div>
+
+          <PreviewCard formData={formData} sections={sections} />
+
+          <div
+            style={{
+              margin: "0px 16px 20px",
+              paddingTop: "20px",
+              borderTop: "1px solid #E9EAEB",
+            }}
+            className="flex items-center gap-3"
+          >
+            <Button
+              data-testid="cancel-button"
+              variant="outlined"
+              onClick={() => setIsOverlayOpen(false)}
+              disabled={createInstanceMutation.isPending || updateInstanceMutation.isPending}
+              sx={{ marginLeft: "auto" }} // Pushes the 2 buttons to the end
+            >
+              Cancel
+            </Button>
+
+            <span>
+              <Button
+                data-testid="submit-button"
+                variant="contained"
+                disabled={createInstanceMutation.isPending || updateInstanceMutation.isPending}
+                type="submit"
+              >
+                {formMode === "create" ? "Create" : "Update"}
+                {(createInstanceMutation.isPending || updateInstanceMutation.isPending) && <LoadingSpinnerSmall />}
+              </Button>
+            </span>
+          </div>
+        </div>
+      </div>
+    </Form>
+  );
 };
+
+export default InstanceForm;

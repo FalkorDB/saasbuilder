@@ -837,12 +837,12 @@ export const getDeploymentConfigurationFields = (
 
       if (param.labeledOptions && typeof param.labeledOptions === "object") {
         const entries = Object.entries(param.labeledOptions).filter(
-          ([label, value]) => typeof label === "string" && typeof value === "string"
+          ([label, value]) => typeof label === "string" && value !== null && value !== undefined
         );
         menuItems = entries
           .map(([label, value]) => ({
-            label: (label as string).replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
-            value: value as string,
+            label: label.replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
+            value: String(value),
           }))
           .sort((a, b) => a.label.localeCompare(b.label));
       } else if (Array.isArray(param.options)) {
@@ -852,9 +852,12 @@ export const getDeploymentConfigurationFields = (
         }));
       }
 
-      const selectedValues: string[] = Array.isArray(values.requestParams[param.key])
+      const rawSelected = Array.isArray(values.requestParams[param.key])
         ? values.requestParams[param.key]
         : [];
+      const selectedValues: string[] = rawSelected.map((item: any) =>
+        typeof item === "string" ? item : item?.value ?? ""
+      );
       const selectedLabels = selectedValues.map(
         (selectedValue) => menuItems.find((item) => item.value === selectedValue)?.label || selectedValue
       );

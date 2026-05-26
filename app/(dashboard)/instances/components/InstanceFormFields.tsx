@@ -832,7 +832,33 @@ export const getDeploymentConfigurationFields = (
         previewValue: values.requestParams[param.key] === "true" ? "true" : "false",
         disabled: formMode !== "create" && param.custom && !param.modifiable,
       });
-    } else if (param.options !== undefined && param.isList === true) {
+    } else if ((param.labeledOptions !== undefined || param.options !== undefined) && param.isList === true) {
+      let menuItems: { label: string; value: string }[] = [];
+
+      if (param.labeledOptions && typeof param.labeledOptions === "object") {
+        const entries = Object.entries(param.labeledOptions).filter(
+          ([label, value]) => typeof label === "string" && typeof value === "string"
+        );
+        menuItems = entries
+          .map(([label, value]) => ({
+            label: (label as string).replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
+            value: value as string,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+      } else if (Array.isArray(param.options)) {
+        menuItems = [...param.options].sort().map((option) => ({
+          label: option,
+          value: option,
+        }));
+      }
+
+      const selectedValues: string[] = Array.isArray(values.requestParams[param.key])
+        ? values.requestParams[param.key]
+        : [];
+      const selectedLabels = selectedValues.map(
+        (selectedValue) => menuItems.find((item) => item.value === selectedValue)?.label || selectedValue
+      );
+
       fields.push({
         dataTestId: `${param.key}-select`,
         label: param.displayName || param.key,
@@ -840,15 +866,12 @@ export const getDeploymentConfigurationFields = (
         name: `requestParams.${param.key}`,
         value: values.requestParams[param.key] || "",
         type: "multi-select-autocomplete",
-        menuItems: [...param.options].sort().map((option) => ({
-          label: option,
-          value: option,
-        })),
+        menuItems,
         required: param.required,
-        previewValue: values.requestParams[param.key]?.join(", "),
+        previewValue: selectedLabels.join(", "),
         disabled: formMode !== "create" && param.custom && !param.modifiable,
       });
-    } else if (param.labeledOptions || (param.options !== undefined && param.isList === false)) {
+    } else if ((param.labeledOptions !== undefined || param.options !== undefined) && param.isList === false) {
       // Handle both labeledOptions (with descriptive labels) and simple options
       let menuItems: { label: string; value: string }[] = [];
       let previewValue = values.requestParams[param.key];

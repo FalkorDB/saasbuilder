@@ -754,8 +754,7 @@ export const getDeploymentConfigurationFields = (
       if (entries.length > 0) {
         return entries.map(([label, value]) => ({
           label: stripCloudProviderPrefix(label),
-          value: stripCloudProviderPrefix(label),
-          machineType: value,
+          value: value as string,
         }));
       }
     }
@@ -785,8 +784,7 @@ export const getDeploymentConfigurationFields = (
         return entries
           .map(([label, value]) => ({
             label: stripCloudProviderPrefix(label),
-            value: stripCloudProviderPrefix(label),
-            machineType: value,
+            value: value as string,
           }))
           .sort((a, b) => a.label.localeCompare(b.label));
       }

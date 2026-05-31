@@ -1000,6 +1000,11 @@ export const getDeploymentConfigurationFields = (
         }
       }
 
+      // Strip cloud provider prefix from previewValue if present
+      if (previewValue && /^(aws|gcp|azure)\s/i.test(previewValue)) {
+        previewValue = previewValue.replace(/^(aws|gcp|azure)\s+/i, "").trim();
+      }
+
       fields.push({
         dataTestId: `${param.key}-select`,
         label: param.displayName || param.key,

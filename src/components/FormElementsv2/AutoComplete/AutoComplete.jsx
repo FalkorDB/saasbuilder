@@ -13,12 +13,12 @@ const StyledAutoComplete = styled(MuiAutocomplete, {
   marginTop: marginTop,
   ...(disabled
     ? {
-        WebkitTextFillColor: theme.palette.gray["500"],
-        background: theme.palette.gray["50"],
-      }
+      WebkitTextFillColor: theme.palette.gray["500"],
+      background: theme.palette.gray["50"],
+    }
     : {
-        background: "#FFF !important",
-      }),
+      background: "#FFF !important",
+    }),
   [`.MuiOutlinedInput-root`]: {
     padding: "10px 14px ",
     gap: "6px",
@@ -144,8 +144,9 @@ function Autocomplete(props) {
       }
       popupIcon={<KeyboardArrowDownIcon style={{ color: "black" }} />}
       renderOption={(props, option) => {
+        const { key, ...restProps } = props;
         return (
-          <StyledListOption {...props}>
+          <StyledListOption key={key} {...restProps}>
             <StyledListOptionText>{getOptionLabel(option)}</StyledListOptionText>
             {props["aria-selected"] && <StyledDoneIcon />}
           </StyledListOption>

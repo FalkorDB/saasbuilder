@@ -280,15 +280,22 @@ const InstanceForm = ({
             }
 
             if (
-              (key === "nodeInstanceType" &&
-                data.cloudProvider === "aws" &&
-                !data.requestParams["nodeInstanceType"].includes(".")) ||
-              (data.cloudProvider === "gcp" &&
-                data.requestParams?.["nodeInstanceType"] &&
-                !data.requestParams?.["nodeInstanceType"]?.includes("-"))
+              key === "nodeInstanceType" &&
+              data.requestParams["nodeInstanceType"]
             ) {
-              snackbar.showError(`Invalid Node Instance Type`);
-              isTypeError = true;
+              const instanceTypeValue = data.requestParams["nodeInstanceType"];
+              // Provider-prefixed labels (e.g., "AWS 2vCPU, 8GB") are valid — they're mapped by the backend
+              const isProviderPrefixedLabel = /^(aws|gcp|azure)\s/i.test(instanceTypeValue);
+
+              if (!isProviderPrefixedLabel) {
+                if (
+                  (data.cloudProvider === "aws" && !instanceTypeValue.includes(".")) ||
+                  (data.cloudProvider === "gcp" && !instanceTypeValue.includes("-"))
+                ) {
+                  snackbar.showError(`Invalid Node Instance Type`);
+                  isTypeError = true;
+                }
+              }
             }
 
             if (key === "falkordbUser") {

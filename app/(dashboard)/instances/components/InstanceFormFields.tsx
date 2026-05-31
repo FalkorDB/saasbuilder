@@ -889,24 +889,38 @@ export const getDeploymentConfigurationFields = (
 
           // Filter by cloud provider if it's an instance type field
           if (param.key === "nodeInstanceType" && values.cloudProvider) {
-            const filtered = allItems.filter((item) => {
-              // Check if label includes cloud provider identifier
-              const labelLower = item.originalLabel.toLowerCase();
-              if (values.cloudProvider === "aws") {
-                return labelLower.includes("(aws)");
-              } else if (values.cloudProvider === "gcp") {
-                return labelLower.includes("(gcp)");
-              } else if (values.cloudProvider === "azure") {
-                return labelLower.includes("(azure)");
-              }
-              return true;
-            });
+            // Detect cloud provider tags in labels — supports:
+            // - Suffix format: "2 vCPUs, 4GB memory (gcp)"
+            // - Prefix format: "GCP 2vCPU, 4GB"
+            const providerPattern = /\((aws|gcp|azure)\)|^(aws|gcp|azure)\s/i;
+            const hasProviderTags = allItems.some((item) => providerPattern.test(item.originalLabel));
 
-            menuItems = filtered.map((item) => ({
-              // Remove cloud provider tags from the displayed label
-              label: item.originalLabel.replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
-              value: item.value,
-            }));
+            if (hasProviderTags) {
+              const filtered = allItems.filter((item) => {
+                const labelLower = item.originalLabel.toLowerCase();
+                const provider = values.cloudProvider!.toLowerCase();
+                // Match both prefix ("AWS ...") and suffix ("... (aws)") patterns
+                return (
+                  labelLower.includes(`(${provider})`) ||
+                  labelLower.startsWith(`${provider} `)
+                );
+              });
+
+              menuItems = filtered.map((item) => ({
+                // Remove cloud provider tags from the displayed label (both prefix and suffix)
+                label: item.originalLabel
+                  .replace(/\s*\((aws|gcp|azure)\)\s*/gi, "")
+                  .replace(/^(aws|gcp|azure)\s+/i, "")
+                  .trim(),
+                value: item.value,
+              }));
+            } else {
+              // No cloud provider tags in labels — show all items as-is
+              menuItems = allItems.map((item) => ({
+                label: item.originalLabel,
+                value: item.value,
+              }));
+            }
 
             // Sort by vCPU count
             menuItems.sort((a, b) => {
@@ -919,7 +933,10 @@ export const getDeploymentConfigurationFields = (
           } else {
             // For non-instance-type fields or when no cloud provider is selected
             menuItems = allItems.map((item) => ({
-              label: item.originalLabel.replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
+              label: item.originalLabel
+                .replace(/\s*\((aws|gcp|azure)\)\s*/gi, "")
+                .replace(/^(aws|gcp|azure)\s+/i, "")
+                .trim(),
               value: item.value,
             }));
           }
@@ -935,18 +952,42 @@ export const getDeploymentConfigurationFields = (
           menuItems = [];
         }
       } else if (param.options && Array.isArray(param.options)) {
-        // Simple options format: ["e2-medium", "t2.medium", ...]
+        // Simple options format: ["e2-medium", "t2.medium", ...] or provider-prefixed: ["AWS 2vCPU, 4GB", ...]
         try {
           if (param.key === "nodeInstanceType" && values.cloudProvider) {
-            // Filter instance types for the selected cloud provider
-            const filteredTypes = filterInstanceTypesByProvider(param.options, values.cloudProvider);
-            // Sort them in a logical order
-            const sortedTypes = sortInstanceTypes(filteredTypes, values.cloudProvider);
-            // Map to menu items with user-friendly labels
-            menuItems = sortedTypes.map((type) => ({
-              label: getInstanceTypeLabel(type, values.cloudProvider),
-              value: type,
-            }));
+            // Check if options use provider-prefixed label format (e.g., "AWS 2vCPU, 4GB", "GCP 4vCPU, 16GB")
+            const providerPrefixPattern = /^(aws|gcp|azure)\s/i;
+            const hasProviderPrefixedLabels = param.options.some((opt: string) => providerPrefixPattern.test(opt));
+
+            if (hasProviderPrefixedLabels) {
+              // Filter options by the selected cloud provider prefix
+              const provider = values.cloudProvider.toLowerCase();
+              const filtered = param.options.filter((opt: string) => opt.toLowerCase().startsWith(`${provider} `));
+
+              // Strip the provider prefix for display and sort by vCPU count
+              menuItems = filtered.map((opt: string) => ({
+                label: opt.replace(/^(aws|gcp|azure)\s+/i, "").trim(),
+                value: opt,
+              }));
+
+              menuItems.sort((a, b) => {
+                const getCpuCount = (label: string) => {
+                  const match = label.match(/(\d+)\s*vCPU/i);
+                  return match ? parseInt(match[1]) : 0;
+                };
+                return getCpuCount(a.label) - getCpuCount(b.label);
+              });
+            } else {
+              // Standard machine type format (e.g., "m6i.large", "e2-standard-4")
+              const filteredTypes = filterInstanceTypesByProvider(param.options, values.cloudProvider);
+              // Sort them in a logical order
+              const sortedTypes = sortInstanceTypes(filteredTypes, values.cloudProvider);
+              // Map to menu items with user-friendly labels
+              menuItems = sortedTypes.map((type) => ({
+                label: getInstanceTypeLabel(type, values.cloudProvider),
+                value: type,
+              }));
+            }
           } else {
             menuItems = param.options.map((option) => ({
               label: String(option),

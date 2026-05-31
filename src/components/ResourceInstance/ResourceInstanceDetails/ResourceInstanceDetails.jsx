@@ -318,7 +318,10 @@ function ResourceInstanceDetails(props) {
         res.push({
           label: param.displayName || param.key,
           description: param.description,
-          value: param.value,
+          value:
+            param.key === "nodeInstanceType" && /^(aws|gcp|azure)\s/i.test(param.value)
+              ? param.value.replace(/^(aws|gcp|azure)\s+/i, "").trim()
+              : param.value,
           valueType: param.key === "cloud_provider" ? "cloudProvider" : param.type,
         });
       }

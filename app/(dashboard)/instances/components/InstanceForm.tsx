@@ -231,6 +231,34 @@ const InstanceForm = ({
           ...cloneDeep(values),
         };
 
+        // Trim string values in requestParams (excluding password-type fields)
+        if (data.requestParams && typeof data.requestParams === "object") {
+          // eslint-disable-next-line no-use-before-define
+          const allSchemaParams = resourceSchemaData?.apis?.flatMap((api) => api.inputParameters || []) || [];
+          for (const key in data.requestParams) {
+            if (typeof data.requestParams[key] === "string") {
+              const schemaParam = allSchemaParams.find((p) => p.key === key);
+              if (!schemaParam || schemaParam.type?.toLowerCase() !== "password") {
+                data.requestParams[key] = data.requestParams[key].trim();
+              }
+            }
+          }
+        }
+
+        // Trim customTags key/value
+        if (Array.isArray(data.customTags)) {
+          data.customTags = data.customTags.map((tag: { key: string; value: string }) => ({
+            ...tag,
+            key: typeof tag.key === "string" ? tag.key.trim() : tag.key,
+            value: typeof tag.value === "string" ? tag.value.trim() : tag.value,
+          }));
+        }
+
+        // Remove productTierVersion if allowCustomerVersionOverride is false or if we're not creating
+        if (!allowCustomerVersionOverride || formMode !== "create") {
+          delete data.productTierVersion;
+        }
+
         // Remove productTierVersion if allowCustomerVersionOverride is false or if we're not creating
         if (!allowCustomerVersionOverride || formMode !== "create") {
           delete data.productTierVersion;
@@ -279,16 +307,20 @@ const InstanceForm = ({
                 break;
             }
 
-            if (
-              (key === "nodeInstanceType" &&
-                data.cloudProvider === "aws" &&
-                !data.requestParams["nodeInstanceType"].includes(".")) ||
-              (data.cloudProvider === "gcp" &&
-                data.requestParams?.["nodeInstanceType"] &&
-                !data.requestParams?.["nodeInstanceType"]?.includes("-"))
-            ) {
-              snackbar.showError(`Invalid Node Instance Type`);
-              isTypeError = true;
+            if (key === "nodeInstanceType" && data.requestParams["nodeInstanceType"]) {
+              const instanceTypeValue = data.requestParams["nodeInstanceType"];
+              // Provider-prefixed labels (e.g., "AWS 2vCPU, 8GB") are valid — they're mapped by the backend
+              const isProviderPrefixedLabel = /^(aws|gcp|azure)\s/i.test(instanceTypeValue);
+
+              if (!isProviderPrefixedLabel) {
+                if (
+                  (data.cloudProvider === "aws" && !instanceTypeValue.includes(".")) ||
+                  (data.cloudProvider === "gcp" && !instanceTypeValue.includes("-"))
+                ) {
+                  snackbar.showError(`Invalid Node Instance Type`);
+                  isTypeError = true;
+                }
+              }
             }
 
             if (key === "falkordbUser") {
@@ -540,13 +572,18 @@ const InstanceForm = ({
     }
   );
 
-  const { data: resourceSchemaData, isFetching: isFetchingResourceSchema } = useResourceSchema({
-    serviceId: values.serviceId,
-    resourceId: selectedInstance?.resourceID || values.resourceId,
-    instanceId: selectedInstance?.id,
-    productTierId: allowCustomerVersionOverride ? values.servicePlanId : "",
-    productTierVersion: allowCustomerVersionOverride ? values.productTierVersion : "",
-  });
+  const { data: resourceSchemaData, isFetching: isFetchingResourceSchema } = useResourceSchema(
+    {
+      serviceId: values.serviceId,
+      resourceId: selectedInstance?.resourceID || values.resourceId,
+      instanceId: selectedInstance?.id,
+      productTierId: allowCustomerVersionOverride ? values.servicePlanId : "",
+      productTierVersion: allowCustomerVersionOverride ? values.productTierVersion : "",
+    },
+    {
+      enabled: formMode === "modify" ? Boolean((values as any)?.id) : true, // Fetch resource schema only when serviceId and resourceId are available
+    }
+  );
 
   const { data: resources = [] } = useResources({
     serviceId: values.serviceId,
@@ -858,6 +895,8 @@ const InstanceForm = ({
             return values.cloudProvider === "azure";
           } else if (resultParams?.oci_tenancy_id) {
             return values.cloudProvider === "oci";
+          } else if (resultParams?.cluster_name) {
+            return values.cloudProvider === "byoc-onprem";
           }
         })
         .filter((instance) => ["READY", "RUNNING"].includes(instance.status))
@@ -865,13 +904,15 @@ const InstanceForm = ({
           const resultParams = getResultParams(instance);
           return {
             ...instance,
-            label: resultParams?.gcp_project_id
-              ? `${instance.id} (Project ID - ${resultParams?.gcp_project_id})`
-              : resultParams?.aws_account_id
-                ? `${instance.id} (Account ID - ${resultParams?.aws_account_id})`
-                : resultParams?.oci_tenancy_id
-                  ? `${instance.id} (Tenancy ID - ${resultParams?.oci_tenancy_id})`
-                  : `${instance.id} (Subscription ID - ${resultParams?.azure_subscription_id})`,
+            label: resultParams?.cluster_name
+              ? `${instance.id} (Cluster Name - ${resultParams?.cluster_name})`
+              : resultParams?.gcp_project_id
+                ? `${instance.id} (Project ID - ${resultParams?.gcp_project_id})`
+                : resultParams?.aws_account_id
+                  ? `${instance.id} (Account ID - ${resultParams?.aws_account_id})`
+                  : resultParams?.oci_tenancy_id
+                    ? `${instance.id} (Tenancy ID - ${resultParams?.oci_tenancy_id})`
+                    : `${instance.id} (Subscription ID - ${resultParams?.azure_subscription_id})`,
           };
         }),
     [instances, values.cloudProvider]
@@ -893,7 +934,9 @@ const InstanceForm = ({
       isFetchingCustomAvailabilityZones,
       nonCloudAccountInstances,
       customerVersionSets,
-      isFetchingVersionSets
+      isFetchingVersionSets,
+      isFetchingResourceInstanceIds,
+      cloudAccountInstances
     );
   }, [
     formMode,
@@ -904,6 +947,8 @@ const InstanceForm = ({
     nonCloudAccountInstances,
     customerVersionSets,
     isFetchingVersionSets,
+    cloudAccountInstances,
+    isFetchingResourceInstanceIds,
   ]);
 
   const networkConfigurationFields = useMemo(() => {
@@ -933,17 +978,9 @@ const InstanceForm = ({
       formData.values,
       resourceCreateSchema,
       resourceIdInstancesHashMap,
-      isFetchingResourceInstanceIds,
-      cloudAccountInstances
+      isFetchingResourceInstanceIds
     );
-  }, [
-    formMode,
-    formData.values,
-    resourceCreateSchema,
-    resourceIdInstancesHashMap,
-    isFetchingResourceInstanceIds,
-    cloudAccountInstances,
-  ]);
+  }, [formMode, formData.values, resourceCreateSchema, resourceIdInstancesHashMap, isFetchingResourceInstanceIds]);
 
   const sections = useMemo(
     () => [

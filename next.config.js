@@ -72,6 +72,8 @@ const buildCsp = ({ reportOnly = false } = {}) => {
     "https://www.google.com",
     "https://vercel.live",
     ...runtimeOrigins,
+    "https://js.stripe.com",
+    "https://hooks.stripe.com",
   ]);
 
   const directives = [

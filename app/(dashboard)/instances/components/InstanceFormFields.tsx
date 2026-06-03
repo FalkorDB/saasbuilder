@@ -39,6 +39,10 @@ import AccountConfigDescription from "./AccountConfigDescription";
 import CustomNetworkDescription from "./CustomNetworkDescription";
 import CustomTagsField from "./CustomTagsField";
 
+type CloudAccountInstanceOption = ResourceInstance & {
+  label: string;
+};
+
 export const getStandardInformationFields = (
   servicesObj,
   serviceOfferings: ServiceOffering[],
@@ -54,7 +58,9 @@ export const getStandardInformationFields = (
   isFetchingCustomAvailabilityZones: boolean,
   instances: ResourceInstance[],
   versionSets: TierVersionSet[],
-  isFetchingVersionSets: boolean
+  isFetchingVersionSets: boolean,
+  isFetchingResourceInstanceIds: boolean,
+  cloudAccountInstances: CloudAccountInstanceOption[]
 ) => {
   if (isFetchingServiceOfferings) return [];
 
@@ -102,6 +108,7 @@ export const getStandardInformationFields = (
   const cloudProviderFieldExists = inputParametersObj["cloud_provider"];
   const regionFieldExists = inputParametersObj["region"];
   const customAvailabilityZoneFieldExists = inputParametersObj["custom_availability_zone"];
+  const isBYOCOnprem = values.cloudProvider === "byoc-onprem";
 
   const isOnPrem =
     offering?.serviceModelType === "ON_PREM" &&
@@ -187,6 +194,8 @@ export const getStandardInformationFields = (
           setFieldValue("region", offering.ociRegions?.[0] || "");
         } else if (cloudProvider === "nebius") {
           setFieldValue("region", offering.nebiusRegions?.[0] || "");
+        } else if (cloudProvider === "byoc-onprem") {
+          setFieldValue("region", offering?.byocOnpremRegions?.[0] || "on-prem");
         }
 
         // Set default onprem_platform for on-prem offerings
@@ -251,6 +260,8 @@ export const getStandardInformationFields = (
               setFieldValue("region", offering.ociRegions?.[0] || "");
             } else if (cloudProvider === "nebius") {
               setFieldValue("region", offering.nebiusRegions?.[0] || "");
+            } else if (cloudProvider === "byoc-onprem") {
+              setFieldValue("region", offering?.byocOnpremRegions?.[0] || "on-prem");
             }
 
             // Set default onprem_platform for on-prem offerings
@@ -437,6 +448,8 @@ export const getStandardInformationFields = (
               setFieldValue("region", offering.ociRegions?.[0] || "");
             } else if (newCloudProvider === "nebius") {
               setFieldValue("region", offering.nebiusRegions?.[0] || "");
+            } else if (newCloudProvider === "byoc-onprem") {
+              setFieldValue("region", offering?.byocOnpremRegions?.[0] || "on-prem");
             }
           }}
           disabled={formMode !== "create"}
@@ -450,8 +463,40 @@ export const getStandardInformationFields = (
         : null,
     });
   }
+  // Cloud Provider Account Config ID – moved here from Deployment Configuration
+  const accountConfigParam = (resourceSchema?.inputParameters || []).find(
+    (p) => p.key === "cloud_provider_account_config_id"
+  );
+  if (accountConfigParam) {
+    fields.push({
+      dataTestId: `${accountConfigParam.key}-select`,
+      label: accountConfigParam.displayName || accountConfigParam.key,
+      subLabel: accountConfigParam.description,
+      name: `requestParams.${accountConfigParam.key}`,
+      description: (
+        <AccountConfigDescription
+          serviceId={values.serviceId}
+          servicePlanId={values.servicePlanId}
+          subscriptionId={values.subscriptionId}
+        />
+      ),
+      value: requestParams[accountConfigParam.key] || "",
+      type: "select",
+      menuItems: cloudAccountInstances
+        ?.filter((el) => el.subscriptionId === values.subscriptionId)
+        .map((config) => ({
+          label: config.label,
+          value: config.id,
+        })),
+      required: accountConfigParam.required,
+      disabled: formMode !== "create",
+      previewValue: cloudAccountInstances.find((config) => config.id === requestParams[accountConfigParam.key])?.label,
+      emptyMenuText: "No cloud accounts available",
+      isLoading: isFetchingResourceInstanceIds,
+    });
+  }
 
-  if (regionFieldExists) {
+  if (regionFieldExists && !isBYOCOnprem) {
     fields.push({
       dataTestId: "region-select",
       label: "Region",
@@ -577,6 +622,7 @@ export const getNetworkConfigurationFields = (
     return acc;
   }, {});
 
+  const isBYOCOnprem = values.cloudProvider === "byoc-onprem";
   const cloudProviderFieldExists = inputParametersObj["cloud_provider"];
   const customNetworkFieldExists = inputParametersObj["custom_network_id"];
   const cloudProviderNativeNetworkIdFieldExists = inputParametersObj["cloud_provider_native_network_id"];
@@ -618,7 +664,7 @@ export const getNetworkConfigurationFields = (
   const networkTypeFieldExists =
     cloudProviderFieldExists && !isMultiTenancy && offering?.supportsPublicNetwork && customNetworkFieldExists;
 
-  if (networkTypeFieldExists) {
+  if (networkTypeFieldExists && !isBYOCOnprem) {
     fields.push({
       label: "Network Type",
       subLabel: "Type of Network",
@@ -642,7 +688,7 @@ export const getNetworkConfigurationFields = (
     });
   }
 
-  if (customNetworkFieldExists) {
+  if (customNetworkFieldExists && !isBYOCOnprem) {
     fields.push({
       dataTestId: "custom-network-id-select",
       label: "Customer Network ID",
@@ -677,7 +723,8 @@ export const getNetworkConfigurationFields = (
     cloudProviderNativeNetworkIdFieldExists &&
     cloudProviderFieldExists &&
     values.cloudProvider !== "gcp" &&
-    values.cloudProvider !== "azure"
+    values.cloudProvider !== "azure" &&
+    !isBYOCOnprem
   ) {
     const param = inputParametersObj["cloud_provider_native_network_id"];
     fields.push({
@@ -755,21 +802,19 @@ export const getDeploymentConfigurationFields = (
   values: any,
   resourceSchema: APIEntity,
   resourceIdInstancesHashMap,
-  isFetchingResourceInstanceIds: boolean,
-  cloudAccountInstances
+  isFetchingResourceInstanceIds: boolean
 ) => {
   const fields: Field[] = [];
   if (!resourceSchema?.inputParameters) return fields;
-
   const filteredSchema = filterSchemaByCloudProvider(resourceSchema?.inputParameters || [], values.cloudProvider)
     .filter((param) => !REQUEST_PARAMS_FIELDS_TO_FILTER.includes(param.key))
+    .filter((param) => param.key !== "cloud_provider_account_config_id")
     .sort((a, b) => {
       if (a.tabIndex === undefined || b.tabIndex === undefined) {
         return 0;
       }
       return a.tabIndex - b.tabIndex;
     });
-
   filteredSchema.forEach((param) => {
     if (param.type?.toLowerCase() === "password") {
       fields.push({
@@ -784,7 +829,7 @@ export const getDeploymentConfigurationFields = (
         previewValue: values.requestParams[param.key] ? "********" : "",
         disabled: formMode !== "create" && param.custom && !param.modifiable,
       });
-    } else if (param.dependentResourceID && param.key !== "cloud_provider_account_config_id") {
+    } else if (param.dependentResourceID) {
       const dependentResourceId = param.dependentResourceID;
       const options = resourceIdInstancesHashMap[dependentResourceId]
         ? resourceIdInstancesHashMap[dependentResourceId]
@@ -832,7 +877,36 @@ export const getDeploymentConfigurationFields = (
         previewValue: values.requestParams[param.key] === "true" ? "true" : "false",
         disabled: formMode !== "create" && param.custom && !param.modifiable,
       });
-    } else if (param.options !== undefined && param.isList === true) {
+    } else if ((param.labeledOptions !== undefined || param.options !== undefined) && param.isList === true) {
+      let menuItems: { label: string; value: string }[] = [];
+
+      if (param.labeledOptions && typeof param.labeledOptions === "object") {
+        const entries = Object.entries(param.labeledOptions).filter(
+          ([label, value]) => typeof label === "string" && value !== null && value !== undefined
+        );
+        menuItems = entries
+          .map(([label, value]) => ({
+            label: label.replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
+            value: String(value),
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+      } else if (Array.isArray(param.options)) {
+        menuItems = [...param.options].sort().map((option) => ({
+          label: option,
+          value: option,
+        }));
+      }
+
+      const rawSelected = Array.isArray(values.requestParams[param.key])
+        ? values.requestParams[param.key]
+        : [];
+      const selectedValues: string[] = rawSelected.map((item: any) =>
+        typeof item === "string" ? item : item?.value ?? ""
+      );
+      const selectedLabels = selectedValues.map(
+        (selectedValue) => menuItems.find((item) => item.value === selectedValue)?.label || selectedValue
+      );
+
       fields.push({
         dataTestId: `${param.key}-select`,
         label: param.displayName || param.key,
@@ -840,15 +914,12 @@ export const getDeploymentConfigurationFields = (
         name: `requestParams.${param.key}`,
         value: values.requestParams[param.key] || "",
         type: "multi-select-autocomplete",
-        menuItems: [...param.options].sort().map((option) => ({
-          label: option,
-          value: option,
-        })),
+        menuItems,
         required: param.required,
-        previewValue: values.requestParams[param.key]?.join(", "),
+        previewValue: selectedLabels.join(", "),
         disabled: formMode !== "create" && param.custom && !param.modifiable,
       });
-    } else if (param.labeledOptions || (param.options !== undefined && param.isList === false)) {
+    } else if ((param.labeledOptions !== undefined || param.options !== undefined) && param.isList === false) {
       // Handle both labeledOptions (with descriptive labels) and simple options
       let menuItems: { label: string; value: string }[] = [];
       let previewValue = values.requestParams[param.key];
@@ -863,24 +934,38 @@ export const getDeploymentConfigurationFields = (
 
           // Filter by cloud provider if it's an instance type field
           if (param.key === "nodeInstanceType" && values.cloudProvider) {
-            const filtered = allItems.filter((item) => {
-              // Check if label includes cloud provider identifier
-              const labelLower = item.originalLabel.toLowerCase();
-              if (values.cloudProvider === "aws") {
-                return labelLower.includes("(aws)");
-              } else if (values.cloudProvider === "gcp") {
-                return labelLower.includes("(gcp)");
-              } else if (values.cloudProvider === "azure") {
-                return labelLower.includes("(azure)");
-              }
-              return true;
-            });
+            // Detect cloud provider tags in labels — supports:
+            // - Suffix format: "2 vCPUs, 4GB memory (gcp)"
+            // - Prefix format: "GCP 2vCPU, 4GB"
+            const providerPattern = /\((aws|gcp|azure)\)|^(aws|gcp|azure)\s/i;
+            const hasProviderTags = allItems.some((item) => providerPattern.test(item.originalLabel));
 
-            menuItems = filtered.map((item) => ({
-              // Remove cloud provider tags from the displayed label
-              label: item.originalLabel.replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
-              value: item.value,
-            }));
+            if (hasProviderTags) {
+              const filtered = allItems.filter((item) => {
+                const labelLower = item.originalLabel.toLowerCase();
+                const provider = values.cloudProvider!.toLowerCase();
+                // Match both prefix ("AWS ...") and suffix ("... (aws)") patterns
+                return (
+                  labelLower.includes(`(${provider})`) ||
+                  labelLower.startsWith(`${provider} `)
+                );
+              });
+
+              menuItems = filtered.map((item) => ({
+                // Remove cloud provider tags from the displayed label (both prefix and suffix)
+                label: item.originalLabel
+                  .replace(/\s*\((aws|gcp|azure)\)\s*/gi, "")
+                  .replace(/^(aws|gcp|azure)\s+/i, "")
+                  .trim(),
+                value: item.value,
+              }));
+            } else {
+              // No cloud provider tags in labels — show all items as-is
+              menuItems = allItems.map((item) => ({
+                label: item.originalLabel,
+                value: item.value,
+              }));
+            }
 
             // Sort by vCPU count
             menuItems.sort((a, b) => {
@@ -893,7 +978,10 @@ export const getDeploymentConfigurationFields = (
           } else {
             // For non-instance-type fields or when no cloud provider is selected
             menuItems = allItems.map((item) => ({
-              label: item.originalLabel.replace(/\s*\((aws|gcp|azure)\)\s*/gi, "").trim(),
+              label: item.originalLabel
+                .replace(/\s*\((aws|gcp|azure)\)\s*/gi, "")
+                .replace(/^(aws|gcp|azure)\s+/i, "")
+                .trim(),
               value: item.value,
             }));
           }
@@ -909,18 +997,42 @@ export const getDeploymentConfigurationFields = (
           menuItems = [];
         }
       } else if (param.options && Array.isArray(param.options)) {
-        // Simple options format: ["e2-medium", "t2.medium", ...]
+        // Simple options format: ["e2-medium", "t2.medium", ...] or provider-prefixed: ["AWS 2vCPU, 4GB", ...]
         try {
           if (param.key === "nodeInstanceType" && values.cloudProvider) {
-            // Filter instance types for the selected cloud provider
-            const filteredTypes = filterInstanceTypesByProvider(param.options, values.cloudProvider);
-            // Sort them in a logical order
-            const sortedTypes = sortInstanceTypes(filteredTypes, values.cloudProvider);
-            // Map to menu items with user-friendly labels
-            menuItems = sortedTypes.map((type) => ({
-              label: getInstanceTypeLabel(type, values.cloudProvider),
-              value: type,
-            }));
+            // Check if options use provider-prefixed label format (e.g., "AWS 2vCPU, 4GB", "GCP 4vCPU, 16GB")
+            const providerPrefixPattern = /^(aws|gcp|azure)\s/i;
+            const hasProviderPrefixedLabels = param.options.some((opt: string) => providerPrefixPattern.test(opt));
+
+            if (hasProviderPrefixedLabels) {
+              // Filter options by the selected cloud provider prefix
+              const provider = values.cloudProvider.toLowerCase();
+              const filtered = param.options.filter((opt: string) => opt.toLowerCase().startsWith(`${provider} `));
+
+              // Strip the provider prefix for display and sort by vCPU count
+              menuItems = filtered.map((opt: string) => ({
+                label: opt.replace(/^(aws|gcp|azure)\s+/i, "").trim(),
+                value: opt,
+              }));
+
+              menuItems.sort((a, b) => {
+                const getCpuCount = (label: string) => {
+                  const match = label.match(/(\d+)\s*vCPU/i);
+                  return match ? parseInt(match[1]) : 0;
+                };
+                return getCpuCount(a.label) - getCpuCount(b.label);
+              });
+            } else {
+              // Standard machine type format (e.g., "m6i.large", "e2-standard-4")
+              const filteredTypes = filterInstanceTypesByProvider(param.options, values.cloudProvider);
+              // Sort them in a logical order
+              const sortedTypes = sortInstanceTypes(filteredTypes, values.cloudProvider);
+              // Map to menu items with user-friendly labels
+              menuItems = sortedTypes.map((type) => ({
+                label: getInstanceTypeLabel(type, values.cloudProvider),
+                value: type,
+              }));
+            }
           } else {
             menuItems = param.options.map((option) => ({
               label: String(option),
@@ -931,6 +1043,11 @@ export const getDeploymentConfigurationFields = (
           console.error("Error processing options:", error);
           menuItems = [];
         }
+      }
+
+      // Strip cloud provider prefix from previewValue if present
+      if (previewValue && /^(aws|gcp|azure)\s/i.test(previewValue)) {
+        previewValue = previewValue.replace(/^(aws|gcp|azure)\s+/i, "").trim();
       }
 
       fields.push({
@@ -944,33 +1061,6 @@ export const getDeploymentConfigurationFields = (
         required: param.required,
         previewValue,
         disabled: formMode !== "create" && param.custom && !param.modifiable,
-      });
-    } else if (param.key === "cloud_provider_account_config_id") {
-      fields.push({
-        dataTestId: `${param.key}-select`,
-        label: param.displayName || param.key,
-        subLabel: param.description,
-        name: `requestParams.${param.key}`,
-        description: (
-          <AccountConfigDescription
-            serviceId={values.serviceId}
-            servicePlanId={values.servicePlanId}
-            subscriptionId={values.subscriptionId}
-          />
-        ),
-        value: values.requestParams[param.key] || "",
-        type: "select",
-        menuItems: cloudAccountInstances
-          // Filter cloud accounts based on the selected subscription
-          ?.filter((el) => el.subscriptionId === values.subscriptionId)
-          .map((config) => ({
-            label: config.label,
-            value: config.id,
-          })),
-        required: param.required,
-        disabled: formMode !== "create",
-        previewValue: cloudAccountInstances.find((config) => config.id === values.requestParams[param.key])?.label,
-        emptyMenuText: "No cloud accounts available",
       });
     } else if (param.type?.toUpperCase() === "ANY") {
       // Handle JSON type fields
@@ -987,10 +1077,6 @@ export const getDeploymentConfigurationFields = (
         previewValue: getJsonValue(values.requestParams[param.key]),
       });
     } else {
-      if (param.key === "cloud_provider_account_config_id") {
-        return;
-      }
-
       if (param.type?.toLowerCase() === "float64" || param.type?.toLowerCase() === "number") {
         fields.push({
           dataTestId: `${param.key}-input`,

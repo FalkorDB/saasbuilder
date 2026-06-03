@@ -7,7 +7,6 @@ type GetTabsParams = {
   isLogsEnabled: boolean | undefined;
   isActive: boolean | undefined;
   isResourceBYOA: boolean;
-  isCliManagedResource: boolean;
   productTierName: string | undefined;
   tierVersion: string | undefined;
   resourceType: string | undefined;
@@ -21,7 +20,6 @@ export const getTabs = ({
   isLogsEnabled,
   isActive,
   isResourceBYOA,
-  isCliManagedResource,
   resourceType,
   isBackup,
   isCustomDNS,
@@ -40,7 +38,8 @@ export const getTabs = ({
     tabs["userAccess"] = "User Access";
   }
 
-  if (isMetricsEnabled && !isResourceBYOA && !isCliManagedResource) tabs["metrics"] = "Metrics";
+  if (isMetricsEnabled && !isResourceBYOA) tabs["metrics"] = "Metrics";
+
   if (isLogsEnabled && !isResourceBYOA) tabs["logs"] = "Live Logs";
 
   if (!isActive || resourceType === RESOURCE_TYPES.Terraform) {

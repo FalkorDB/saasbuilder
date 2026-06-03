@@ -142,7 +142,6 @@ const InstanceDetailsPage = ({
         productTierName: offering?.productTierName,
         isActive: resourceInstanceData?.active,
         isResourceBYOA,
-        isCliManagedResource,
         resourceType,
         // @ts-ignore
         isBackup: resourceInstanceData?.backupStatus?.backupPeriodInHours,

@@ -1,88 +1,137 @@
-import { useMemo, useState } from "react";
-import { Box, Link, Tooltip, Stack, DialogContent, LinearProgress } from "@mui/material";
-
-import { Text } from "src/components/Typography/Typography";
-import StatusChip from "src/components/StatusChip/StatusChip";
-import { getResourceInstanceTaskStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceTaskStatus";
-import { getResourceInstanceTaskTypeStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceTaskTypeStatus";
-import formatDateLocal from "src/utils/formatDateLocal";
-import DataGrid from "src/components/DataGrid/DataGrid";
-import useTasks, { TaskBase } from "src/components/ResourceInstance/ImportExportRDB/hooks/useTasks";
-import TasksTableHeader from "src/components/ResourceInstance/ImportExportRDB/components/TasksTableHeader";
+import { type ChangeEvent, useMemo, useState } from "react";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import { Box, DialogContent, LinearProgress,Link, Stack, Tooltip } from "@mui/material";
+import { styled } from "@mui/system";
 import { useMutation } from "@tanstack/react-query";
-import useSnackbar from "src/hooks/useSnackbar";
-import { postInstanceExportRdb, postInstanceImportRdbConfirmUpload, postInstanceImportRdbRequestURL, uploadFile } from "src/api/falkordb";
+
+import { postInstanceExportRdb, postInstanceImportRdbConfirmUpload, postInstanceImportRdbRequestURL, type RDBExportTarget, uploadFile } from "src/api/falkordb";
+import Button from "src/components/Button/Button";
+import DataGrid from "src/components/DataGrid/DataGrid";
 import InformationDialogTopCenter, {
   DialogFooter,
   DialogHeader,
 } from "src/components/Dialog/InformationDialogTopCenter";
-import TextField from "src/components/FormElementsv2/TextField/TextField";
-import { PasswordField } from "src/components/FormElementsv2/PasswordField/PasswordField";
 import FieldContainer from "src/components/FormElements/FieldContainer/FieldContainer";
 import FieldLabel from "src/components/FormElements/FieldLabel/FieldLabel";
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import { styled } from "@mui/system";
-import Button from "src/components/Button/Button";
+import FormControlLabel from "src/components/FormElementsv2/FormControlLabel/FormControlLabel";
+import { PasswordField } from "src/components/FormElementsv2/PasswordField/PasswordField";
+import Radio, { RadioGroup } from "src/components/FormElementsv2/Radio/Radio";
+import TextField from "src/components/FormElementsv2/TextField/TextField";
+import TasksTableHeader from "src/components/ResourceInstance/ImportExportRDB/components/TasksTableHeader";
+import useTasks, { TaskBase } from "src/components/ResourceInstance/ImportExportRDB/hooks/useTasks";
+import StatusChip from "src/components/StatusChip/StatusChip";
+import { Text } from "src/components/Typography/Typography";
+import { getResourceInstanceTaskStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceTaskStatus";
+import { getResourceInstanceTaskTypeStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceTaskTypeStatus";
+import useSnackbar from "src/hooks/useSnackbar";
+import formatDateLocal from "src/utils/formatDateLocal";
 
-const VisuallyHiddenInput = styled('input')({
-  clip: 'rect(0 0 0 0)',
-  clipPath: 'inset(50%)',
+const VisuallyHiddenInput = styled("input")({
+  clip: "rect(0 0 0 0)",
+  clipPath: "inset(50%)",
   height: 1,
-  overflow: 'hidden',
-  position: 'absolute',
+  overflow: "hidden",
+  position: "absolute",
   bottom: 0,
   left: 0,
-  whiteSpace: 'nowrap',
+  whiteSpace: "nowrap",
   width: 1,
 });
+
+type RDBExportTargetType = "default" | "gcs" | "s3";
+
+type ExportMutationVariables = {
+  username: string;
+  password: string;
+  target?: RDBExportTarget;
+};
+
+const getFormValue = (formJson: Record<string, unknown>, name: string) =>
+  String(formJson[name] ?? "").trim();
+
+const buildExportTarget = (
+  formJson: Record<string, unknown>,
+  targetType: RDBExportTargetType
+): RDBExportTarget => {
+  if (targetType === "gcs") {
+    return {
+      type: "gcs",
+      bucketName: getFormValue(formJson, "gcsBucketName"),
+      credentials: JSON.parse(getFormValue(formJson, "gcsCredentials")),
+    };
+  }
+
+  if (targetType === "s3") {
+    const sessionToken = getFormValue(formJson, "s3SessionToken");
+
+    return {
+      type: "s3",
+      bucketName: getFormValue(formJson, "s3BucketName"),
+      region: getFormValue(formJson, "s3Region"),
+      accessKeyId: getFormValue(formJson, "s3AccessKeyId"),
+      secretAccessKey: getFormValue(formJson, "s3SecretAccessKey"),
+      ...(sessionToken ? { sessionToken } : {}),
+    };
+  }
+
+  return { type: "default" };
+};
 
 function ResourceImportExportRDB(props) {
   const snackbar = useSnackbar();
   const { instanceId, status } = props;
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [dialog, setDialog] = useState<{ open: boolean, type?: 'export' | 'import' }>({ open: false, type: 'export' });
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [dialog, setDialog] = useState<{ open: boolean; type?: "export" | "import" }>({ open: false, type: "export" });
   const [file, setFile] = useState<File | undefined>();
+  const [exportTargetType, setExportTargetType] = useState<RDBExportTargetType>("default");
+
+  const closeDialog = () => {
+    setDialog({ open: false });
+    setFile(undefined);
+    setExportTargetType("default");
+  };
 
   const tasksQuery = useTasks({
     instanceId,
   });
   const { data: tasksData = [], isLoading, isRefetching, refetch } = tasksQuery;
 
-  const exportMutation = useMutation<unknown, unknown, { username: string; password: string }, unknown>(
-    {
-      mutationFn: async (vars) => {
-        await postInstanceExportRdb(instanceId, vars.username, vars.password);
-      },
-      onSuccess: () => {
-        snackbar.showSuccess(`Export task submitted successfully`);
-      },
-      onError: (error) => {
-        snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
-      },
-    }
-  );
+  const exportMutation = useMutation<unknown, unknown, ExportMutationVariables, unknown>({
+    mutationFn: async (vars) => {
+      await postInstanceExportRdb(instanceId, vars.username, vars.password, vars.target);
+    },
+    onSuccess: () => {
+      snackbar.showSuccess(`Export task submitted successfully`);
+    },
+    onError: (error) => {
+      snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
+    },
+  });
 
-  const importMutation = useMutation<unknown, unknown, { username: string; password: string, file: ArrayBuffer }, unknown>(
-    {
-      mutationFn: async (vars) => {
-        const { taskId, uploadUrl } = await postInstanceImportRdbRequestURL(instanceId, vars.username, vars.password);
+  const importMutation = useMutation<
+    unknown,
+    unknown,
+    { username: string; password: string; file: ArrayBuffer },
+    unknown
+  >({
+    mutationFn: async (vars) => {
+      const { taskId, uploadUrl } = await postInstanceImportRdbRequestURL(instanceId, vars.username, vars.password);
 
-        await uploadFile(uploadUrl, vars.file, (progressEvent) => {
-          setUploadProgress(Math.floor((progressEvent.progress ?? 0) * 100))
-        })
+      await uploadFile(uploadUrl, vars.file, (progressEvent) => {
+        setUploadProgress(Math.floor((progressEvent.progress ?? 0) * 100));
+      });
 
-        await postInstanceImportRdbConfirmUpload(instanceId, taskId)
+      await postInstanceImportRdbConfirmUpload(instanceId, taskId);
 
-        setUploadProgress(0);
-      },
-      onSuccess: () => {
-        snackbar.showSuccess(`Import task submitted successfully`);
-      },
-      onError: (error) => {
-        snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
-      },
-    }
-  );
+      setUploadProgress(0);
+    },
+    onSuccess: () => {
+      snackbar.showSuccess(`Import task submitted successfully`);
+    },
+    onError: (error) => {
+      snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
+    },
+  });
 
   const columns = useMemo(
     () => [
@@ -143,19 +192,20 @@ function ResourceImportExportRDB(props) {
         valueGetter: (params: { row: TaskBase }) => params.row.output?.readUrl,
         renderCell: (params: { row: TaskBase; value?: string }) => {
           if (params.row.status === "failed") {
-            return <Link underline="hover" onClick={() => snackbar.showError(params.row.errors?.[0] ?? "Unknown error")}><Text ellipsis={true}>{params.row.errors?.[0] ?? "Unknown error"}</Text></Link>
+            return (
+              <Link underline="hover" onClick={() => snackbar.showError(params.row.errors?.[0] ?? "Unknown error")}>
+                <Text ellipsis={true}>{params.row.errors?.[0] ?? "Unknown error"}</Text>
+              </Link>
+            );
           }
-          if (params.row.status !== 'completed') {
-            return <Text> </Text>
+          if (params.row.status !== "completed") {
+            return <Text> </Text>;
           }
-          if (params.row.type === 'RDBImport') {
+          if (params.row.type === "RDBImport") {
             const numberOfKeys = params.row.output?.numberOfKeys ?? 0;
-            if (numberOfKeys > 1)
-              return <Text>{numberOfKeys} keys imported</Text>;
-            else if (numberOfKeys === 1)
-              return <Text>1 key imported</Text>;
-            else if (!numberOfKeys)
-              return <Text>No keys imported</Text>;
+            if (numberOfKeys > 1) return <Text>{numberOfKeys} keys imported</Text>;
+            else if (numberOfKeys === 1) return <Text>1 key imported</Text>;
+            else if (!numberOfKeys) return <Text>No keys imported</Text>;
           }
 
           if (params.value) {
@@ -176,7 +226,7 @@ function ResourceImportExportRDB(props) {
         },
       },
     ],
-    []
+    [snackbar]
   );
 
   return (
@@ -197,7 +247,7 @@ function ResourceImportExportRDB(props) {
               exportMutation,
               importMutation,
               openDialog: (params) => setDialog(params),
-              status
+              status,
             },
           }}
           getRowClassName={(params: { row: TaskBase }) => `${params.row.status}`}
@@ -213,9 +263,8 @@ function ResourceImportExportRDB(props) {
         />
       </Box>
 
-
       <InformationDialogTopCenter
-        handleClose={() => { setDialog({ open: false }); setFile(undefined) }}
+        handleClose={closeDialog}
         open={dialog.open}
         PaperProps={{
           component: "form",
@@ -225,7 +274,6 @@ function ResourceImportExportRDB(props) {
             const formJson = Object.fromEntries((formData as any).entries());
 
             if (dialog.type === "import") {
-
               if (!file) {
                 snackbar.showError(`Please select a valid RDB file`);
                 return;
@@ -234,16 +282,25 @@ function ResourceImportExportRDB(props) {
                 username: formJson.username,
                 password: formJson.password,
                 file: await file.arrayBuffer(),
-              })
+              });
             } else {
+              let target: RDBExportTarget;
+
+              try {
+                target = buildExportTarget(formJson, exportTargetType);
+              } catch {
+                snackbar.showError("GCS credentials must be valid service account JSON");
+                return;
+              }
+
               await exportMutation.mutateAsync({
                 username: formJson.username,
                 password: formJson.password,
+                target,
               });
             }
             refetch();
-            setDialog({ open: false });
-            setFile(undefined)
+            closeDialog();
           },
         }}
       >
@@ -254,19 +311,34 @@ function ResourceImportExportRDB(props) {
             </Text>
           </Box>
         </DialogHeader>
-        <DialogContent>
-          <Box>
+        <DialogContent
+          sx={{
+            marginTop: "12px",
+            maxHeight: "min(620px, calc(100vh - 220px))",
+            overflowY: "auto",
+            pr: "8px",
+          }}
+        >
+          <Box
+            sx={{
+              "& > .MuiBox-root": {
+                marginTop: "12px",
+              },
+              "& .MuiFormGroup-root": {
+                marginTop: "4px",
+                rowGap: "4px",
+              },
+            }}
+          >
             <Text size="small" weight="regular" color="#344054">
-              To {dialog.type} your RDB, you must enter again the username and password with read/write access to your FalkorDB
-              Instance
+              To {dialog.type} your RDB, you must enter again the username and password with read/write access to your
+              FalkorDB Instance
             </Text>
-            {
-              dialog.type === 'import' && (
-                <Text size="small" weight="semibold" color="#EF4444">
-                  Caution: Your instance will be erased before the import takes place.
-                </Text>
-              )
-            }
+            {dialog.type === "import" && (
+              <Text size="small" weight="semibold" color="#EF4444">
+                Caution: Your instance will be erased before the import takes place.
+              </Text>
+            )}
             <FieldContainer>
               <FieldLabel required>Username</FieldLabel>
               <TextField
@@ -290,62 +362,172 @@ function ResourceImportExportRDB(props) {
                 sx={{ mt: 0 }}
               />
             </FieldContainer>
-            {
-              dialog.type === "import" && (
+            {dialog.type === "export" && (
+              <>
                 <FieldContainer>
-                  <Stack
-                    spacing={{ xs: 2 }}
-                    direction="row"
-                    useFlexGap
-                    sx={{ flexWrap: 'nowrap' }}
-                    alignItems="center"
-                  >
-                    <Button
-                      component="label"
-                      role={undefined}
-                      variant="contained"
-                      tabIndex={-1}
-                      startIcon={<CloudUploadIcon />}
-                    >
-                      Select RDB file
-                      <VisuallyHiddenInput
-                        type="file"
-                        accept=".rdb"
-                        onChange={(event) => {
-                          setFile(event?.target?.files?.[0])
-                        }}
-                      />
-                    </Button>
-                    {
-                      file && (
-                        <Text ellipsis={true} maxWidth="275px">{file.name}</Text>
-                      )
+                  <FieldLabel required>Destination</FieldLabel>
+                  <RadioGroup
+                    row
+                    name="exportTargetType"
+                    value={exportTargetType}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      setExportTargetType(event.target.value as RDBExportTargetType)
                     }
-                  </Stack>
-
-                  {
-                    importMutation.isPending && (
-                      <Stack direction="row" gap="8px" alignItems="center" marginTop="16px">
-                        <Box width="100%">
-                          <LinearProgress variant="determinate" value={uploadProgress} />
-                        </Box>
-                        <Box component="span" sx={{ fontSize: 14 }}>
-                          {uploadProgress}%
-                        </Box>
-                      </Stack>
-                    )
-                  }
+                  >
+                    <FormControlLabel value="default" control={<Radio />} label="Temporary link" />
+                    <FormControlLabel value="gcs" control={<Radio />} label="Google Cloud Storage" />
+                    <FormControlLabel value="s3" control={<Radio />} label="Amazon S3" />
+                  </RadioGroup>
+                  {exportTargetType === "default" && (
+                    <Text size="small" weight="regular" color="#667085">
+                      A temporary download link will be generated when the export is complete.
+                    </Text>
+                  )}
                 </FieldContainer>
-              )
-            }
+                {exportTargetType === "gcs" && (
+                  <>
+                    <Text size="small" weight="regular" color="#667085">
+                      Use a GCP service account with permission to create objects in the destination bucket.
+                    </Text>
+                    <FieldContainer>
+                      <FieldLabel required>GCS bucket name</FieldLabel>
+                      <TextField
+                        required
+                        id="gcsBucketName"
+                        name="gcsBucketName"
+                        placeholder="my-rdb-exports"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>GCP service account key JSON</FieldLabel>
+                      <TextField
+                        required
+                        id="gcsCredentials"
+                        name="gcsCredentials"
+                        placeholder='{"type":"service_account",...}'
+                        fullWidth
+                        multiline
+                          minRows={4}
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                  </>
+                )}
+                {exportTargetType === "s3" && (
+                  <>
+                    <Text size="small" weight="regular" color="#667085">
+                      Use AWS access credentials with permission to create objects in the destination bucket.
+                    </Text>
+                    <FieldContainer>
+                      <FieldLabel required>S3 bucket name</FieldLabel>
+                      <TextField
+                        required
+                        id="s3BucketName"
+                        name="s3BucketName"
+                        placeholder="my-rdb-exports"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>Region</FieldLabel>
+                      <TextField
+                        required
+                        id="s3Region"
+                        name="s3Region"
+                        placeholder="us-east-1"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>Access key ID</FieldLabel>
+                      <TextField
+                        required
+                        id="s3AccessKeyId"
+                        name="s3AccessKeyId"
+                        placeholder="AKIA..."
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>Secret access key</FieldLabel>
+                      <PasswordField
+                        required
+                        id="s3SecretAccessKey"
+                        name="s3SecretAccessKey"
+                        placeholder="secret access key"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel>Session token</FieldLabel>
+                      <PasswordField
+                        id="s3SessionToken"
+                        name="s3SessionToken"
+                        placeholder="temporary session token"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                  </>
+                )}
+              </>
+            )}
+            {dialog.type === "import" && (
+              <FieldContainer>
+                <Stack spacing={{ xs: 2 }} direction="row" useFlexGap sx={{ flexWrap: "nowrap" }} alignItems="center">
+                  <Button
+                    component="label"
+                    role={undefined}
+                    variant="contained"
+                    tabIndex={-1}
+                    startIcon={<CloudUploadIcon />}
+                  >
+                    Select RDB file
+                    <VisuallyHiddenInput
+                      type="file"
+                      accept=".rdb"
+                      onChange={(event) => {
+                        setFile(event?.target?.files?.[0]);
+                      }}
+                    />
+                  </Button>
+                  {file && (
+                    <Text ellipsis={true} maxWidth="275px">
+                      {file.name}
+                    </Text>
+                  )}
+                </Stack>
+
+                {importMutation.isPending && (
+                  <Stack direction="row" gap="8px" alignItems="center" marginTop="16px">
+                    <Box width="100%">
+                      <LinearProgress variant="determinate" value={uploadProgress} />
+                    </Box>
+                    <Box component="span" sx={{ fontSize: 14 }}>
+                      {uploadProgress}%
+                    </Box>
+                  </Stack>
+                )}
+              </FieldContainer>
+            )}
           </Box>
         </DialogContent>
         <DialogFooter>
-          <Button variant="outlined" onClick={() => { setDialog({ open: false }); setFile(undefined) }} disabled={exportMutation.isPending || importMutation.isPending}>
+          <Button
+            variant="outlined"
+            onClick={closeDialog}
+            disabled={exportMutation.isPending || importMutation.isPending}
+          >
             Cancel
           </Button>
           <Button variant="contained" type="submit" disabled={exportMutation.isPending || importMutation.isPending}>
-            {dialog.type === 'export' ? 'Export' : 'Import'}
+            {dialog.type === "export" ? "Export" : "Import"}
           </Button>
         </DialogFooter>
       </InformationDialogTopCenter>

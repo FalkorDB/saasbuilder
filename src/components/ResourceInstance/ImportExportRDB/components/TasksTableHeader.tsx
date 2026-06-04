@@ -9,12 +9,13 @@ import RefreshWithToolTip from "src/components/RefreshWithTooltip/RefreshWithToo
 import ExportIcon from "src/components/Icons/Export/ExportIcon";
 import Tooltip from "src/components/Tooltip/Tooltip";
 import ImportIcon from "src/components/Icons/Import/ImportIcon";
+import type { RDBExportTarget } from "src/api/falkordb";
 
 type TasksTableHeaderProps = {
   count: number;
   refetch: () => void;
   isRefetching: boolean;
-  exportMutation: UseMutationResult<void, Error, { username: string; password: string }, unknown>;
+  exportMutation: UseMutationResult<void, Error, { username: string; password: string; target?: RDBExportTarget }, unknown>;
   importMutation: UseMutationResult<void, Error, { username: string, password: string, file: ArrayBuffer }, unknown>;
   openDialog: (params: { open: boolean, type: 'import' | 'export' }) => void;
   status: string;

@@ -29,9 +29,22 @@ export type GCPServiceAccountKey = {
 export type RDBExportTarget =
   | { type?: "default" }
   | { type: "gcs"; bucketName: string; credentials: GCPServiceAccountKey }
-  | { type: "s3"; bucketName: string; region: string; accessKeyId: string; secretAccessKey: string; sessionToken?: string };
+  | {
+      type: "s3";
+      bucketName: string;
+      region: string;
+      accessKeyId: string;
+      secretAccessKey: string;
+      sessionToken?: string;
+    };
 
-export const postInstanceExportRdb = (instanceId: string, username: string, password: string, target?: RDBExportTarget, config = {}) => {
+export const postInstanceExportRdb = (
+  instanceId: string,
+  username: string,
+  password: string,
+  target?: RDBExportTarget,
+  config = {}
+) => {
   return axiosInstance.post(
     `/db-importer/export`,
     {

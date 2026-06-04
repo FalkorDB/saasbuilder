@@ -1,10 +1,16 @@
 import { type ChangeEvent, useMemo, useState } from "react";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import { Box, DialogContent, LinearProgress,Link, Stack, Tooltip } from "@mui/material";
+import { Box, DialogContent, LinearProgress, Link, Stack, Tooltip } from "@mui/material";
 import { styled } from "@mui/system";
 import { useMutation } from "@tanstack/react-query";
 
-import { postInstanceExportRdb, postInstanceImportRdbConfirmUpload, postInstanceImportRdbRequestURL, type RDBExportTarget, uploadFile } from "src/api/falkordb";
+import {
+  postInstanceExportRdb,
+  postInstanceImportRdbConfirmUpload,
+  postInstanceImportRdbRequestURL,
+  type RDBExportTarget,
+  uploadFile,
+} from "src/api/falkordb";
 import Button from "src/components/Button/Button";
 import DataGrid from "src/components/DataGrid/DataGrid";
 import InformationDialogTopCenter, {
@@ -46,13 +52,9 @@ type ExportMutationVariables = {
   target?: RDBExportTarget;
 };
 
-const getFormValue = (formJson: Record<string, unknown>, name: string) =>
-  String(formJson[name] ?? "").trim();
+const getFormValue = (formJson: Record<string, unknown>, name: string) => String(formJson[name] ?? "").trim();
 
-const buildExportTarget = (
-  formJson: Record<string, unknown>,
-  targetType: RDBExportTargetType
-): RDBExportTarget => {
+const buildExportTarget = (formJson: Record<string, unknown>, targetType: RDBExportTargetType): RDBExportTarget => {
   if (targetType === "gcs") {
     return {
       type: "gcs",
@@ -409,7 +411,7 @@ function ResourceImportExportRDB(props) {
                         placeholder='{"type":"service_account",...}'
                         fullWidth
                         multiline
-                          minRows={4}
+                        minRows={4}
                         sx={{ mt: 0 }}
                       />
                     </FieldContainer>

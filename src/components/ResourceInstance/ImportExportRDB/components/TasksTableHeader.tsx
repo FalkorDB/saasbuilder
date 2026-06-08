@@ -2,7 +2,7 @@ import { FC } from "react";
 import { Stack } from "@mui/material";
 import { UseMutationResult } from "@tanstack/react-query";
 
-import type { RDBExportTarget } from "src/api/falkordb";
+import type { RDBExportTarget, RDBImportSource } from "src/api/falkordb";
 import Button from "src/components/Button/Button";
 import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
 import DataGridHeaderTitle from "src/components/Headers/DataGridHeaderTitle";
@@ -21,7 +21,12 @@ type TasksTableHeaderProps = {
     { username: string; password: string; target?: RDBExportTarget },
     unknown
   >;
-  importMutation: UseMutationResult<void, Error, { username: string; password: string; file: ArrayBuffer }, unknown>;
+  importMutation: UseMutationResult<
+    void,
+    Error,
+    { username: string; password: string; file?: ArrayBuffer; source?: RDBImportSource },
+    unknown
+  >;
   openDialog: (params: { open: boolean; type: "import" | "export" }) => void;
   status: string;
 };

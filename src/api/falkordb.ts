@@ -38,6 +38,18 @@ export type RDBExportTarget =
       sessionToken?: string;
     };
 
+export type RDBImportSource =
+  | { type: "gcs"; bucketName: string; fileName: string; credentials: GCPServiceAccountKey }
+  | {
+      type: "s3";
+      bucketName: string;
+      key: string;
+      region: string;
+      accessKeyId: string;
+      secretAccessKey: string;
+      sessionToken?: string;
+    };
+
 export const postInstanceExportRdb = (
   instanceId: string,
   username: string,
@@ -63,15 +75,17 @@ export const postInstanceImportRdbRequestURL = (
   instanceId: string,
   username: string,
   password: string,
+  source?: RDBImportSource,
   config = {}
 ) => {
   return axiosInstance
-    .post<any, AxiosResponse<{ taskId: string; uploadUrl: string }>>(
+    .post<any, AxiosResponse<{ taskId: string; uploadUrl?: string }>>(
       `/db-importer/import/request-url`,
       {
         instanceId,
         username,
         password,
+        source,
       },
       {
         ...config,

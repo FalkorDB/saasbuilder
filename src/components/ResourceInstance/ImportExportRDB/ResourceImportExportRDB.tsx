@@ -46,7 +46,7 @@ const VisuallyHiddenInput = styled("input")({
 });
 
 type RDBExportTargetType = "default" | "gcs" | "s3";
-type RDBImportSourceType = "file" | "gcs" | "s3";
+type RDBImportSourceType = "file" | "gcs" | "s3" | "url";
 
 type ExportMutationVariables = {
   username: string;
@@ -112,6 +112,13 @@ const buildImportSource = (
       accessKeyId: getFormValue(formJson, "importS3AccessKeyId"),
       secretAccessKey: getFormValue(formJson, "importS3SecretAccessKey"),
       ...(sessionToken ? { sessionToken } : {}),
+    };
+  }
+
+  if (sourceType === "url") {
+    return {
+      type: "url",
+      url: getFormValue(formJson, "importUrl"),
     };
   }
 
@@ -565,6 +572,7 @@ function ResourceImportExportRDB(props) {
                     <FormControlLabel value="file" control={<Radio />} label="Upload file" />
                     <FormControlLabel value="gcs" control={<Radio />} label="Google Cloud Storage" />
                     <FormControlLabel value="s3" control={<Radio />} label="Amazon S3" />
+                    <FormControlLabel value="url" control={<Radio />} label="URL" />
                   </RadioGroup>
                   {importSourceType === "file" && (
                     <Text size="small" weight="regular" color="#667085">
@@ -724,6 +732,24 @@ function ResourceImportExportRDB(props) {
                         id="importS3SessionToken"
                         name="importS3SessionToken"
                         placeholder="temporary session token"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                  </>
+                )}
+                {importSourceType === "url" && (
+                  <>
+                    <Text size="small" weight="regular" color="#667085">
+                      Use a direct URL that the importer can read to download the RDB file.
+                    </Text>
+                    <FieldContainer>
+                      <FieldLabel required>RDB file URL</FieldLabel>
+                      <TextField
+                        required
+                        id="importUrl"
+                        name="importUrl"
+                        placeholder="https://example.com/path/to/dump.rdb"
                         fullWidth
                         sx={{ mt: 0 }}
                       />

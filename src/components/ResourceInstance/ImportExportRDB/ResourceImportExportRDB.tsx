@@ -9,6 +9,7 @@ import {
   postInstanceImportRdbConfirmUpload,
   postInstanceImportRdbRequestURL,
   type RDBExportTarget,
+  type RDBImportSource,
   uploadFile,
 } from "src/api/falkordb";
 import Button from "src/components/Button/Button";
@@ -45,11 +46,19 @@ const VisuallyHiddenInput = styled("input")({
 });
 
 type RDBExportTargetType = "default" | "gcs" | "s3";
+type RDBImportSourceType = "file" | "gcs" | "s3" | "url";
 
 type ExportMutationVariables = {
   username: string;
   password: string;
   target?: RDBExportTarget;
+};
+
+type ImportMutationVariables = {
+  username: string;
+  password: string;
+  file?: ArrayBuffer;
+  source?: RDBImportSource;
 };
 
 const getFormValue = (formJson: Record<string, unknown>, name: string) => String(formJson[name] ?? "").trim();
@@ -79,6 +88,43 @@ const buildExportTarget = (formJson: Record<string, unknown>, targetType: RDBExp
   return { type: "default" };
 };
 
+const buildImportSource = (
+  formJson: Record<string, unknown>,
+  sourceType: RDBImportSourceType
+): RDBImportSource | undefined => {
+  if (sourceType === "gcs") {
+    return {
+      type: "gcs",
+      bucketName: getFormValue(formJson, "importGcsBucketName"),
+      fileName: getFormValue(formJson, "importGcsFileName"),
+      credentials: JSON.parse(getFormValue(formJson, "importGcsCredentials")),
+    };
+  }
+
+  if (sourceType === "s3") {
+    const sessionToken = getFormValue(formJson, "importS3SessionToken");
+
+    return {
+      type: "s3",
+      bucketName: getFormValue(formJson, "importS3BucketName"),
+      key: getFormValue(formJson, "importS3Key"),
+      region: getFormValue(formJson, "importS3Region"),
+      accessKeyId: getFormValue(formJson, "importS3AccessKeyId"),
+      secretAccessKey: getFormValue(formJson, "importS3SecretAccessKey"),
+      ...(sessionToken ? { sessionToken } : {}),
+    };
+  }
+
+  if (sourceType === "url") {
+    return {
+      type: "url",
+      url: getFormValue(formJson, "importUrl"),
+    };
+  }
+
+  return undefined;
+};
+
 function ResourceImportExportRDB(props) {
   const snackbar = useSnackbar();
   const { instanceId, status } = props;
@@ -86,11 +132,13 @@ function ResourceImportExportRDB(props) {
   const [dialog, setDialog] = useState<{ open: boolean; type?: "export" | "import" }>({ open: false, type: "export" });
   const [file, setFile] = useState<File | undefined>();
   const [exportTargetType, setExportTargetType] = useState<RDBExportTargetType>("default");
+  const [importSourceType, setImportSourceType] = useState<RDBImportSourceType>("file");
 
   const closeDialog = () => {
     setDialog({ open: false });
     setFile(undefined);
     setExportTargetType("default");
+    setImportSourceType("file");
   };
 
   const tasksQuery = useTasks({
@@ -110,14 +158,22 @@ function ResourceImportExportRDB(props) {
     },
   });
 
-  const importMutation = useMutation<
-    unknown,
-    unknown,
-    { username: string; password: string; file: ArrayBuffer },
-    unknown
-  >({
+  const importMutation = useMutation<unknown, unknown, ImportMutationVariables, unknown>({
     mutationFn: async (vars) => {
-      const { taskId, uploadUrl } = await postInstanceImportRdbRequestURL(instanceId, vars.username, vars.password);
+      const { taskId, uploadUrl } = await postInstanceImportRdbRequestURL(
+        instanceId,
+        vars.username,
+        vars.password,
+        vars.source
+      );
+
+      if (vars.source) {
+        return;
+      }
+
+      if (!vars.file || !uploadUrl) {
+        throw new Error("Unable to prepare RDB file upload");
+      }
 
       await uploadFile(uploadUrl, vars.file, (progressEvent) => {
         setUploadProgress(Math.floor((progressEvent.progress ?? 0) * 100));
@@ -276,14 +332,25 @@ function ResourceImportExportRDB(props) {
             const formJson = Object.fromEntries((formData as any).entries());
 
             if (dialog.type === "import") {
-              if (!file) {
+              let source: RDBImportSource | undefined;
+
+              try {
+                source = buildImportSource(formJson, importSourceType);
+              } catch {
+                snackbar.showError("GCS credentials must be valid service account JSON");
+                return;
+              }
+
+              if (importSourceType === "file" && !file) {
                 snackbar.showError(`Please select a valid RDB file`);
                 return;
               }
+
               await importMutation.mutateAsync({
                 username: formJson.username,
                 password: formJson.password,
-                file: await file.arrayBuffer(),
+                file: file ? await file.arrayBuffer() : undefined,
+                source,
               });
             } else {
               let target: RDBExportTarget;
@@ -367,7 +434,12 @@ function ResourceImportExportRDB(props) {
             {dialog.type === "export" && (
               <>
                 <FieldContainer>
-                  <FieldLabel required>Destination</FieldLabel>
+                  <Stack direction="row" alignItems="center" gap="6px">
+                    <FieldLabel required>Destination</FieldLabel>
+                    <Text size="small" weight="semibold" color="#667085">
+                      beta
+                    </Text>
+                  </Stack>
                   <RadioGroup
                     row
                     name="exportTargetType"
@@ -481,42 +553,210 @@ function ResourceImportExportRDB(props) {
               </>
             )}
             {dialog.type === "import" && (
-              <FieldContainer>
-                <Stack spacing={{ xs: 2 }} direction="row" useFlexGap sx={{ flexWrap: "nowrap" }} alignItems="center">
-                  <Button
-                    component="label"
-                    role={undefined}
-                    variant="contained"
-                    tabIndex={-1}
-                    startIcon={<CloudUploadIcon />}
+              <>
+                <FieldContainer>
+                  <Stack direction="row" alignItems="center" gap="6px">
+                    <FieldLabel required>Source</FieldLabel>
+                    <Text size="small" weight="semibold" color="#667085">
+                      beta
+                    </Text>
+                  </Stack>
+                  <RadioGroup
+                    row
+                    name="importSourceType"
+                    value={importSourceType}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                      setImportSourceType(event.target.value as RDBImportSourceType)
+                    }
                   >
-                    Select RDB file
-                    <VisuallyHiddenInput
-                      type="file"
-                      accept=".rdb"
-                      onChange={(event) => {
-                        setFile(event?.target?.files?.[0]);
-                      }}
-                    />
-                  </Button>
-                  {file && (
-                    <Text ellipsis={true} maxWidth="275px">
-                      {file.name}
+                    <FormControlLabel value="file" control={<Radio />} label="Upload file" />
+                    <FormControlLabel value="gcs" control={<Radio />} label="Google Cloud Storage" />
+                    <FormControlLabel value="s3" control={<Radio />} label="Amazon S3" />
+                    <FormControlLabel value="url" control={<Radio />} label="URL" />
+                  </RadioGroup>
+                  {importSourceType === "file" && (
+                    <Text size="small" weight="regular" color="#667085">
+                      Upload an RDB file from your local machine.
                     </Text>
                   )}
-                </Stack>
+                </FieldContainer>
+                {importSourceType === "file" && (
+                  <FieldContainer>
+                    <Stack
+                      spacing={{ xs: 2 }}
+                      direction="row"
+                      useFlexGap
+                      sx={{ flexWrap: "nowrap" }}
+                      alignItems="center"
+                    >
+                      <Button
+                        component="label"
+                        role={undefined}
+                        variant="contained"
+                        tabIndex={-1}
+                        startIcon={<CloudUploadIcon />}
+                      >
+                        Select RDB file
+                        <VisuallyHiddenInput
+                          type="file"
+                          accept=".rdb"
+                          onChange={(event) => {
+                            setFile(event?.target?.files?.[0]);
+                          }}
+                        />
+                      </Button>
+                      {file && (
+                        <Text ellipsis={true} maxWidth="275px">
+                          {file.name}
+                        </Text>
+                      )}
+                    </Stack>
 
-                {importMutation.isPending && (
-                  <Stack direction="row" gap="8px" alignItems="center" marginTop="16px">
-                    <Box width="100%">
-                      <LinearProgress variant="determinate" value={uploadProgress} />
-                    </Box>
-                    <Box component="span" sx={{ fontSize: 14 }}>
-                      {uploadProgress}%
-                    </Box>
-                  </Stack>
+                    {importMutation.isPending && (
+                      <Stack direction="row" gap="8px" alignItems="center" marginTop="16px">
+                        <Box width="100%">
+                          <LinearProgress variant="determinate" value={uploadProgress} />
+                        </Box>
+                        <Box component="span" sx={{ fontSize: 14 }}>
+                          {uploadProgress}%
+                        </Box>
+                      </Stack>
+                    )}
+                  </FieldContainer>
                 )}
-              </FieldContainer>
+                {importSourceType === "gcs" && (
+                  <>
+                    <Text size="small" weight="regular" color="#667085">
+                      Use a GCP service account with permission to read objects from the source bucket.
+                    </Text>
+                    <FieldContainer>
+                      <FieldLabel required>GCS bucket name</FieldLabel>
+                      <TextField
+                        required
+                        id="importGcsBucketName"
+                        name="importGcsBucketName"
+                        placeholder="my-rdb-imports"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>RDB file path</FieldLabel>
+                      <TextField
+                        required
+                        id="importGcsFileName"
+                        name="importGcsFileName"
+                        placeholder="path/to/dump.rdb"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>GCP service account key JSON</FieldLabel>
+                      <TextField
+                        required
+                        id="importGcsCredentials"
+                        name="importGcsCredentials"
+                        placeholder='{"type":"service_account",...}'
+                        fullWidth
+                        multiline
+                        minRows={4}
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                  </>
+                )}
+                {importSourceType === "s3" && (
+                  <>
+                    <Text size="small" weight="regular" color="#667085">
+                      Use AWS access credentials with permission to read objects from the source bucket.
+                    </Text>
+                    <FieldContainer>
+                      <FieldLabel required>S3 bucket name</FieldLabel>
+                      <TextField
+                        required
+                        id="importS3BucketName"
+                        name="importS3BucketName"
+                        placeholder="my-rdb-imports"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>RDB file path</FieldLabel>
+                      <TextField
+                        required
+                        id="importS3Key"
+                        name="importS3Key"
+                        placeholder="path/to/dump.rdb"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>Region</FieldLabel>
+                      <TextField
+                        required
+                        id="importS3Region"
+                        name="importS3Region"
+                        placeholder="us-east-1"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>Access key ID</FieldLabel>
+                      <TextField
+                        required
+                        id="importS3AccessKeyId"
+                        name="importS3AccessKeyId"
+                        placeholder="AKIA..."
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>Secret access key</FieldLabel>
+                      <PasswordField
+                        required
+                        id="importS3SecretAccessKey"
+                        name="importS3SecretAccessKey"
+                        placeholder="secret access key"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel>Session token</FieldLabel>
+                      <PasswordField
+                        id="importS3SessionToken"
+                        name="importS3SessionToken"
+                        placeholder="temporary session token"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                  </>
+                )}
+                {importSourceType === "url" && (
+                  <>
+                    <Text size="small" weight="regular" color="#667085">
+                      Use a direct URL that the importer can read to download the RDB file.
+                    </Text>
+                    <FieldContainer>
+                      <FieldLabel required>RDB file URL</FieldLabel>
+                      <TextField
+                        required
+                        id="importUrl"
+                        name="importUrl"
+                        placeholder="https://example.com/path/to/dump.rdb"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                  </>
+                )}
+              </>
             )}
           </Box>
         </DialogContent>

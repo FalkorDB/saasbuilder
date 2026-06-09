@@ -3,6 +3,7 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { Box, DialogContent, LinearProgress, Link, Stack, Tooltip } from "@mui/material";
 import { styled } from "@mui/system";
 import { useMutation } from "@tanstack/react-query";
+import useInstances from "app/(dashboard)/instances/hooks/useInstances";
 
 import {
   postInstanceExportRdb,
@@ -21,8 +22,10 @@ import InformationDialogTopCenter, {
 import FieldContainer from "src/components/FormElements/FieldContainer/FieldContainer";
 import FieldLabel from "src/components/FormElements/FieldLabel/FieldLabel";
 import FormControlLabel from "src/components/FormElementsv2/FormControlLabel/FormControlLabel";
+import MenuItem from "src/components/FormElementsv2/MenuItem/MenuItem";
 import { PasswordField } from "src/components/FormElementsv2/PasswordField/PasswordField";
 import Radio, { RadioGroup } from "src/components/FormElementsv2/Radio/Radio";
+import Select from "src/components/FormElementsv2/Select/Select";
 import TextField from "src/components/FormElementsv2/TextField/TextField";
 import TasksTableHeader from "src/components/ResourceInstance/ImportExportRDB/components/TasksTableHeader";
 import useTasks, { TaskBase } from "src/components/ResourceInstance/ImportExportRDB/hooks/useTasks";
@@ -31,6 +34,7 @@ import { Text } from "src/components/Typography/Typography";
 import { getResourceInstanceTaskStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceTaskStatus";
 import { getResourceInstanceTaskTypeStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceTaskTypeStatus";
 import useSnackbar from "src/hooks/useSnackbar";
+import type { ResourceInstance } from "src/types/resourceInstance";
 import formatDateLocal from "src/utils/formatDateLocal";
 
 const VisuallyHiddenInput = styled("input")({
@@ -46,7 +50,7 @@ const VisuallyHiddenInput = styled("input")({
 });
 
 type RDBExportTargetType = "default" | "gcs" | "s3";
-type RDBImportSourceType = "file" | "gcs" | "s3" | "url";
+type RDBImportSourceType = "file" | "gcs" | "s3" | "url" | "instance";
 
 type ExportMutationVariables = {
   username: string;
@@ -122,7 +126,55 @@ const buildImportSource = (
     };
   }
 
+  if (sourceType === "instance") {
+    return {
+      type: "instance",
+      instanceId: getFormValue(formJson, "importSourceInstanceId"),
+      username: getFormValue(formJson, "importSourceInstanceUsername"),
+      password: getFormValue(formJson, "importSourceInstancePassword"),
+    };
+  }
+
   return undefined;
+};
+
+const getRecordString = (record: Record<string, unknown> | undefined, key: string) => {
+  const value = record?.[key];
+  return typeof value === "string" ? value : undefined;
+};
+
+const getInstanceDisplayFields = (instance: ResourceInstance) => {
+  const instanceRecord = instance as Record<string, unknown>;
+  const resultParams = instance.result_params as Record<string, unknown> | undefined;
+
+  const instanceName = getRecordString(resultParams, "name") || instance.id || "Instance";
+  const deploymentType =
+    getRecordString(instanceRecord, "serviceModelType") ||
+    getRecordString(instanceRecord, "serviceModelKey") ||
+    getRecordString(instanceRecord, "deploymentType");
+  const cloudProvider = instance.cloud_provider || getRecordString(resultParams, "cloud_provider");
+  const region = instance.region || getRecordString(resultParams, "region");
+  const details = [instanceName, deploymentType, cloudProvider, region].filter(Boolean).join(" | ");
+
+  return {
+    details,
+    instanceId: instance.id || "Instance",
+  };
+};
+
+const renderInstanceOption = (instance: ResourceInstance) => {
+  const { details, instanceId } = getInstanceDisplayFields(instance);
+
+  return (
+    <Stack gap="2px" minWidth={0}>
+      <Text size="xsmall" weight="regular" color="#667085" ellipsis>
+        {instanceId}
+      </Text>
+      <Text size="small" weight="medium" color="#101828" ellipsis>
+        {details}
+      </Text>
+    </Stack>
+  );
 };
 
 function ResourceImportExportRDB(props) {
@@ -145,6 +197,8 @@ function ResourceImportExportRDB(props) {
     instanceId,
   });
   const { data: tasksData = [], isLoading, isRefetching, refetch } = tasksQuery;
+  const { data: sourceInstances = [], isPending: isSourceInstancesPending } = useInstances({ onlyInstances: true });
+  const runningSourceInstances = sourceInstances.filter((sourceInstance) => sourceInstance.status === "RUNNING");
 
   const exportMutation = useMutation<unknown, unknown, ExportMutationVariables, unknown>({
     mutationFn: async (vars) => {
@@ -573,6 +627,7 @@ function ResourceImportExportRDB(props) {
                     <FormControlLabel value="gcs" control={<Radio />} label="Google Cloud Storage" />
                     <FormControlLabel value="s3" control={<Radio />} label="Amazon S3" />
                     <FormControlLabel value="url" control={<Radio />} label="URL" />
+                    <FormControlLabel value="instance" control={<Radio />} label="Instance" />
                   </RadioGroup>
                   {importSourceType === "file" && (
                     <Text size="small" weight="regular" color="#667085">
@@ -750,6 +805,65 @@ function ResourceImportExportRDB(props) {
                         id="importUrl"
                         name="importUrl"
                         placeholder="https://example.com/path/to/dump.rdb"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                  </>
+                )}
+                {importSourceType === "instance" && (
+                  <>
+                    <Text size="small" weight="regular" color="#667085">
+                      Select an instance you can access and enter credentials with read access to that source instance.
+                    </Text>
+                    <FieldContainer>
+                      <FieldLabel required>Source instance</FieldLabel>
+                      <Select
+                        required
+                        displayEmpty
+                        id="importSourceInstanceId"
+                        name="importSourceInstanceId"
+                        defaultValue=""
+                        isLoading={isSourceInstancesPending}
+                        renderValue={(value: unknown) => {
+                          const selectedInstance = runningSourceInstances.find(
+                            (sourceInstance) => sourceInstance.id === value
+                          );
+                          return selectedInstance ? renderInstanceOption(selectedInstance) : "Select source instance";
+                        }}
+                        fullWidth
+                      >
+                        <MenuItem value="" disabled>
+                          Select source instance
+                        </MenuItem>
+                        {runningSourceInstances.map((sourceInstance) => (
+                          <MenuItem key={sourceInstance.id} value={sourceInstance.id}>
+                            {renderInstanceOption(sourceInstance)}
+                          </MenuItem>
+                        ))}
+                        {!isSourceInstancesPending && runningSourceInstances.length === 0 && (
+                          <MenuItem disabled>No running instances available</MenuItem>
+                        )}
+                      </Select>
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>Source username</FieldLabel>
+                      <TextField
+                        required
+                        id="importSourceInstanceUsername"
+                        name="importSourceInstanceUsername"
+                        placeholder="falkordb"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>Source password</FieldLabel>
+                      <PasswordField
+                        required
+                        id="importSourceInstancePassword"
+                        name="importSourceInstancePassword"
+                        placeholder="source instance password"
                         fullWidth
                         sx={{ mt: 0 }}
                       />

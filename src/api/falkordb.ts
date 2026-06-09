@@ -41,6 +41,7 @@ export type RDBExportTarget =
 export type RDBImportSource =
   | { type: "gcs"; bucketName: string; fileName: string; credentials: GCPServiceAccountKey }
   | { type: "url"; url: string }
+  | { type: "instance"; instanceId: string; username: string; password: string }
   | {
       type: "s3";
       bucketName: string;

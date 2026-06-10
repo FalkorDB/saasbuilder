@@ -198,7 +198,9 @@ function ResourceImportExportRDB(props) {
   });
   const { data: tasksData = [], isLoading, isRefetching, refetch } = tasksQuery;
   const { data: sourceInstances = [], isPending: isSourceInstancesPending } = useInstances({ onlyInstances: true });
-  const runningSourceInstances = sourceInstances.filter((sourceInstance) => sourceInstance.status === "RUNNING");
+  const runningSourceInstances = sourceInstances.filter(
+    (sourceInstance) => sourceInstance.status === "RUNNING" && sourceInstance.id !== instanceId
+  );
 
   const exportMutation = useMutation<unknown, unknown, ExportMutationVariables, unknown>({
     mutationFn: async (vars) => {

@@ -1,8 +1,9 @@
-import { type ChangeEvent, useMemo, useState } from "react";
+import { type ChangeEvent, useCallback, useMemo, useState } from "react";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { Box, DialogContent, LinearProgress, Link, Stack, Tooltip } from "@mui/material";
 import { styled } from "@mui/system";
 import { useMutation } from "@tanstack/react-query";
+import useInstances from "app/(dashboard)/instances/hooks/useInstances";
 
 import {
   postInstanceExportRdb,
@@ -21,8 +22,10 @@ import InformationDialogTopCenter, {
 import FieldContainer from "src/components/FormElements/FieldContainer/FieldContainer";
 import FieldLabel from "src/components/FormElements/FieldLabel/FieldLabel";
 import FormControlLabel from "src/components/FormElementsv2/FormControlLabel/FormControlLabel";
+import MenuItem from "src/components/FormElementsv2/MenuItem/MenuItem";
 import { PasswordField } from "src/components/FormElementsv2/PasswordField/PasswordField";
 import Radio, { RadioGroup } from "src/components/FormElementsv2/Radio/Radio";
+import Select from "src/components/FormElementsv2/Select/Select";
 import TextField from "src/components/FormElementsv2/TextField/TextField";
 import TasksTableHeader from "src/components/ResourceInstance/ImportExportRDB/components/TasksTableHeader";
 import useTasks, { TaskBase } from "src/components/ResourceInstance/ImportExportRDB/hooks/useTasks";
@@ -31,7 +34,10 @@ import { Text } from "src/components/Typography/Typography";
 import { getResourceInstanceTaskStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceTaskStatus";
 import { getResourceInstanceTaskTypeStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceTaskTypeStatus";
 import useSnackbar from "src/hooks/useSnackbar";
+import { useGlobalData } from "src/providers/GlobalDataProvider";
+import type { ResourceInstance } from "src/types/resourceInstance";
 import formatDateLocal from "src/utils/formatDateLocal";
+import { getInstanceDetailsRoute } from "src/utils/routes";
 
 const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -46,7 +52,18 @@ const VisuallyHiddenInput = styled("input")({
 });
 
 type RDBExportTargetType = "default" | "gcs" | "s3";
-type RDBImportSourceType = "file" | "gcs" | "s3" | "url";
+type RDBImportSourceType = "file" | "gcs" | "s3" | "url" | "instance";
+
+type SubscriptionRouteData = Record<string, { productTierId?: string; serviceId?: string } | undefined>;
+
+const TASK_LOCATION_TYPE_LABELS: Record<string, string> = {
+  default: "Link",
+  file: "File",
+  gcs: "GCS",
+  instance: "Instance",
+  s3: "S3",
+  url: "URL",
+};
 
 type ExportMutationVariables = {
   username: string;
@@ -122,11 +139,87 @@ const buildImportSource = (
     };
   }
 
+  if (sourceType === "instance") {
+    return {
+      type: "instance",
+      instanceId: getFormValue(formJson, "importSourceInstanceId"),
+      username: getFormValue(formJson, "importSourceInstanceUsername"),
+      password: getFormValue(formJson, "importSourceInstancePassword"),
+    };
+  }
+
   return undefined;
+};
+
+const getRecordString = (record: Record<string, unknown> | undefined, key: string) => {
+  const value = record?.[key];
+  return typeof value === "string" ? value : undefined;
+};
+
+const getInstanceDisplayFields = (instance: ResourceInstance) => {
+  const instanceRecord = instance as Record<string, unknown>;
+  const resultParams = instance.result_params as Record<string, unknown> | undefined;
+
+  const instanceName = getRecordString(resultParams, "name") || instance.id || "Instance";
+  const deploymentType =
+    Object.values(instanceRecord?.["detailedNetworkTopology"] || {}).find((v) => v.main)?.resourceName ?? "";
+  const cloudProvider = instance.cloud_provider || getRecordString(resultParams, "cloud_provider");
+  const region = instance.region || getRecordString(resultParams, "region");
+  const details = [instanceName, deploymentType, cloudProvider, region].filter(Boolean).join(" | ");
+
+  return {
+    details,
+    instanceId: instance.id || "Instance",
+  };
+};
+
+const renderInstanceOption = (instance: ResourceInstance) => {
+  const { details, instanceId } = getInstanceDisplayFields(instance);
+
+  return (
+    <Stack gap="2px" minWidth={0}>
+      <Text size="xsmall" weight="regular" color="#667085" ellipsis>
+        {instanceId}
+      </Text>
+      <Text size="small" weight="medium" color="#101828" ellipsis>
+        {details}
+      </Text>
+    </Stack>
+  );
+};
+
+const getTaskLocationTypeLabel = (task: TaskBase) => {
+  const rawType =
+    task.type === "RDBImport" ? task.payload?.source?.type || "file" : task.payload?.destination?.type || "default";
+  return TASK_LOCATION_TYPE_LABELS[rawType] ?? rawType;
+};
+
+const getSourceInstanceRoute = (
+  sourceInstance: ResourceInstance | undefined,
+  subscriptionsObj: SubscriptionRouteData
+) => {
+  if (!sourceInstance?.id || !sourceInstance.subscriptionId || !sourceInstance.resourceID) {
+    return undefined;
+  }
+
+  const subscription = subscriptionsObj[sourceInstance.subscriptionId];
+
+  if (!subscription?.serviceId || !subscription.productTierId) {
+    return undefined;
+  }
+
+  return getInstanceDetailsRoute({
+    serviceId: subscription.serviceId,
+    servicePlanId: subscription.productTierId,
+    resourceId: sourceInstance.resourceID,
+    instanceId: sourceInstance.id,
+    subscriptionId: sourceInstance.subscriptionId,
+  });
 };
 
 function ResourceImportExportRDB(props) {
   const snackbar = useSnackbar();
+  const { subscriptionsObj } = useGlobalData();
   const { instanceId, status } = props;
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dialog, setDialog] = useState<{ open: boolean; type?: "export" | "import" }>({ open: false, type: "export" });
@@ -145,6 +238,37 @@ function ResourceImportExportRDB(props) {
     instanceId,
   });
   const { data: tasksData = [], isLoading, isRefetching, refetch } = tasksQuery;
+  const { data: sourceInstances = [], isPending: isSourceInstancesPending } = useInstances({ onlyInstances: true });
+  const runningSourceInstances = sourceInstances.filter(
+    (sourceInstance) => sourceInstance.status === "RUNNING" && sourceInstance.id !== instanceId
+  );
+
+  const renderTaskLocationType = useCallback(
+    (task: TaskBase) => {
+      const label = getTaskLocationTypeLabel(task);
+      const sourceInstanceId = task.payload?.source?.type === "instance" ? task.payload.source.instanceId : undefined;
+
+      if (!sourceInstanceId) {
+        return <Text>{label}</Text>;
+      }
+
+      const sourceInstance = sourceInstances.find((sourceInstance) => sourceInstance.id === sourceInstanceId);
+      const sourceInstanceRoute = getSourceInstanceRoute(sourceInstance, subscriptionsObj);
+
+      if (!sourceInstanceRoute) {
+        return <Text>{sourceInstanceId}</Text>;
+      }
+
+      return (
+        <Link href={sourceInstanceRoute} underline="hover">
+          <Text color="#2E90FA" ellipsis>
+            {sourceInstanceId}
+          </Text>
+        </Link>
+      );
+    },
+    [sourceInstances, subscriptionsObj]
+  );
 
   const exportMutation = useMutation<unknown, unknown, ExportMutationVariables, unknown>({
     mutationFn: async (vars) => {
@@ -209,6 +333,13 @@ function ResourceImportExportRDB(props) {
           return <StatusChip status={type} {...statusStylesAndMap} />;
         },
         minWidth: 100,
+      },
+      {
+        field: "locationType",
+        headerName: "Source/Destination",
+        flex: 0.65,
+        renderCell: (params: { row: TaskBase }) => renderTaskLocationType(params.row),
+        minWidth: 150,
       },
       {
         field: "status",
@@ -284,7 +415,7 @@ function ResourceImportExportRDB(props) {
         },
       },
     ],
-    [snackbar]
+    [renderTaskLocationType, snackbar]
   );
 
   return (
@@ -573,6 +704,7 @@ function ResourceImportExportRDB(props) {
                     <FormControlLabel value="gcs" control={<Radio />} label="Google Cloud Storage" />
                     <FormControlLabel value="s3" control={<Radio />} label="Amazon S3" />
                     <FormControlLabel value="url" control={<Radio />} label="URL" />
+                    <FormControlLabel value="instance" control={<Radio />} label="Instance" />
                   </RadioGroup>
                   {importSourceType === "file" && (
                     <Text size="small" weight="regular" color="#667085">
@@ -750,6 +882,65 @@ function ResourceImportExportRDB(props) {
                         id="importUrl"
                         name="importUrl"
                         placeholder="https://example.com/path/to/dump.rdb"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                  </>
+                )}
+                {importSourceType === "instance" && (
+                  <>
+                    <Text size="small" weight="regular" color="#667085">
+                      Select an instance you can access and enter credentials with read access to that source instance.
+                    </Text>
+                    <FieldContainer>
+                      <FieldLabel required>Source instance</FieldLabel>
+                      <Select
+                        required
+                        displayEmpty
+                        id="importSourceInstanceId"
+                        name="importSourceInstanceId"
+                        defaultValue=""
+                        isLoading={isSourceInstancesPending}
+                        renderValue={(value: unknown) => {
+                          const selectedInstance = runningSourceInstances.find(
+                            (sourceInstance) => sourceInstance.id === value
+                          );
+                          return selectedInstance ? renderInstanceOption(selectedInstance) : "Select source instance";
+                        }}
+                        fullWidth
+                      >
+                        <MenuItem value="" disabled>
+                          Select source instance
+                        </MenuItem>
+                        {runningSourceInstances.map((sourceInstance) => (
+                          <MenuItem key={sourceInstance.id} value={sourceInstance.id}>
+                            {renderInstanceOption(sourceInstance)}
+                          </MenuItem>
+                        ))}
+                        {!isSourceInstancesPending && runningSourceInstances.length === 0 && (
+                          <MenuItem disabled>No running instances available</MenuItem>
+                        )}
+                      </Select>
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>Source username</FieldLabel>
+                      <TextField
+                        required
+                        id="importSourceInstanceUsername"
+                        name="importSourceInstanceUsername"
+                        placeholder="falkordb"
+                        fullWidth
+                        sx={{ mt: 0 }}
+                      />
+                    </FieldContainer>
+                    <FieldContainer>
+                      <FieldLabel required>Source password</FieldLabel>
+                      <PasswordField
+                        required
+                        id="importSourceInstancePassword"
+                        name="importSourceInstancePassword"
+                        placeholder="source instance password"
                         fullWidth
                         sx={{ mt: 0 }}
                       />

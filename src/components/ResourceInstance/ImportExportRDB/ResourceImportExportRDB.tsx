@@ -162,9 +162,7 @@ const getInstanceDisplayFields = (instance: ResourceInstance) => {
 
   const instanceName = getRecordString(resultParams, "name") || instance.id || "Instance";
   const deploymentType =
-    getRecordString(instanceRecord, "serviceModelType") ||
-    getRecordString(instanceRecord, "serviceModelKey") ||
-    getRecordString(instanceRecord, "deploymentType");
+    Object.values(instanceRecord?.["detailedNetworkTopology"] || {}).find((v) => v.main)?.resourceName ?? "";
   const cloudProvider = instance.cloud_provider || getRecordString(resultParams, "cloud_provider");
   const region = instance.region || getRecordString(resultParams, "region");
   const details = [instanceName, deploymentType, cloudProvider, region].filter(Boolean).join(" | ");

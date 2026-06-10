@@ -196,7 +196,10 @@ const getTaskLocationTypeLabel = (task: TaskBase) => {
   return TASK_LOCATION_TYPE_LABELS[rawType] ?? rawType;
 };
 
-const getSourceInstanceRoute = (sourceInstance: ResourceInstance | undefined, subscriptionsObj: SubscriptionRouteData) => {
+const getSourceInstanceRoute = (
+  sourceInstance: ResourceInstance | undefined,
+  subscriptionsObj: SubscriptionRouteData
+) => {
   if (!sourceInstance?.id || !sourceInstance.subscriptionId || !sourceInstance.resourceID) {
     return undefined;
   }
@@ -242,29 +245,32 @@ function ResourceImportExportRDB(props) {
     (sourceInstance) => sourceInstance.status === "RUNNING" && sourceInstance.id !== instanceId
   );
 
-  const renderTaskLocationType = useCallback((task: TaskBase) => {
-    const label = getTaskLocationTypeLabel(task);
-    const sourceInstanceId = task.payload?.source?.type === "instance" ? task.payload.source.instanceId : undefined;
+  const renderTaskLocationType = useCallback(
+    (task: TaskBase) => {
+      const label = getTaskLocationTypeLabel(task);
+      const sourceInstanceId = task.payload?.source?.type === "instance" ? task.payload.source.instanceId : undefined;
 
-    if (!sourceInstanceId) {
-      return <Text>{label}</Text>;
-    }
+      if (!sourceInstanceId) {
+        return <Text>{label}</Text>;
+      }
 
-    const sourceInstance = sourceInstances.find((sourceInstance) => sourceInstance.id === sourceInstanceId);
-    const sourceInstanceRoute = getSourceInstanceRoute(sourceInstance, subscriptionsObj);
+      const sourceInstance = sourceInstances.find((sourceInstance) => sourceInstance.id === sourceInstanceId);
+      const sourceInstanceRoute = getSourceInstanceRoute(sourceInstance, subscriptionsObj);
 
-    if (!sourceInstanceRoute) {
-      return <Text>{sourceInstanceId}</Text>;
-    }
+      if (!sourceInstanceRoute) {
+        return <Text>{sourceInstanceId}</Text>;
+      }
 
-    return (
-      <Link href={sourceInstanceRoute} underline="hover">
-        <Text color="#2E90FA" ellipsis>
-          {sourceInstanceId}
-        </Text>
-      </Link>
-    );
-  }, [sourceInstances, subscriptionsObj]);
+      return (
+        <Link href={sourceInstanceRoute} underline="hover">
+          <Text color="#2E90FA" ellipsis>
+            {sourceInstanceId}
+          </Text>
+        </Link>
+      );
+    },
+    [sourceInstances, subscriptionsObj]
+  );
 
   const exportMutation = useMutation<unknown, unknown, ExportMutationVariables, unknown>({
     mutationFn: async (vars) => {

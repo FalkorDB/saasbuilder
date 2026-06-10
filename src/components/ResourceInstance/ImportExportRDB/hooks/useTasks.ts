@@ -45,20 +45,18 @@ function useTasks(
 ) {
   const { instanceId } = queryParams;
 
-  const query = useQuery(
-    {
-      queryFn: async () => {
-        const response = await getInstanceTasks(instanceId);
-        return response;
-      },
-      refetchOnWindowFocus: false,
-      retry: false,
-      refetchOnMount: true,
-      refetchInterval: 30000,
-      select: (response) => response.data.data,
-      ...queryOptions,
-    }
-  );
+  const query = useQuery({
+    queryFn: async () => {
+      const response = await getInstanceTasks(instanceId);
+      return response;
+    },
+    refetchOnWindowFocus: false,
+    retry: false,
+    refetchOnMount: true,
+    refetchInterval: 30000,
+    select: (response) => response.data.data,
+    ...queryOptions,
+  });
 
   return query;
 }

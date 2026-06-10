@@ -1,4 +1,4 @@
-import { type ChangeEvent, useMemo, useState } from "react";
+import { type ChangeEvent, useCallback, useMemo, useState } from "react";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { Box, DialogContent, LinearProgress, Link, Stack, Tooltip } from "@mui/material";
 import { styled } from "@mui/system";
@@ -34,8 +34,10 @@ import { Text } from "src/components/Typography/Typography";
 import { getResourceInstanceTaskStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceTaskStatus";
 import { getResourceInstanceTaskTypeStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceTaskTypeStatus";
 import useSnackbar from "src/hooks/useSnackbar";
+import { useGlobalData } from "src/providers/GlobalDataProvider";
 import type { ResourceInstance } from "src/types/resourceInstance";
 import formatDateLocal from "src/utils/formatDateLocal";
+import { getInstanceDetailsRoute } from "src/utils/routes";
 
 const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -51,6 +53,17 @@ const VisuallyHiddenInput = styled("input")({
 
 type RDBExportTargetType = "default" | "gcs" | "s3";
 type RDBImportSourceType = "file" | "gcs" | "s3" | "url" | "instance";
+
+type SubscriptionRouteData = Record<string, { productTierId?: string; serviceId?: string } | undefined>;
+
+const TASK_LOCATION_TYPE_LABELS: Record<string, string> = {
+  default: "Link",
+  file: "File",
+  gcs: "GCS",
+  instance: "Instance",
+  s3: "S3",
+  url: "URL",
+};
 
 type ExportMutationVariables = {
   username: string;
@@ -177,8 +190,35 @@ const renderInstanceOption = (instance: ResourceInstance) => {
   );
 };
 
+const getTaskLocationTypeLabel = (task: TaskBase) => {
+  const rawType =
+    task.type === "RDBImport" ? task.payload?.source?.type || "file" : task.payload?.destination?.type || "default";
+  return TASK_LOCATION_TYPE_LABELS[rawType] ?? rawType;
+};
+
+const getSourceInstanceRoute = (sourceInstance: ResourceInstance | undefined, subscriptionsObj: SubscriptionRouteData) => {
+  if (!sourceInstance?.id || !sourceInstance.subscriptionId || !sourceInstance.resourceID) {
+    return undefined;
+  }
+
+  const subscription = subscriptionsObj[sourceInstance.subscriptionId];
+
+  if (!subscription?.serviceId || !subscription.productTierId) {
+    return undefined;
+  }
+
+  return getInstanceDetailsRoute({
+    serviceId: subscription.serviceId,
+    servicePlanId: subscription.productTierId,
+    resourceId: sourceInstance.resourceID,
+    instanceId: sourceInstance.id,
+    subscriptionId: sourceInstance.subscriptionId,
+  });
+};
+
 function ResourceImportExportRDB(props) {
   const snackbar = useSnackbar();
+  const { subscriptionsObj } = useGlobalData();
   const { instanceId, status } = props;
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dialog, setDialog] = useState<{ open: boolean; type?: "export" | "import" }>({ open: false, type: "export" });
@@ -201,6 +241,30 @@ function ResourceImportExportRDB(props) {
   const runningSourceInstances = sourceInstances.filter(
     (sourceInstance) => sourceInstance.status === "RUNNING" && sourceInstance.id !== instanceId
   );
+
+  const renderTaskLocationType = useCallback((task: TaskBase) => {
+    const label = getTaskLocationTypeLabel(task);
+    const sourceInstanceId = task.payload?.source?.type === "instance" ? task.payload.source.instanceId : undefined;
+
+    if (!sourceInstanceId) {
+      return <Text>{label}</Text>;
+    }
+
+    const sourceInstance = sourceInstances.find((sourceInstance) => sourceInstance.id === sourceInstanceId);
+    const sourceInstanceRoute = getSourceInstanceRoute(sourceInstance, subscriptionsObj);
+
+    if (!sourceInstanceRoute) {
+      return <Text>{sourceInstanceId}</Text>;
+    }
+
+    return (
+      <Link href={sourceInstanceRoute} underline="hover">
+        <Text color="#2E90FA" ellipsis>
+          {sourceInstanceId}
+        </Text>
+      </Link>
+    );
+  }, [sourceInstances, subscriptionsObj]);
 
   const exportMutation = useMutation<unknown, unknown, ExportMutationVariables, unknown>({
     mutationFn: async (vars) => {
@@ -265,6 +329,13 @@ function ResourceImportExportRDB(props) {
           return <StatusChip status={type} {...statusStylesAndMap} />;
         },
         minWidth: 100,
+      },
+      {
+        field: "locationType",
+        headerName: "Source/Destination",
+        flex: 0.65,
+        renderCell: (params: { row: TaskBase }) => renderTaskLocationType(params.row),
+        minWidth: 150,
       },
       {
         field: "status",
@@ -340,7 +411,7 @@ function ResourceImportExportRDB(props) {
         },
       },
     ],
-    [snackbar]
+    [renderTaskLocationType, snackbar]
   );
 
   return (

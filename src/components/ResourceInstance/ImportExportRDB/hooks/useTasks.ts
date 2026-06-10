@@ -15,7 +15,12 @@ export type TaskBase = {
   updatedAt: string;
   payload?: {
     destination?: {
+      type?: string;
       expiresIn?: number;
+    };
+    source?: {
+      instanceId?: string;
+      type?: string;
     };
   };
   output?: {

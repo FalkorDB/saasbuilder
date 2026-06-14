@@ -41,7 +41,7 @@ export type RDBExportTarget =
 export type RDBImportSource =
   | { type: "gcs"; bucketName: string; fileName: string; credentials: GCPServiceAccountKey }
   | { type: "url"; url: string }
-  | { type: "instance"; instanceId: string; username: string; password: string }
+  | { type: "instance"; instanceId: string }
   | {
       type: "s3";
       bucketName: string;
@@ -54,8 +54,6 @@ export type RDBImportSource =
 
 export const postInstanceExportRdb = (
   instanceId: string,
-  username: string,
-  password: string,
   target?: RDBExportTarget,
   config = {}
 ) => {
@@ -63,8 +61,6 @@ export const postInstanceExportRdb = (
     `/db-importer/export`,
     {
       instanceId,
-      username,
-      password,
       target,
     },
     {
@@ -75,8 +71,6 @@ export const postInstanceExportRdb = (
 
 export const postInstanceImportRdbRequestURL = (
   instanceId: string,
-  username: string,
-  password: string,
   source?: RDBImportSource,
   config = {}
 ) => {
@@ -85,8 +79,6 @@ export const postInstanceImportRdbRequestURL = (
       `/db-importer/import/request-url`,
       {
         instanceId,
-        username,
-        password,
         source,
       },
       {

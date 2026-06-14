@@ -66,14 +66,10 @@ const TASK_LOCATION_TYPE_LABELS: Record<string, string> = {
 };
 
 type ExportMutationVariables = {
-  username: string;
-  password: string;
   target?: RDBExportTarget;
 };
 
 type ImportMutationVariables = {
-  username: string;
-  password: string;
   file?: ArrayBuffer;
   source?: RDBImportSource;
 };
@@ -143,8 +139,6 @@ const buildImportSource = (
     return {
       type: "instance",
       instanceId: getFormValue(formJson, "importSourceInstanceId"),
-      username: getFormValue(formJson, "importSourceInstanceUsername"),
-      password: getFormValue(formJson, "importSourceInstancePassword"),
     };
   }
 
@@ -272,7 +266,7 @@ function ResourceImportExportRDB(props) {
 
   const exportMutation = useMutation<unknown, unknown, ExportMutationVariables, unknown>({
     mutationFn: async (vars) => {
-      await postInstanceExportRdb(instanceId, vars.username, vars.password, vars.target);
+      await postInstanceExportRdb(instanceId, vars.target);
     },
     onSuccess: () => {
       snackbar.showSuccess(`Export task submitted successfully`);
@@ -284,12 +278,7 @@ function ResourceImportExportRDB(props) {
 
   const importMutation = useMutation<unknown, unknown, ImportMutationVariables, unknown>({
     mutationFn: async (vars) => {
-      const { taskId, uploadUrl } = await postInstanceImportRdbRequestURL(
-        instanceId,
-        vars.username,
-        vars.password,
-        vars.source
-      );
+      const { taskId, uploadUrl } = await postInstanceImportRdbRequestURL(instanceId, vars.source);
 
       if (vars.source) {
         return;
@@ -478,8 +467,6 @@ function ResourceImportExportRDB(props) {
               }
 
               await importMutation.mutateAsync({
-                username: formJson.username,
-                password: formJson.password,
                 file: file ? await file.arrayBuffer() : undefined,
                 source,
               });
@@ -494,8 +481,6 @@ function ResourceImportExportRDB(props) {
               }
 
               await exportMutation.mutateAsync({
-                username: formJson.username,
-                password: formJson.password,
                 target,
               });
             }
@@ -507,7 +492,7 @@ function ResourceImportExportRDB(props) {
         <DialogHeader>
           <Box>
             <Text size="large" weight="bold">
-              Enter the instance&apos;s username and password
+              {dialog.type === "export" ? "Export RDB" : "Import RDB"}
             </Text>
           </Box>
         </DialogHeader>
@@ -530,38 +515,11 @@ function ResourceImportExportRDB(props) {
               },
             }}
           >
-            <Text size="small" weight="regular" color="#344054">
-              To {dialog.type} your RDB, you must enter again the username and password with read/write access to your
-              FalkorDB Instance
-            </Text>
             {dialog.type === "import" && (
               <Text size="small" weight="semibold" color="#EF4444">
                 Caution: Your instance will be erased before the import takes place.
               </Text>
             )}
-            <FieldContainer>
-              <FieldLabel required>Username</FieldLabel>
-              <TextField
-                autoFocus
-                required
-                id="username"
-                name="username"
-                placeholder="falkordb"
-                fullWidth
-                sx={{ mt: 0 }}
-              />
-            </FieldContainer>
-            <FieldContainer>
-              <FieldLabel required>Password</FieldLabel>
-              <PasswordField
-                required
-                id="password"
-                name="password"
-                placeholder="your password"
-                fullWidth
-                sx={{ mt: 0 }}
-              />
-            </FieldContainer>
             {dialog.type === "export" && (
               <>
                 <FieldContainer>
@@ -891,7 +849,7 @@ function ResourceImportExportRDB(props) {
                 {importSourceType === "instance" && (
                   <>
                     <Text size="small" weight="regular" color="#667085">
-                      Select an instance you can access and enter credentials with read access to that source instance.
+                      Select a running instance you can access as the source for this import.
                     </Text>
                     <FieldContainer>
                       <FieldLabel required>Source instance</FieldLabel>
@@ -922,28 +880,6 @@ function ResourceImportExportRDB(props) {
                           <MenuItem disabled>No running instances available</MenuItem>
                         )}
                       </Select>
-                    </FieldContainer>
-                    <FieldContainer>
-                      <FieldLabel required>Source username</FieldLabel>
-                      <TextField
-                        required
-                        id="importSourceInstanceUsername"
-                        name="importSourceInstanceUsername"
-                        placeholder="falkordb"
-                        fullWidth
-                        sx={{ mt: 0 }}
-                      />
-                    </FieldContainer>
-                    <FieldContainer>
-                      <FieldLabel required>Source password</FieldLabel>
-                      <PasswordField
-                        required
-                        id="importSourceInstancePassword"
-                        name="importSourceInstancePassword"
-                        placeholder="source instance password"
-                        fullWidth
-                        sx={{ mt: 0 }}
-                      />
                     </FieldContainer>
                   </>
                 )}

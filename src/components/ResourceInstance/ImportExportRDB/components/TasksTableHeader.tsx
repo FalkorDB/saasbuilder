@@ -15,18 +15,8 @@ type TasksTableHeaderProps = {
   count: number;
   refetch: () => void;
   isRefetching: boolean;
-  exportMutation: UseMutationResult<
-    void,
-    Error,
-    { username: string; password: string; target?: RDBExportTarget },
-    unknown
-  >;
-  importMutation: UseMutationResult<
-    void,
-    Error,
-    { username: string; password: string; file?: ArrayBuffer; source?: RDBImportSource },
-    unknown
-  >;
+  exportMutation: UseMutationResult<void, Error, { target?: RDBExportTarget }, unknown>;
+  importMutation: UseMutationResult<void, Error, { file?: ArrayBuffer; source?: RDBImportSource }, unknown>;
   openDialog: (params: { open: boolean; type: "import" | "export" }) => void;
   status: string;
 };

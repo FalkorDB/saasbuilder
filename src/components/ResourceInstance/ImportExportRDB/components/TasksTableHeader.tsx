@@ -35,7 +35,8 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({
   schedulesUnavailableReason,
   status,
 }) => {
-  const isSchedulesDisabled = !isSchedulesAvailable || isRefetching || importMutation.isPending || exportMutation.isPending;
+  const isSchedulesDisabled =
+    !isSchedulesAvailable || isRefetching || importMutation.isPending || exportMutation.isPending;
 
   return (
     <>

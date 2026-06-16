@@ -424,8 +424,8 @@ function ResourceImportExportRDB(props) {
         schedule.type === "RDBImport" && "source" in schedule.payload && schedule.payload.source?.type === "instance"
           ? schedule.payload.source.instanceId
           : schedule.type === "RDBImport"
-          ? schedule.payload.instanceId
-          : undefined;
+            ? schedule.payload.instanceId
+            : undefined;
 
       if (!sourceInstanceId) {
         return <Text>{label}</Text>;

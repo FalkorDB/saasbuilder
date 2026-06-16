@@ -1,6 +1,9 @@
 import { type ChangeEvent, useCallback, useMemo, useState } from "react";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import { Box, DialogContent, LinearProgress, Link, Stack, Tooltip } from "@mui/material";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import PauseCircleOutlineIcon from "@mui/icons-material/PauseCircleOutline";
+import PlayCircleOutlineIcon from "@mui/icons-material/PlayCircleOutline";
+import { Box, DialogContent, IconButton, LinearProgress, Link, Stack, Tooltip } from "@mui/material";
 import { styled } from "@mui/system";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import useInstances from "app/(dashboard)/instances/hooks/useInstances";
@@ -697,33 +700,43 @@ function ResourceImportExportRDB(props) {
       {
         field: "actions",
         headerName: "Actions",
-        flex: 0.55,
-        minWidth: 120,
+        flex: 0.45,
+        minWidth: 92,
         renderCell: (params: { row: PublicSchedule }) => (
-          <Stack direction="row" gap="8px">
-            <Button
-              type="button"
-              variant="outlined"
-              size="small"
-              disabled={toggleScheduleMutation.isPending || deleteScheduleMutation.isPending}
-              onClick={() =>
-                toggleScheduleMutation.mutate({
-                  enabled: !params.row.enabled,
-                  scheduleId: params.row.scheduleId,
-                })
-              }
-            >
-              {params.row.enabled ? "Disable" : "Enable"}
-            </Button>
-            <Button
-              type="button"
-              variant="outlined"
-              size="small"
-              disabled={toggleScheduleMutation.isPending || deleteScheduleMutation.isPending}
-              onClick={() => setScheduleToDelete(params.row)}
-            >
-              Delete
-            </Button>
+          <Stack direction="row" gap="4px">
+            <Tooltip title={params.row.enabled ? "Disable schedule" : "Enable schedule"}>
+              <span>
+                <IconButton
+                  type="button"
+                  size="small"
+                  disabled={toggleScheduleMutation.isPending || deleteScheduleMutation.isPending}
+                  onClick={() =>
+                    toggleScheduleMutation.mutate({
+                      enabled: !params.row.enabled,
+                      scheduleId: params.row.scheduleId,
+                    })
+                  }
+                  aria-label={params.row.enabled ? "Disable schedule" : "Enable schedule"}
+                  sx={{ color: params.row.enabled ? "#667085" : colors.success600 }}
+                >
+                  {params.row.enabled ? <PauseCircleOutlineIcon fontSize="small" /> : <PlayCircleOutlineIcon fontSize="small" />}
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Delete schedule">
+              <span>
+                <IconButton
+                  type="button"
+                  size="small"
+                  disabled={toggleScheduleMutation.isPending || deleteScheduleMutation.isPending}
+                  onClick={() => setScheduleToDelete(params.row)}
+                  aria-label="Delete schedule"
+                  sx={{ color: colors.error700 }}
+                >
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
           </Stack>
         ),
       },

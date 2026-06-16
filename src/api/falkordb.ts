@@ -184,6 +184,12 @@ export const patchSchedule = (scheduleId: string, data: UpdateScheduleRequestBod
     .then((res) => res.data);
 };
 
+export const deleteSchedule = (scheduleId: string, config = {}) => {
+  return axiosInstance.delete(`/db-importer/schedules/${scheduleId}`, {
+    ...config,
+  });
+};
+
 export const uploadFile = (
   url: string,
   file: ArrayBuffer,

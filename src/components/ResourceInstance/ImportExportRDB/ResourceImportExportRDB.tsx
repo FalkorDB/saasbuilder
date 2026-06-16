@@ -7,6 +7,7 @@ import useInstances from "app/(dashboard)/instances/hooks/useInstances";
 
 import {
   type CreateScheduleRequestBody,
+  deleteSchedule,
   getSchedules,
   patchSchedule,
   postInstanceExportRdb,
@@ -24,6 +25,7 @@ import {
 } from "src/api/falkordb";
 import Button from "src/components/Button/Button";
 import DataGrid from "src/components/DataGrid/DataGrid";
+import ConfirmationDialog from "src/components/Dialog/ConfirmationDialog";
 import InformationDialogTopCenter, {
   DialogFooter,
   DialogHeader,
@@ -36,6 +38,7 @@ import { PasswordField } from "src/components/FormElementsv2/PasswordField/Passw
 import Radio, { RadioGroup } from "src/components/FormElementsv2/Radio/Radio";
 import Select from "src/components/FormElementsv2/Select/Select";
 import TextField from "src/components/FormElementsv2/TextField/TextField";
+import DeleteCircleIcon from "src/components/Icons/DeleteCircle/DeleteCircleIcon";
 import TasksTableHeader from "src/components/ResourceInstance/ImportExportRDB/components/TasksTableHeader";
 import useTasks, { TaskBase } from "src/components/ResourceInstance/ImportExportRDB/hooks/useTasks";
 import StatusChip from "src/components/StatusChip/StatusChip";
@@ -44,6 +47,7 @@ import { getResourceInstanceTaskStatusStylesAndLabel } from "src/constants/statu
 import { getResourceInstanceTaskTypeStatusStylesAndLabel } from "src/constants/statusChipStyles/resourceInstanceTaskTypeStatus";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
+import { colors } from "src/themeConfig";
 import type { ResourceInstance } from "src/types/resourceInstance";
 import formatDateLocal from "src/utils/formatDateLocal";
 import { getInstanceDetailsRoute } from "src/utils/routes";
@@ -94,6 +98,10 @@ type CreateScheduleMutationVariables = {
 
 type ToggleScheduleMutationVariables = {
   enabled: boolean;
+  scheduleId: string;
+};
+
+type DeleteScheduleMutationVariables = {
   scheduleId: string;
 };
 
@@ -337,6 +345,7 @@ function ResourceImportExportRDB(props) {
   const [exportTargetType, setExportTargetType] = useState<RDBExportTargetType>("default");
   const [importSourceType, setImportSourceType] = useState<RDBImportSourceType>("file");
   const [scheduleFormOpen, setScheduleFormOpen] = useState(false);
+  const [scheduleToDelete, setScheduleToDelete] = useState<PublicSchedule | undefined>();
   const [scheduleType, setScheduleType] = useState<ScheduleType>("RDBExport");
   const [scheduleExportTargetType, setScheduleExportTargetType] = useState<RDBScheduleExportTargetType>("gcs");
 
@@ -522,6 +531,20 @@ function ResourceImportExportRDB(props) {
     },
   });
 
+  const deleteScheduleMutation = useMutation<unknown, unknown, DeleteScheduleMutationVariables, unknown>({
+    mutationFn: async (vars) => {
+      await deleteSchedule(vars.scheduleId);
+    },
+    onSuccess: async () => {
+      snackbar.showSuccess("Schedule deleted successfully");
+      setScheduleToDelete(undefined);
+      await refetchSchedules();
+    },
+    onError: (error) => {
+      snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
+    },
+  });
+
   const columns = useMemo(
     () => [
       {
@@ -677,20 +700,31 @@ function ResourceImportExportRDB(props) {
         flex: 0.55,
         minWidth: 120,
         renderCell: (params: { row: PublicSchedule }) => (
-          <Button
-            type="button"
-            variant="outlined"
-            size="small"
-            disabled={toggleScheduleMutation.isPending}
-            onClick={() =>
-              toggleScheduleMutation.mutate({
-                enabled: !params.row.enabled,
-                scheduleId: params.row.scheduleId,
-              })
-            }
-          >
-            {params.row.enabled ? "Disable" : "Enable"}
-          </Button>
+          <Stack direction="row" gap="8px">
+            <Button
+              type="button"
+              variant="outlined"
+              size="small"
+              disabled={toggleScheduleMutation.isPending || deleteScheduleMutation.isPending}
+              onClick={() =>
+                toggleScheduleMutation.mutate({
+                  enabled: !params.row.enabled,
+                  scheduleId: params.row.scheduleId,
+                })
+              }
+            >
+              {params.row.enabled ? "Disable" : "Enable"}
+            </Button>
+            <Button
+              type="button"
+              variant="outlined"
+              size="small"
+              disabled={toggleScheduleMutation.isPending || deleteScheduleMutation.isPending}
+              onClick={() => setScheduleToDelete(params.row)}
+            >
+              Delete
+            </Button>
+          </Stack>
         ),
       },
       {
@@ -701,7 +735,7 @@ function ResourceImportExportRDB(props) {
         valueGetter: (params: { row: PublicSchedule }) => formatDateLocal(params.row.nextRunAt),
       },
     ],
-    [renderScheduleLocationType, toggleScheduleMutation]
+    [deleteScheduleMutation.isPending, renderScheduleLocationType, toggleScheduleMutation]
   );
 
   return (
@@ -1525,6 +1559,29 @@ function ResourceImportExportRDB(props) {
           )}
         </DialogFooter>
       </InformationDialogTopCenter>
+      <ConfirmationDialog
+        open={Boolean(scheduleToDelete)}
+        onClose={() => setScheduleToDelete(undefined)}
+        icon={DeleteCircleIcon}
+        title="Delete schedule"
+        content={() => (
+          <Text size="small" weight="regular" color="#344054">
+            This will permanently delete schedule {scheduleToDelete?.scheduleId}.
+          </Text>
+        )}
+        confirmButtonLabel="Delete"
+        confirmButtonColor={colors.error700}
+        confirmationText="delete"
+        isLoading={deleteScheduleMutation.isPending}
+        onConfirm={async () => {
+          if (!scheduleToDelete) {
+            return false;
+          }
+
+          await deleteScheduleMutation.mutateAsync({ scheduleId: scheduleToDelete.scheduleId });
+          return true;
+        }}
+      />
     </>
   );
 }

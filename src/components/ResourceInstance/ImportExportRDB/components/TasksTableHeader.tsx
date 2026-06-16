@@ -36,7 +36,11 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({
   status,
 }) => {
   const isSchedulesDisabled =
-    status !== "RUNNING" || !isSchedulesAvailable || isRefetching || importMutation.isPending || exportMutation.isPending;
+    status !== "RUNNING" ||
+    !isSchedulesAvailable ||
+    isRefetching ||
+    importMutation.isPending ||
+    exportMutation.isPending;
   const schedulesTooltipTitle =
     status !== "RUNNING" ? "The instance must be running to manage RDB schedules" : schedulesUnavailableReason || "";
 
@@ -60,7 +64,11 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({
         />
         <Stack direction="row" alignItems="center" gap="12px" justifyContent="flex-end" flexGrow={1} flexWrap={"wrap"}>
           <RefreshWithToolTip refetch={refetch} disabled={isRefetching} />
-          <Tooltip placement="top" visible={status !== "RUNNING" || !isSchedulesAvailable} title={schedulesTooltipTitle}>
+          <Tooltip
+            placement="top"
+            visible={status !== "RUNNING" || !isSchedulesAvailable}
+            title={schedulesTooltipTitle}
+          >
             <span>
               <Button
                 variant="outlined"

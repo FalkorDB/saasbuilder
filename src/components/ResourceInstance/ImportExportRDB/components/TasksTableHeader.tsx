@@ -35,6 +35,8 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({
   schedulesUnavailableReason,
   status,
 }) => {
+  const isSchedulesDisabled = !isSchedulesAvailable || isRefetching || importMutation.isPending || exportMutation.isPending;
+
   return (
     <>
       <Stack
@@ -63,8 +65,8 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({
                   height: "40px !important",
                   padding: "10px 14px !important",
                 }}
-                startIcon={<CalendarMonthIcon />}
-                disabled={!isSchedulesAvailable || isRefetching || importMutation.isPending || exportMutation.isPending}
+                startIcon={<CalendarMonthIcon sx={{ color: isSchedulesDisabled ? "#D0D5DD" : "#7F56D9" }} />}
+                disabled={isSchedulesDisabled}
                 onClick={() => openDialog({ open: true, type: "schedules" })}
               >
                 Schedules

@@ -271,8 +271,8 @@ const getTaskLocationTypeLabel = (task: TaskBase) => {
 };
 
 const getScheduleLocationTypeLabel = (schedule: PublicSchedule) => {
-  if (schedule.type === "RDBImport" && "source" in schedule.payload) {
-    const rawType = schedule.payload.source.type;
+  if (schedule.type === "RDBImport") {
+    const rawType = "source" in schedule.payload ? schedule.payload.source?.type || "instance" : "instance";
     return TASK_LOCATION_TYPE_LABELS[rawType] ?? rawType;
   }
 
@@ -421,8 +421,10 @@ function ResourceImportExportRDB(props) {
     (schedule: PublicSchedule) => {
       const label = getScheduleLocationTypeLabel(schedule);
       const sourceInstanceId =
-        schedule.type === "RDBImport" && "source" in schedule.payload && schedule.payload.source.type === "instance"
+        schedule.type === "RDBImport" && "source" in schedule.payload && schedule.payload.source?.type === "instance"
           ? schedule.payload.source.instanceId
+          : schedule.type === "RDBImport"
+          ? schedule.payload.instanceId
           : undefined;
 
       if (!sourceInstanceId) {
@@ -730,7 +732,9 @@ function ResourceImportExportRDB(props) {
               try {
                 schedule = buildScheduleRequestBody(formJson, instanceId, scheduleType, scheduleExportTargetType);
               } catch (error) {
-                snackbar.showError(error instanceof Error ? error.message : "GCS credentials must be valid service account JSON");
+                snackbar.showError(
+                  error instanceof Error ? error.message : "GCS credentials must be valid service account JSON"
+                );
                 return;
               }
 

@@ -93,7 +93,7 @@ export type PublicSchedule = {
       }
     | {
         instanceId: string;
-        source: RDBImportSource;
+        source?: RDBImportSource;
       };
   periodMinutes: number;
   minuteOfHour: ScheduleMinuteOfHour;

@@ -112,6 +112,14 @@ export type CreateScheduleResponseBody = {
   schedule: PublicSchedule;
 };
 
+export type UpdateScheduleRequestBody = {
+  enabled: boolean;
+};
+
+export type UpdateScheduleResponseBody = {
+  schedule: PublicSchedule;
+};
+
 export const postInstanceExportRdb = (instanceId: string, target?: RDBExportTarget, config = {}) => {
   return axiosInstance.post(
     `/db-importer/export`,
@@ -163,6 +171,14 @@ export const getSchedules = (params: { instanceId?: string; type?: ScheduleType 
 export const postSchedule = (data: CreateScheduleRequestBody, config = {}) => {
   return axiosInstance
     .post<any, AxiosResponse<CreateScheduleResponseBody>>(`/db-importer/schedules`, data, {
+      ...config,
+    })
+    .then((res) => res.data);
+};
+
+export const patchSchedule = (scheduleId: string, data: UpdateScheduleRequestBody, config = {}) => {
+  return axiosInstance
+    .patch<any, AxiosResponse<UpdateScheduleResponseBody>>(`/db-importer/schedules/${scheduleId}`, data, {
       ...config,
     })
     .then((res) => res.data);

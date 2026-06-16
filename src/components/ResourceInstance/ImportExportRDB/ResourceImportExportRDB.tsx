@@ -8,6 +8,7 @@ import useInstances from "app/(dashboard)/instances/hooks/useInstances";
 import {
   type CreateScheduleRequestBody,
   getSchedules,
+  patchSchedule,
   postInstanceExportRdb,
   postInstanceImportRdbConfirmUpload,
   postInstanceImportRdbRequestURL,
@@ -89,6 +90,11 @@ type ImportMutationVariables = {
 
 type CreateScheduleMutationVariables = {
   schedule: CreateScheduleRequestBody;
+};
+
+type ToggleScheduleMutationVariables = {
+  enabled: boolean;
+  scheduleId: string;
 };
 
 const getFormValue = (formJson: Record<string, unknown>, name: string) => String(formJson[name] ?? "").trim();
@@ -503,6 +509,19 @@ function ResourceImportExportRDB(props) {
     },
   });
 
+  const toggleScheduleMutation = useMutation<unknown, unknown, ToggleScheduleMutationVariables, unknown>({
+    mutationFn: async (vars) => {
+      await patchSchedule(vars.scheduleId, { enabled: vars.enabled });
+    },
+    onSuccess: async (_data, vars) => {
+      snackbar.showSuccess(`Schedule ${vars.enabled ? "enabled" : "disabled"} successfully`);
+      await refetchSchedules();
+    },
+    onError: (error) => {
+      snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
+    },
+  });
+
   const columns = useMemo(
     () => [
       {
@@ -653,6 +672,28 @@ function ResourceImportExportRDB(props) {
         renderCell: (params: { row: PublicSchedule }) => <Text>{params.row.enabled ? "Yes" : "No"}</Text>,
       },
       {
+        field: "actions",
+        headerName: "Actions",
+        flex: 0.55,
+        minWidth: 120,
+        renderCell: (params: { row: PublicSchedule }) => (
+          <Button
+            type="button"
+            variant="outlined"
+            size="small"
+            disabled={toggleScheduleMutation.isPending}
+            onClick={() =>
+              toggleScheduleMutation.mutate({
+                enabled: !params.row.enabled,
+                scheduleId: params.row.scheduleId,
+              })
+            }
+          >
+            {params.row.enabled ? "Disable" : "Enable"}
+          </Button>
+        ),
+      },
+      {
         field: "nextRunAt",
         headerName: "Next Run",
         flex: 0.85,
@@ -660,7 +701,7 @@ function ResourceImportExportRDB(props) {
         valueGetter: (params: { row: PublicSchedule }) => formatDateLocal(params.row.nextRunAt),
       },
     ],
-    [renderScheduleLocationType]
+    [renderScheduleLocationType, toggleScheduleMutation]
   );
 
   return (

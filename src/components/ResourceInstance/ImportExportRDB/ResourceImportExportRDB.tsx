@@ -67,6 +67,7 @@ type SubscriptionRouteData = Record<string, { productTierId?: string; serviceId?
 
 const DEFAULT_SCHEDULE_ALLOWED_TIERS = ["FalkorDB Pro", "FalkorDB Enterprise"];
 const DEFAULT_MAX_EXPORT_SCHEDULES = 5;
+const DEFAULT_SCHEDULE_FAILURE_THRESHOLD = 3;
 
 const TASK_LOCATION_TYPE_LABELS: Record<string, string> = {
   default: "Link",
@@ -188,7 +189,8 @@ const buildScheduleRequestBody = (
 ): CreateScheduleRequestBody => {
   const periodHours = Number(getFormValue(formJson, "schedulePeriodHours"));
   const minuteOfHour = Number(getFormValue(formJson, "scheduleMinuteOfHour")) as ScheduleMinuteOfHour;
-  const failureThreshold = getOptionalNumberFormValue(formJson, "scheduleFailureThreshold");
+  const failureThreshold =
+    getOptionalNumberFormValue(formJson, "scheduleFailureThreshold") ?? DEFAULT_SCHEDULE_FAILURE_THRESHOLD;
 
   if (!Number.isInteger(periodHours) || periodHours < 1) {
     throw new Error("Schedule period must be at least 1 hour");
@@ -197,7 +199,7 @@ const buildScheduleRequestBody = (
   const scheduleBase = {
     periodMinutes: periodHours * 60,
     minuteOfHour,
-    ...(failureThreshold ? { failureThreshold } : {}),
+    failureThreshold,
   };
 
   if (scheduleType === "RDBExport") {
@@ -909,7 +911,7 @@ function ResourceImportExportRDB(props) {
                           type="number"
                           id="scheduleFailureThreshold"
                           name="scheduleFailureThreshold"
-                          placeholder="1"
+                          defaultValue={DEFAULT_SCHEDULE_FAILURE_THRESHOLD}
                           inputProps={{ min: 1 }}
                           fullWidth
                           sx={{ mt: 0 }}

@@ -101,7 +101,9 @@ const getConfiguredScheduleAllowedTiers = () => {
 
 const getConfiguredMaxExportSchedules = () => {
   const maxExportSchedules = Number(process.env.NEXT_PUBLIC_RDB_SCHEDULE_MAX_EXPORT_SCHEDULES);
-  return Number.isInteger(maxExportSchedules) && maxExportSchedules >= 0 ? maxExportSchedules : DEFAULT_MAX_EXPORT_SCHEDULES;
+  return Number.isInteger(maxExportSchedules) && maxExportSchedules >= 0
+    ? maxExportSchedules
+    : DEFAULT_MAX_EXPORT_SCHEDULES;
 };
 
 const buildExportTarget = (formJson: Record<string, unknown>, targetType: RDBExportTargetType): RDBExportTarget => {
@@ -369,7 +371,8 @@ function ResourceImportExportRDB(props) {
   const hasReachedExportScheduleLimit = exportSchedulesCount >= maxExportSchedules;
   const canCreateImportSchedule = !hasImportSchedule;
   const canCreateExportSchedule = !hasReachedExportScheduleLimit;
-  const canCreateSelectedScheduleType = scheduleType === "RDBImport" ? canCreateImportSchedule : canCreateExportSchedule;
+  const canCreateSelectedScheduleType =
+    scheduleType === "RDBImport" ? canCreateImportSchedule : canCreateExportSchedule;
 
   const openCreateScheduleForm = () => {
     if (scheduleFormOpen) {
@@ -720,12 +723,7 @@ function ResourceImportExportRDB(props) {
               let schedule: CreateScheduleRequestBody;
 
               try {
-                schedule = buildScheduleRequestBody(
-                  formJson,
-                  instanceId,
-                  scheduleType,
-                  scheduleExportTargetType
-                );
+                schedule = buildScheduleRequestBody(formJson, instanceId, scheduleType, scheduleExportTargetType);
               } catch {
                 snackbar.showError("GCS credentials must be valid service account JSON");
                 return;
@@ -818,7 +816,9 @@ function ResourceImportExportRDB(props) {
                     type="button"
                     variant="contained"
                     onClick={openCreateScheduleForm}
-                    disabled={createScheduleMutation.isPending || (!canCreateExportSchedule && !canCreateImportSchedule)}
+                    disabled={
+                      createScheduleMutation.isPending || (!canCreateExportSchedule && !canCreateImportSchedule)
+                    }
                   >
                     {scheduleFormOpen ? "Hide form" : "Create schedule"}
                   </Button>
@@ -1452,7 +1452,11 @@ function ResourceImportExportRDB(props) {
             {dialog.type === "schedules" ? "Close" : "Cancel"}
           </Button>
           {dialog.type === "schedules" && scheduleFormOpen && (
-            <Button variant="contained" type="submit" disabled={createScheduleMutation.isPending || !canCreateSelectedScheduleType}>
+            <Button
+              variant="contained"
+              type="submit"
+              disabled={createScheduleMutation.isPending || !canCreateSelectedScheduleType}
+            >
               Create Schedule
             </Button>
           )}

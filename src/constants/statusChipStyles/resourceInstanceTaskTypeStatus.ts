@@ -4,7 +4,7 @@ export const resourceInstanceStatusMap: Record<string, { category: Category; lab
   SingleShardRDBExport: { category: "pending", label: "Export" },
   MultiShardRDBExport: { category: "pending", label: "Export" },
   RDBExport: { category: "pending", label: "Export" },
-  RDBImport: { category: "inProgress", label: "Import" }
+  RDBImport: { category: "inProgress", label: "Import" },
 };
 
 export const getResourceInstanceTaskTypeStatusStylesAndLabel = (status: string): ColorObject & { label?: string } => {

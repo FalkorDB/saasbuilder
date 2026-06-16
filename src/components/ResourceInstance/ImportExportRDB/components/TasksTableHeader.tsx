@@ -1,4 +1,5 @@
 import { FC } from "react";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import { Stack } from "@mui/material";
 import { UseMutationResult } from "@tanstack/react-query";
 
@@ -15,19 +16,11 @@ type TasksTableHeaderProps = {
   count: number;
   refetch: () => void;
   isRefetching: boolean;
-  exportMutation: UseMutationResult<
-    void,
-    Error,
-    { username: string; password: string; target?: RDBExportTarget },
-    unknown
-  >;
-  importMutation: UseMutationResult<
-    void,
-    Error,
-    { username: string; password: string; file?: ArrayBuffer; source?: RDBImportSource },
-    unknown
-  >;
-  openDialog: (params: { open: boolean; type: "import" | "export" }) => void;
+  exportMutation: UseMutationResult<void, Error, { target?: RDBExportTarget }, unknown>;
+  importMutation: UseMutationResult<void, Error, { file?: ArrayBuffer; source?: RDBImportSource }, unknown>;
+  openDialog: (params: { open: boolean; type: "import" | "export" | "schedules" }) => void;
+  isSchedulesAvailable: boolean;
+  schedulesUnavailableReason?: string;
   status: string;
 };
 
@@ -38,8 +31,19 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({
   exportMutation,
   importMutation,
   openDialog,
+  isSchedulesAvailable,
+  schedulesUnavailableReason,
   status,
 }) => {
+  const isSchedulesDisabled =
+    status !== "RUNNING" ||
+    !isSchedulesAvailable ||
+    isRefetching ||
+    importMutation.isPending ||
+    exportMutation.isPending;
+  const schedulesTooltipTitle =
+    status !== "RUNNING" ? "The instance must be running to manage RDB schedules" : schedulesUnavailableReason || "";
+
   return (
     <>
       <Stack
@@ -60,6 +64,26 @@ const TasksTableHeader: FC<TasksTableHeaderProps> = ({
         />
         <Stack direction="row" alignItems="center" gap="12px" justifyContent="flex-end" flexGrow={1} flexWrap={"wrap"}>
           <RefreshWithToolTip refetch={refetch} disabled={isRefetching} />
+          <Tooltip
+            placement="top"
+            visible={status !== "RUNNING" || !isSchedulesAvailable}
+            title={schedulesTooltipTitle}
+          >
+            <span>
+              <Button
+                variant="outlined"
+                sx={{
+                  height: "40px !important",
+                  padding: "10px 14px !important",
+                }}
+                startIcon={<CalendarMonthIcon sx={{ color: isSchedulesDisabled ? "#D0D5DD" : "#7F56D9" }} />}
+                disabled={isSchedulesDisabled}
+                onClick={() => openDialog({ open: true, type: "schedules" })}
+              >
+                Schedules
+              </Button>
+            </span>
+          </Tooltip>
           <Tooltip placement="top" visible={status !== "RUNNING"} title="The instance must be running to import an RDB">
             <span>
               <Button

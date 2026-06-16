@@ -1,6 +1,6 @@
+import Link from "next/link";
 import SubscriptionMenu from "app/(dashboard)/components/SubscriptionMenu/SubscriptionMenu";
 import { fromProvider } from "cloud-regions-country-flags";
-import Link from "next/link";
 
 import { Field } from "src/components/DynamicForm/types";
 import StatusChip from "src/components/StatusChip/StatusChip";
@@ -438,10 +438,10 @@ export const getStandardInformationFields = (
           onChange={(newCloudProvider: CloudProvider) => {
             if (newCloudProvider === "aws") {
               setFieldValue("region", offering.awsRegions?.[0] || "");
-              setFieldValue("requestParams.nodeInstanceType", "m6i.large");
+              setFieldValue("requestParams.nodeInstanceType", "AWS 2vCPU, 8GB");
             } else if (newCloudProvider === "gcp") {
               setFieldValue("region", offering.gcpRegions?.[0] || "");
-              setFieldValue("requestParams.nodeInstanceType", "e2-standard-2");
+              setFieldValue("requestParams.nodeInstanceType", "GCP 2vCPU, 8GB");
             } else if (newCloudProvider === "azure") {
               setFieldValue("region", offering.azureRegions?.[0] || "");
             } else if (newCloudProvider === "oci") {
@@ -897,11 +897,9 @@ export const getDeploymentConfigurationFields = (
         }));
       }
 
-      const rawSelected = Array.isArray(values.requestParams[param.key])
-        ? values.requestParams[param.key]
-        : [];
+      const rawSelected = Array.isArray(values.requestParams[param.key]) ? values.requestParams[param.key] : [];
       const selectedValues: string[] = rawSelected.map((item: any) =>
-        typeof item === "string" ? item : item?.value ?? ""
+        typeof item === "string" ? item : (item?.value ?? "")
       );
       const selectedLabels = selectedValues.map(
         (selectedValue) => menuItems.find((item) => item.value === selectedValue)?.label || selectedValue
@@ -945,9 +943,22 @@ export const getDeploymentConfigurationFields = (
                 const labelLower = item.originalLabel.toLowerCase();
                 const provider = values.cloudProvider!.toLowerCase();
                 // Match both prefix ("AWS ...") and suffix ("... (aws)") patterns
+                return labelLower.includes(`(${provider})`) || labelLower.startsWith(`${provider} `);
+              });
+
+              // sort by vCPU count and memory count after stripping provider tags from labels
+              filtered.sort((a, b) => {
+                const getCpuCount = (label: string) => {
+                  const match = label.match(/(\d+)\s*vCPUs?/i);
+                  return match ? parseInt(match[1]) : 0;
+                };
+                const getMemoryCount = (label: string) => {
+                  const match = label.match(/(\d+)\s*GB/i);
+                  return match ? parseInt(match[1]) : 0;
+                };
                 return (
-                  labelLower.includes(`(${provider})`) ||
-                  labelLower.startsWith(`${provider} `)
+                  getCpuCount(a.originalLabel) - getCpuCount(b.originalLabel) ||
+                  getMemoryCount(a.originalLabel) - getMemoryCount(b.originalLabel)
                 );
               });
 

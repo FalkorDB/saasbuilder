@@ -472,7 +472,11 @@ const InstanceDetailsPage = ({
         />
       )}
       {currentTab === tabs.importExportRDB && (
-        <ResourceImportExportRDB instanceId={instanceId} status={resourceInstanceData.status} />
+        <ResourceImportExportRDB
+          instanceId={instanceId}
+          status={resourceInstanceData.status}
+          productTierName={offering?.productTierName}
+        />
       )}
       {currentTab === tabs.userAccess && (
         <ResourceUserAccess

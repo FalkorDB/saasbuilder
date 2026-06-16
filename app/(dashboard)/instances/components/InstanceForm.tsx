@@ -839,9 +839,9 @@ const InstanceForm = ({
       acc[param.key] = param.defaultValue || "";
       if (param.key === "nodeInstanceType") {
         if (formData.values.cloudProvider === "aws") {
-          acc[param.key] = "m6i.large";
+          acc[param.key] = "AWS 2vCPU, 8GB";
         } else if (formData.values.cloudProvider === "gcp") {
-          acc[param.key] = "e2-standard-2";
+          acc[param.key] = "GCP 2vCPU, 8GB";
         }
       }
       return acc;

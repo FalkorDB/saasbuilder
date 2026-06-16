@@ -2,15 +2,23 @@ import { type ChangeEvent, useCallback, useMemo, useState } from "react";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { Box, DialogContent, LinearProgress, Link, Stack, Tooltip } from "@mui/material";
 import { styled } from "@mui/system";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import useInstances from "app/(dashboard)/instances/hooks/useInstances";
 
 import {
+  type CreateScheduleRequestBody,
+  getSchedules,
   postInstanceExportRdb,
   postInstanceImportRdbConfirmUpload,
   postInstanceImportRdbRequestURL,
+  postSchedule,
+  type PublicSchedule,
+  type RDBExportScheduleTarget,
   type RDBExportTarget,
+  type RDBImportInstanceSource,
   type RDBImportSource,
+  type ScheduleMinuteOfHour,
+  type ScheduleType,
   uploadFile,
 } from "src/api/falkordb";
 import Button from "src/components/Button/Button";
@@ -53,8 +61,12 @@ const VisuallyHiddenInput = styled("input")({
 
 type RDBExportTargetType = "default" | "gcs" | "s3";
 type RDBImportSourceType = "file" | "gcs" | "s3" | "url" | "instance";
+type RDBScheduleExportTargetType = Exclude<RDBExportTargetType, "default">;
 
 type SubscriptionRouteData = Record<string, { productTierId?: string; serviceId?: string } | undefined>;
+
+const DEFAULT_SCHEDULE_ALLOWED_TIERS = ["FalkorDB Pro", "FalkorDB Enterprise"];
+const DEFAULT_MAX_EXPORT_SCHEDULES = 5;
 
 const TASK_LOCATION_TYPE_LABELS: Record<string, string> = {
   default: "Link",
@@ -74,7 +86,23 @@ type ImportMutationVariables = {
   source?: RDBImportSource;
 };
 
+type CreateScheduleMutationVariables = {
+  schedule: CreateScheduleRequestBody;
+};
+
 const getFormValue = (formJson: Record<string, unknown>, name: string) => String(formJson[name] ?? "").trim();
+
+const getConfiguredScheduleAllowedTiers = () => {
+  return (process.env.NEXT_PUBLIC_RDB_SCHEDULE_ALLOWED_TIERS || DEFAULT_SCHEDULE_ALLOWED_TIERS.join(","))
+    .split(",")
+    .map((tier) => tier.trim())
+    .filter(Boolean);
+};
+
+const getConfiguredMaxExportSchedules = () => {
+  const maxExportSchedules = Number(process.env.NEXT_PUBLIC_RDB_SCHEDULE_MAX_EXPORT_SCHEDULES);
+  return Number.isInteger(maxExportSchedules) && maxExportSchedules >= 0 ? maxExportSchedules : DEFAULT_MAX_EXPORT_SCHEDULES;
+};
 
 const buildExportTarget = (formJson: Record<string, unknown>, targetType: RDBExportTargetType): RDBExportTarget => {
   if (targetType === "gcs") {
@@ -145,6 +173,53 @@ const buildImportSource = (
   return undefined;
 };
 
+const getOptionalNumberFormValue = (formJson: Record<string, unknown>, name: string) => {
+  const rawValue = getFormValue(formJson, name);
+  return rawValue ? Number(rawValue) : undefined;
+};
+
+const buildScheduleRequestBody = (
+  formJson: Record<string, unknown>,
+  instanceId: string,
+  scheduleType: ScheduleType,
+  exportTargetType: RDBScheduleExportTargetType
+): CreateScheduleRequestBody => {
+  const periodMinutes = Number(getFormValue(formJson, "schedulePeriodMinutes"));
+  const minuteOfHour = Number(getFormValue(formJson, "scheduleMinuteOfHour")) as ScheduleMinuteOfHour;
+  const failureThreshold = getOptionalNumberFormValue(formJson, "scheduleFailureThreshold");
+  const scheduleBase = {
+    periodMinutes,
+    minuteOfHour,
+    ...(failureThreshold ? { failureThreshold } : {}),
+  };
+
+  if (scheduleType === "RDBExport") {
+    return {
+      type: "RDBExport",
+      payload: {
+        instanceId,
+        target: buildExportTarget(formJson, exportTargetType) as RDBExportScheduleTarget,
+      },
+      ...scheduleBase,
+    };
+  }
+
+  const source = buildImportSource(formJson, "instance");
+
+  if (!source) {
+    throw new Error("Scheduled imports require a source instance");
+  }
+
+  return {
+    type: "RDBImport",
+    payload: {
+      instanceId,
+      source: source as RDBImportInstanceSource,
+    },
+    ...scheduleBase,
+  };
+};
+
 const getRecordString = (record: Record<string, unknown> | undefined, key: string) => {
   const value = record?.[key];
   return typeof value === "string" ? value : undefined;
@@ -188,6 +263,29 @@ const getTaskLocationTypeLabel = (task: TaskBase) => {
   return TASK_LOCATION_TYPE_LABELS[rawType] ?? rawType;
 };
 
+const getScheduleLocationTypeLabel = (schedule: PublicSchedule) => {
+  if (schedule.type === "RDBImport" && "source" in schedule.payload) {
+    const rawType = schedule.payload.source.type;
+    return TASK_LOCATION_TYPE_LABELS[rawType] ?? rawType;
+  }
+
+  if (schedule.type === "RDBExport" && "target" in schedule.payload) {
+    const rawType = schedule.payload.target?.type || "default";
+    return TASK_LOCATION_TYPE_LABELS[rawType] ?? rawType;
+  }
+
+  return "-";
+};
+
+const getSchedulePeriodLabel = (periodMinutes: number) => {
+  if (periodMinutes % 60 === 0) {
+    const hours = periodMinutes / 60;
+    return `Every ${hours} ${hours === 1 ? "hour" : "hours"}`;
+  }
+
+  return `Every ${periodMinutes} minutes`;
+};
+
 const getSourceInstanceRoute = (
   sourceInstance: ResourceInstance | undefined,
   subscriptionsObj: SubscriptionRouteData
@@ -214,18 +312,31 @@ const getSourceInstanceRoute = (
 function ResourceImportExportRDB(props) {
   const snackbar = useSnackbar();
   const { subscriptionsObj } = useGlobalData();
-  const { instanceId, status } = props;
+  const { instanceId, productTierName, status } = props;
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [dialog, setDialog] = useState<{ open: boolean; type?: "export" | "import" }>({ open: false, type: "export" });
+  const [dialog, setDialog] = useState<{ open: boolean; type?: "export" | "import" | "schedules" }>({
+    open: false,
+    type: "export",
+  });
   const [file, setFile] = useState<File | undefined>();
   const [exportTargetType, setExportTargetType] = useState<RDBExportTargetType>("default");
   const [importSourceType, setImportSourceType] = useState<RDBImportSourceType>("file");
+  const [scheduleFormOpen, setScheduleFormOpen] = useState(false);
+  const [scheduleType, setScheduleType] = useState<ScheduleType>("RDBExport");
+  const [scheduleExportTargetType, setScheduleExportTargetType] = useState<RDBScheduleExportTargetType>("gcs");
+
+  const scheduleAllowedTiers = useMemo(getConfiguredScheduleAllowedTiers, []);
+  const maxExportSchedules = useMemo(getConfiguredMaxExportSchedules, []);
+  const isSchedulesAvailable = Boolean(productTierName && scheduleAllowedTiers.includes(productTierName));
 
   const closeDialog = () => {
     setDialog({ open: false });
     setFile(undefined);
     setExportTargetType("default");
     setImportSourceType("file");
+    setScheduleFormOpen(false);
+    setScheduleType("RDBExport");
+    setScheduleExportTargetType("gcs");
   };
 
   const tasksQuery = useTasks({
@@ -233,14 +344,78 @@ function ResourceImportExportRDB(props) {
   });
   const { data: tasksData = [], isLoading, isRefetching, refetch } = tasksQuery;
   const { data: sourceInstances = [], isPending: isSourceInstancesPending } = useInstances({ onlyInstances: true });
+  const schedulesQuery = useQuery({
+    queryKey: ["get-rdb-schedules", instanceId],
+    queryFn: async () => {
+      const response = await getSchedules({ instanceId });
+      return response.data.data;
+    },
+    enabled: dialog.open && dialog.type === "schedules",
+    refetchOnWindowFocus: false,
+    retry: false,
+  });
+  const {
+    data: schedulesData = [],
+    isLoading: isSchedulesLoading,
+    isRefetching: isSchedulesRefetching,
+    refetch: refetchSchedules,
+  } = schedulesQuery;
   const runningSourceInstances = sourceInstances.filter(
     (sourceInstance) => sourceInstance.status === "RUNNING" && sourceInstance.id !== instanceId
   );
+  const importSchedulesCount = schedulesData.filter((schedule) => schedule.type === "RDBImport").length;
+  const exportSchedulesCount = schedulesData.filter((schedule) => schedule.type === "RDBExport").length;
+  const hasImportSchedule = importSchedulesCount > 0;
+  const hasReachedExportScheduleLimit = exportSchedulesCount >= maxExportSchedules;
+  const canCreateImportSchedule = !hasImportSchedule;
+  const canCreateExportSchedule = !hasReachedExportScheduleLimit;
+  const canCreateSelectedScheduleType = scheduleType === "RDBImport" ? canCreateImportSchedule : canCreateExportSchedule;
+
+  const openCreateScheduleForm = () => {
+    if (scheduleFormOpen) {
+      setScheduleFormOpen(false);
+      return;
+    }
+
+    setScheduleType(canCreateExportSchedule ? "RDBExport" : "RDBImport");
+    setScheduleExportTargetType("gcs");
+    setScheduleFormOpen(true);
+  };
 
   const renderTaskLocationType = useCallback(
     (task: TaskBase) => {
       const label = getTaskLocationTypeLabel(task);
       const sourceInstanceId = task.payload?.source?.type === "instance" ? task.payload.source.instanceId : undefined;
+
+      if (!sourceInstanceId) {
+        return <Text>{label}</Text>;
+      }
+
+      const sourceInstance = sourceInstances.find((sourceInstance) => sourceInstance.id === sourceInstanceId);
+      const sourceInstanceRoute = getSourceInstanceRoute(sourceInstance, subscriptionsObj);
+
+      if (!sourceInstanceRoute) {
+        return <Text>{sourceInstanceId}</Text>;
+      }
+
+      return (
+        <Link href={sourceInstanceRoute} underline="hover">
+          <Text color="#2E90FA" ellipsis>
+            {sourceInstanceId}
+          </Text>
+        </Link>
+      );
+    },
+    [sourceInstances, subscriptionsObj]
+  );
+
+  const renderScheduleLocationType = useCallback(
+    (schedule: PublicSchedule) => {
+      const label = getScheduleLocationTypeLabel(schedule);
+      const sourceInstanceId =
+        schedule.type === "RDBImport" && "source" in schedule.payload && schedule.payload.source.type === "instance"
+          ? schedule.payload.source.instanceId
+          : undefined;
 
       if (!sourceInstanceId) {
         return <Text>{label}</Text>;
@@ -298,6 +473,18 @@ function ResourceImportExportRDB(props) {
     },
     onSuccess: () => {
       snackbar.showSuccess(`Import task submitted successfully`);
+    },
+    onError: (error) => {
+      snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
+    },
+  });
+
+  const createScheduleMutation = useMutation<unknown, unknown, CreateScheduleMutationVariables, unknown>({
+    mutationFn: async (vars) => {
+      await postSchedule(vars.schedule);
+    },
+    onSuccess: () => {
+      snackbar.showSuccess("Schedule created successfully");
     },
     onError: (error) => {
       snackbar.showError(`Error: ${(error as any).response?.data?.message ?? error}`);
@@ -407,6 +594,63 @@ function ResourceImportExportRDB(props) {
     [renderTaskLocationType, snackbar]
   );
 
+  const scheduleColumns = useMemo(
+    () => [
+      {
+        field: "scheduleId",
+        headerName: "Schedule ID",
+        flex: 1,
+        minWidth: 190,
+      },
+      {
+        field: "type",
+        headerName: "Type",
+        flex: 0.55,
+        minWidth: 110,
+        renderCell: (params: { row: PublicSchedule }) => {
+          const statusStylesAndMap = getResourceInstanceTaskTypeStatusStylesAndLabel(params.row.type);
+          return <StatusChip status={params.row.type} {...statusStylesAndMap} />;
+        },
+      },
+      {
+        field: "locationType",
+        headerName: "Source/Destination",
+        flex: 0.75,
+        minWidth: 150,
+        renderCell: (params: { row: PublicSchedule }) => renderScheduleLocationType(params.row),
+      },
+      {
+        field: "periodMinutes",
+        headerName: "Period",
+        flex: 0.65,
+        minWidth: 130,
+        valueGetter: (params: { row: PublicSchedule }) => getSchedulePeriodLabel(params.row.periodMinutes),
+      },
+      {
+        field: "minuteOfHour",
+        headerName: "Minute",
+        flex: 0.45,
+        minWidth: 90,
+        valueGetter: (params: { row: PublicSchedule }) => `:${String(params.row.minuteOfHour).padStart(2, "0")}`,
+      },
+      {
+        field: "enabled",
+        headerName: "Enabled",
+        flex: 0.5,
+        minWidth: 100,
+        renderCell: (params: { row: PublicSchedule }) => <Text>{params.row.enabled ? "Yes" : "No"}</Text>,
+      },
+      {
+        field: "nextRunAt",
+        headerName: "Next Run",
+        flex: 0.85,
+        minWidth: 160,
+        valueGetter: (params: { row: PublicSchedule }) => formatDateLocal(params.row.nextRunAt),
+      },
+    ],
+    [renderScheduleLocationType]
+  );
+
   return (
     <>
       <Box mt="32px" display={"flex"} flexDirection={"column"} gap="32px">
@@ -425,6 +669,8 @@ function ResourceImportExportRDB(props) {
               exportMutation,
               importMutation,
               openDialog: (params) => setDialog(params),
+              isSchedulesAvailable,
+              schedulesUnavailableReason: `Schedules are available only for ${scheduleAllowedTiers.join(" and ")} tiers`,
               status,
             },
           }}
@@ -444,12 +690,54 @@ function ResourceImportExportRDB(props) {
       <InformationDialogTopCenter
         handleClose={closeDialog}
         open={dialog.open}
+        maxWidth={dialog.type === "schedules" ? "900px" : "550px"}
         PaperProps={{
           component: "form",
           onSubmit: async (event: React.FormEvent<HTMLFormElement>) => {
             event.preventDefault();
             const formData = new FormData(event.currentTarget);
             const formJson = Object.fromEntries((formData as any).entries());
+
+            if (dialog.type === "schedules") {
+              if (!scheduleFormOpen) {
+                return;
+              }
+
+              if (!isSchedulesAvailable) {
+                snackbar.showError("Schedules are not available for this plan");
+                return;
+              }
+
+              if (!canCreateSelectedScheduleType) {
+                snackbar.showError(
+                  scheduleType === "RDBImport"
+                    ? "Only one import schedule can be created per instance"
+                    : `Only ${maxExportSchedules} export schedules can be created per instance`
+                );
+                return;
+              }
+
+              let schedule: CreateScheduleRequestBody;
+
+              try {
+                schedule = buildScheduleRequestBody(
+                  formJson,
+                  instanceId,
+                  scheduleType,
+                  scheduleExportTargetType
+                );
+              } catch {
+                snackbar.showError("GCS credentials must be valid service account JSON");
+                return;
+              }
+
+              await createScheduleMutation.mutateAsync({ schedule });
+              await refetchSchedules();
+              setScheduleFormOpen(false);
+              setScheduleType("RDBExport");
+              setScheduleExportTargetType("gcs");
+              return;
+            }
 
             if (dialog.type === "import") {
               let source: RDBImportSource | undefined;
@@ -492,7 +780,7 @@ function ResourceImportExportRDB(props) {
         <DialogHeader>
           <Box>
             <Text size="large" weight="bold">
-              {dialog.type === "export" ? "Export RDB" : "Import RDB"}
+              {dialog.type === "schedules" ? "RDB schedules" : dialog.type === "export" ? "Export RDB" : "Import RDB"}
             </Text>
           </Box>
         </DialogHeader>
@@ -519,6 +807,274 @@ function ResourceImportExportRDB(props) {
               <Text size="small" weight="semibold" color="#EF4444">
                 Caution: Your instance will be erased before the import takes place.
               </Text>
+            )}
+            {dialog.type === "schedules" && (
+              <Stack gap="16px">
+                <Stack direction="row" alignItems="center" justifyContent="space-between" gap="12px">
+                  <Text size="small" weight="regular" color="#344054">
+                    Manage recurring RDB import and export schedules for this instance.
+                  </Text>
+                  <Button
+                    type="button"
+                    variant="contained"
+                    onClick={openCreateScheduleForm}
+                    disabled={createScheduleMutation.isPending || (!canCreateExportSchedule && !canCreateImportSchedule)}
+                  >
+                    {scheduleFormOpen ? "Hide form" : "Create schedule"}
+                  </Button>
+                </Stack>
+                {scheduleFormOpen && (
+                  <Box
+                    sx={{
+                      border: "1px solid #EAECF0",
+                      borderRadius: "8px",
+                      padding: "16px",
+                    }}
+                  >
+                    <FieldContainer>
+                      <FieldLabel required>Schedule type</FieldLabel>
+                      <RadioGroup
+                        row
+                        name="scheduleType"
+                        value={scheduleType}
+                        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                          setScheduleType(event.target.value as ScheduleType)
+                        }
+                      >
+                        <FormControlLabel
+                          value="RDBExport"
+                          control={<Radio />}
+                          label="Export"
+                          disabled={!canCreateExportSchedule}
+                        />
+                        <FormControlLabel
+                          value="RDBImport"
+                          control={<Radio />}
+                          label="Import"
+                          disabled={!canCreateImportSchedule}
+                        />
+                      </RadioGroup>
+                      {!canCreateExportSchedule && (
+                        <Text size="small" weight="regular" color="#667085">
+                          This instance already has the maximum number of export schedules ({maxExportSchedules}).
+                        </Text>
+                      )}
+                      {!canCreateImportSchedule && (
+                        <Text size="small" weight="regular" color="#667085">
+                          This instance already has an import schedule.
+                        </Text>
+                      )}
+                    </FieldContainer>
+                    <Stack direction={{ xs: "column", md: "row" }} gap="12px">
+                      <FieldContainer>
+                        <FieldLabel required>Period minutes</FieldLabel>
+                        <TextField
+                          required
+                          type="number"
+                          id="schedulePeriodMinutes"
+                          name="schedulePeriodMinutes"
+                          defaultValue={60}
+                          inputProps={{ min: 60, step: 15 }}
+                          fullWidth
+                          sx={{ mt: 0 }}
+                        />
+                      </FieldContainer>
+                      <FieldContainer>
+                        <FieldLabel required>Minute of hour</FieldLabel>
+                        <Select id="scheduleMinuteOfHour" name="scheduleMinuteOfHour" defaultValue={0} fullWidth>
+                          <MenuItem value={0}>:00</MenuItem>
+                          <MenuItem value={15}>:15</MenuItem>
+                          <MenuItem value={30}>:30</MenuItem>
+                          <MenuItem value={45}>:45</MenuItem>
+                        </Select>
+                      </FieldContainer>
+                      <FieldContainer>
+                        <FieldLabel>Failure threshold</FieldLabel>
+                        <TextField
+                          type="number"
+                          id="scheduleFailureThreshold"
+                          name="scheduleFailureThreshold"
+                          placeholder="1"
+                          inputProps={{ min: 1 }}
+                          fullWidth
+                          sx={{ mt: 0 }}
+                        />
+                      </FieldContainer>
+                    </Stack>
+                    {scheduleType === "RDBExport" && (
+                      <FieldContainer>
+                        <Stack direction="row" alignItems="center" gap="6px">
+                          <FieldLabel required>Destination</FieldLabel>
+                          <Text size="small" weight="semibold" color="#667085">
+                            beta
+                          </Text>
+                        </Stack>
+                        <RadioGroup
+                          row
+                          name="scheduleExportTargetType"
+                          value={scheduleExportTargetType}
+                          onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                            setScheduleExportTargetType(event.target.value as RDBScheduleExportTargetType)
+                          }
+                        >
+                          <FormControlLabel value="gcs" control={<Radio />} label="Google Cloud Storage" />
+                          <FormControlLabel value="s3" control={<Radio />} label="Amazon S3" />
+                        </RadioGroup>
+                      </FieldContainer>
+                    )}
+                    {scheduleType === "RDBImport" && (
+                      <FieldContainer>
+                        <Stack direction="row" alignItems="center" gap="6px">
+                          <FieldLabel required>Source</FieldLabel>
+                          <Text size="small" weight="semibold" color="#667085">
+                            beta
+                          </Text>
+                        </Stack>
+                        <Text size="small" weight="regular" color="#667085">
+                          Scheduled imports can only use another running instance as the source.
+                        </Text>
+                      </FieldContainer>
+                    )}
+                    {scheduleType === "RDBExport" && scheduleExportTargetType === "gcs" && (
+                      <>
+                        <Text size="small" weight="regular" color="#667085">
+                          Use a GCP service account with permission to create objects in the destination bucket.
+                        </Text>
+                        <FieldContainer>
+                          <FieldLabel required>GCS bucket name</FieldLabel>
+                          <TextField
+                            required
+                            id="gcsBucketName"
+                            name="gcsBucketName"
+                            placeholder="my-rdb-exports"
+                            fullWidth
+                            sx={{ mt: 0 }}
+                          />
+                        </FieldContainer>
+                        <FieldContainer>
+                          <FieldLabel required>GCP service account key JSON</FieldLabel>
+                          <TextField
+                            required
+                            id="gcsCredentials"
+                            name="gcsCredentials"
+                            placeholder='{"type":"service_account",...}'
+                            fullWidth
+                            multiline
+                            minRows={4}
+                            sx={{ mt: 0 }}
+                          />
+                        </FieldContainer>
+                      </>
+                    )}
+                    {scheduleType === "RDBExport" && scheduleExportTargetType === "s3" && (
+                      <>
+                        <Text size="small" weight="regular" color="#667085">
+                          Use AWS access credentials with permission to create objects in the destination bucket.
+                        </Text>
+                        <FieldContainer>
+                          <FieldLabel required>S3 bucket name</FieldLabel>
+                          <TextField
+                            required
+                            id="s3BucketName"
+                            name="s3BucketName"
+                            placeholder="my-rdb-exports"
+                            fullWidth
+                            sx={{ mt: 0 }}
+                          />
+                        </FieldContainer>
+                        <FieldContainer>
+                          <FieldLabel required>Region</FieldLabel>
+                          <TextField
+                            required
+                            id="s3Region"
+                            name="s3Region"
+                            placeholder="us-east-1"
+                            fullWidth
+                            sx={{ mt: 0 }}
+                          />
+                        </FieldContainer>
+                        <FieldContainer>
+                          <FieldLabel required>Access key ID</FieldLabel>
+                          <TextField
+                            required
+                            id="s3AccessKeyId"
+                            name="s3AccessKeyId"
+                            placeholder="AKIA..."
+                            fullWidth
+                            sx={{ mt: 0 }}
+                          />
+                        </FieldContainer>
+                        <FieldContainer>
+                          <FieldLabel required>Secret access key</FieldLabel>
+                          <PasswordField
+                            required
+                            id="s3SecretAccessKey"
+                            name="s3SecretAccessKey"
+                            placeholder="secret access key"
+                            fullWidth
+                            sx={{ mt: 0 }}
+                          />
+                        </FieldContainer>
+                        <FieldContainer>
+                          <FieldLabel>Session token</FieldLabel>
+                          <PasswordField
+                            id="s3SessionToken"
+                            name="s3SessionToken"
+                            placeholder="temporary session token"
+                            fullWidth
+                            sx={{ mt: 0 }}
+                          />
+                        </FieldContainer>
+                      </>
+                    )}
+                    {scheduleType === "RDBImport" && (
+                      <FieldContainer>
+                        <FieldLabel required>Source instance</FieldLabel>
+                        <Select
+                          required
+                          displayEmpty
+                          id="importSourceInstanceId"
+                          name="importSourceInstanceId"
+                          defaultValue=""
+                          isLoading={isSourceInstancesPending}
+                          renderValue={(value: unknown) => {
+                            const selectedInstance = runningSourceInstances.find(
+                              (sourceInstance) => sourceInstance.id === value
+                            );
+                            return selectedInstance ? renderInstanceOption(selectedInstance) : "Select source instance";
+                          }}
+                          fullWidth
+                        >
+                          <MenuItem value="" disabled>
+                            Select source instance
+                          </MenuItem>
+                          {runningSourceInstances.map((sourceInstance) => (
+                            <MenuItem key={sourceInstance.id} value={sourceInstance.id}>
+                              {renderInstanceOption(sourceInstance)}
+                            </MenuItem>
+                          ))}
+                          {!isSourceInstancesPending && runningSourceInstances.length === 0 && (
+                            <MenuItem disabled>No running instances available</MenuItem>
+                          )}
+                        </Select>
+                      </FieldContainer>
+                    )}
+                  </Box>
+                )}
+                <DataGrid
+                  getRowId={(row) => row.scheduleId}
+                  columns={scheduleColumns}
+                  rows={isSchedulesRefetching ? [] : schedulesData}
+                  loading={isSchedulesLoading || isSchedulesRefetching}
+                  noRowsText="No schedules"
+                  sx={{
+                    "& .MuiDataGrid-main": {
+                      minHeight: "260px",
+                    },
+                    borderRadius: "8px",
+                  }}
+                />
+              </Stack>
             )}
             {dialog.type === "export" && (
               <>
@@ -891,13 +1447,20 @@ function ResourceImportExportRDB(props) {
           <Button
             variant="outlined"
             onClick={closeDialog}
-            disabled={exportMutation.isPending || importMutation.isPending}
+            disabled={exportMutation.isPending || importMutation.isPending || createScheduleMutation.isPending}
           >
-            Cancel
+            {dialog.type === "schedules" ? "Close" : "Cancel"}
           </Button>
-          <Button variant="contained" type="submit" disabled={exportMutation.isPending || importMutation.isPending}>
-            {dialog.type === "export" ? "Export" : "Import"}
-          </Button>
+          {dialog.type === "schedules" && scheduleFormOpen && (
+            <Button variant="contained" type="submit" disabled={createScheduleMutation.isPending || !canCreateSelectedScheduleType}>
+              Create Schedule
+            </Button>
+          )}
+          {dialog.type !== "schedules" && (
+            <Button variant="contained" type="submit" disabled={exportMutation.isPending || importMutation.isPending}>
+              {dialog.type === "export" ? "Export" : "Import"}
+            </Button>
+          )}
         </DialogFooter>
       </InformationDialogTopCenter>
     </>

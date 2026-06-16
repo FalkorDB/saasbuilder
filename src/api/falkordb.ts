@@ -38,6 +38,8 @@ export type RDBExportTarget =
       sessionToken?: string;
     };
 
+export type RDBExportScheduleTarget = Exclude<RDBExportTarget, { type?: "default" }>;
+
 export type RDBImportSource =
   | { type: "gcs"; bucketName: string; fileName: string; credentials: GCPServiceAccountKey }
   | { type: "url"; url: string }
@@ -52,11 +54,65 @@ export type RDBImportSource =
       sessionToken?: string;
     };
 
-export const postInstanceExportRdb = (
-  instanceId: string,
-  target?: RDBExportTarget,
-  config = {}
-) => {
+export type RDBImportInstanceSource = Extract<RDBImportSource, { type: "instance" }>;
+
+export type ScheduleType = "RDBExport" | "RDBImport";
+
+export type ScheduleMinuteOfHour = 0 | 15 | 30 | 45;
+
+export type CreateScheduleRequestBody =
+  | {
+      type: "RDBExport";
+      payload: {
+        instanceId: string;
+        target: RDBExportScheduleTarget;
+      };
+      periodMinutes: number;
+      minuteOfHour: ScheduleMinuteOfHour;
+      failureThreshold?: number;
+    }
+  | {
+      type: "RDBImport";
+      payload: {
+        instanceId: string;
+        source: RDBImportInstanceSource;
+      };
+      periodMinutes: number;
+      minuteOfHour: ScheduleMinuteOfHour;
+      failureThreshold?: number;
+    };
+
+export type PublicSchedule = {
+  scheduleId: string;
+  requestorId: string;
+  type: ScheduleType;
+  payload:
+    | {
+        instanceId: string;
+        target?: RDBExportTarget;
+      }
+    | {
+        instanceId: string;
+        source: RDBImportSource;
+      };
+  periodMinutes: number;
+  minuteOfHour: ScheduleMinuteOfHour;
+  failureThreshold: number;
+  enabled: boolean;
+  nextRunAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ListSchedulesResponseBody = {
+  data: PublicSchedule[];
+};
+
+export type CreateScheduleResponseBody = {
+  schedule: PublicSchedule;
+};
+
+export const postInstanceExportRdb = (instanceId: string, target?: RDBExportTarget, config = {}) => {
   return axiosInstance.post(
     `/db-importer/export`,
     {
@@ -69,11 +125,7 @@ export const postInstanceExportRdb = (
   );
 };
 
-export const postInstanceImportRdbRequestURL = (
-  instanceId: string,
-  source?: RDBImportSource,
-  config = {}
-) => {
+export const postInstanceImportRdbRequestURL = (instanceId: string, source?: RDBImportSource, config = {}) => {
   return axiosInstance
     .post<any, AxiosResponse<{ taskId: string; uploadUrl?: string }>>(
       `/db-importer/import/request-url`,
@@ -99,6 +151,21 @@ export const postInstanceImportRdbConfirmUpload = (instanceId: string, taskId: s
       ...config,
     }
   );
+};
+
+export const getSchedules = (params: { instanceId?: string; type?: ScheduleType } = {}, config = {}) => {
+  return axiosInstance.get<ListSchedulesResponseBody>(`/db-importer/schedules`, {
+    params,
+    ...config,
+  });
+};
+
+export const postSchedule = (data: CreateScheduleRequestBody, config = {}) => {
+  return axiosInstance
+    .post<any, AxiosResponse<CreateScheduleResponseBody>>(`/db-importer/schedules`, data, {
+      ...config,
+    })
+    .then((res) => res.data);
 };
 
 export const uploadFile = (

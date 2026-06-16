@@ -186,11 +186,16 @@ const buildScheduleRequestBody = (
   scheduleType: ScheduleType,
   exportTargetType: RDBScheduleExportTargetType
 ): CreateScheduleRequestBody => {
-  const periodMinutes = Number(getFormValue(formJson, "schedulePeriodMinutes"));
+  const periodHours = Number(getFormValue(formJson, "schedulePeriodHours"));
   const minuteOfHour = Number(getFormValue(formJson, "scheduleMinuteOfHour")) as ScheduleMinuteOfHour;
   const failureThreshold = getOptionalNumberFormValue(formJson, "scheduleFailureThreshold");
+
+  if (!Number.isInteger(periodHours) || periodHours < 1) {
+    throw new Error("Schedule period must be at least 1 hour");
+  }
+
   const scheduleBase = {
-    periodMinutes,
+    periodMinutes: periodHours * 60,
     minuteOfHour,
     ...(failureThreshold ? { failureThreshold } : {}),
   };
@@ -724,8 +729,8 @@ function ResourceImportExportRDB(props) {
 
               try {
                 schedule = buildScheduleRequestBody(formJson, instanceId, scheduleType, scheduleExportTargetType);
-              } catch {
-                snackbar.showError("GCS credentials must be valid service account JSON");
+              } catch (error) {
+                snackbar.showError(error instanceof Error ? error.message : "GCS credentials must be valid service account JSON");
                 return;
               }
 
@@ -865,23 +870,29 @@ function ResourceImportExportRDB(props) {
                         </Text>
                       )}
                     </FieldContainer>
-                    <Stack direction={{ xs: "column", md: "row" }} gap="12px">
+                    <Stack direction={{ xs: "column", md: "row" }} gap="12px" alignItems="flex-start">
                       <FieldContainer>
-                        <FieldLabel required>Period minutes</FieldLabel>
+                        <FieldLabel required>Period hours</FieldLabel>
                         <TextField
                           required
                           type="number"
-                          id="schedulePeriodMinutes"
-                          name="schedulePeriodMinutes"
-                          defaultValue={60}
-                          inputProps={{ min: 60, step: 15 }}
+                          id="schedulePeriodHours"
+                          name="schedulePeriodHours"
+                          defaultValue={1}
+                          inputProps={{ min: 1, step: 1 }}
                           fullWidth
                           sx={{ mt: 0 }}
                         />
                       </FieldContainer>
                       <FieldContainer>
                         <FieldLabel required>Minute of hour</FieldLabel>
-                        <Select id="scheduleMinuteOfHour" name="scheduleMinuteOfHour" defaultValue={0} fullWidth>
+                        <Select
+                          id="scheduleMinuteOfHour"
+                          name="scheduleMinuteOfHour"
+                          defaultValue={0}
+                          fullWidth
+                          sx={{ mt: 0 }}
+                        >
                           <MenuItem value={0}>:00</MenuItem>
                           <MenuItem value={15}>:15</MenuItem>
                           <MenuItem value={30}>:30</MenuItem>

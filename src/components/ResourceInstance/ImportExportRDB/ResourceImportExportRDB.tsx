@@ -719,7 +719,11 @@ function ResourceImportExportRDB(props) {
                   aria-label={params.row.enabled ? "Disable schedule" : "Enable schedule"}
                   sx={{ color: params.row.enabled ? "#667085" : colors.success600 }}
                 >
-                  {params.row.enabled ? <PauseCircleOutlineIcon fontSize="small" /> : <PlayCircleOutlineIcon fontSize="small" />}
+                  {params.row.enabled ? (
+                    <PauseCircleOutlineIcon fontSize="small" />
+                  ) : (
+                    <PlayCircleOutlineIcon fontSize="small" />
+                  )}
                 </IconButton>
               </span>
             </Tooltip>

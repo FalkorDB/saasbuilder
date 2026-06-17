@@ -489,16 +489,10 @@ export const getStandardInformationFields = (
 
             if (newCloudProvider === "aws") {
               setFieldValue("region", offering.awsRegions?.[0] || "");
-              setFieldValue(
-                "requestParams.nodeInstanceType",
-                defaultNodeInstanceType || "AWS 2vCPU, 8GB"
-              );
+              setFieldValue("requestParams.nodeInstanceType", defaultNodeInstanceType || "AWS 2vCPU, 8GB");
             } else if (newCloudProvider === "gcp") {
               setFieldValue("region", offering.gcpRegions?.[0] || "");
-              setFieldValue(
-                "requestParams.nodeInstanceType",
-                defaultNodeInstanceType || "GCP 2vCPU, 8GB"
-              );
+              setFieldValue("requestParams.nodeInstanceType", defaultNodeInstanceType || "GCP 2vCPU, 8GB");
             } else if (newCloudProvider === "azure") {
               setFieldValue("region", offering.azureRegions?.[0] || "");
               if (defaultNodeInstanceType) {

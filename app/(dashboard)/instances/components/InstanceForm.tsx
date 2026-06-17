@@ -33,13 +33,13 @@ import useCustomerVersionSets from "../hooks/useCustomerVersionSets";
 import useResources from "../hooks/useResources";
 import useResourceSchema from "../hooks/useResourceSchema";
 import { filterSchemaByCloudProvider, getInitialValues } from "../utils";
+import { filterInstanceTypesByProvider, sortInstanceTypes } from "../utils/instanceTypeUtils";
 
 import {
   getDeploymentConfigurationFields,
   getNetworkConfigurationFields,
   getStandardInformationFields,
 } from "./InstanceFormFields";
-import { filterInstanceTypesByProvider, sortInstanceTypes } from "../utils/instanceTypeUtils";
 
 type ValidationSchema =
   | StringSchema<string | undefined>

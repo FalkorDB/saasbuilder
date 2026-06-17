@@ -105,6 +105,55 @@ export const getStandardInformationFields = (
     return acc;
   }, {});
 
+  const isEnterpriseOrByoaTier = /(enterprise|byoa)/i.test(offering?.productTierName || "");
+
+  const getDefaultNodeInstanceTypeForProvider = (newCloudProvider: CloudProvider): string | undefined => {
+    if (!isEnterpriseOrByoaTier) {
+      return undefined;
+    }
+
+    const nodeInstanceTypeParam = inputParametersObj["nodeInstanceType"];
+    if (!nodeInstanceTypeParam) {
+      return undefined;
+    }
+
+    const provider = newCloudProvider.toLowerCase();
+    const providerPrefixPattern = /^(aws|gcp|azure)\s/i;
+
+    if (nodeInstanceTypeParam.labeledOptions && typeof nodeInstanceTypeParam.labeledOptions === "object") {
+      const entries = Object.entries(nodeInstanceTypeParam.labeledOptions).map(([label, value]) => ({
+        label: String(label).toLowerCase(),
+        value: String(value),
+      }));
+
+      const providerEntries = entries.filter(
+        (entry) => entry.label.includes(`(${provider})`) || entry.label.startsWith(`${provider} `)
+      );
+
+      return providerEntries[0]?.value || entries[0]?.value;
+    }
+
+    if (Array.isArray(nodeInstanceTypeParam.options)) {
+      const options = nodeInstanceTypeParam.options.map((option: unknown) => String(option));
+      if (!options.length) {
+        return undefined;
+      }
+
+      const hasProviderPrefixedLabels = options.some((opt: string) => providerPrefixPattern.test(opt));
+      if (hasProviderPrefixedLabels) {
+        const providerOptions = options.filter((opt: string) => opt.toLowerCase().startsWith(`${provider} `));
+        return providerOptions[0] || options[0];
+      }
+
+      const filteredTypes = filterInstanceTypesByProvider(options, newCloudProvider);
+      const sortedTypes = sortInstanceTypes(filteredTypes, newCloudProvider);
+
+      return sortedTypes[0] || filteredTypes[0] || options[0];
+    }
+
+    return undefined;
+  };
+
   const cloudProviderFieldExists = inputParametersObj["cloud_provider"];
   const regionFieldExists = inputParametersObj["region"];
   const customAvailabilityZoneFieldExists = inputParametersObj["custom_availability_zone"];
@@ -436,18 +485,35 @@ export const getStandardInformationFields = (
           formData={formData}
           // @ts-ignore
           onChange={(newCloudProvider: CloudProvider) => {
+            const defaultNodeInstanceType = getDefaultNodeInstanceTypeForProvider(newCloudProvider);
+
             if (newCloudProvider === "aws") {
               setFieldValue("region", offering.awsRegions?.[0] || "");
-              setFieldValue("requestParams.nodeInstanceType", "AWS 2vCPU, 8GB");
+              setFieldValue(
+                "requestParams.nodeInstanceType",
+                defaultNodeInstanceType || "AWS 2vCPU, 8GB"
+              );
             } else if (newCloudProvider === "gcp") {
               setFieldValue("region", offering.gcpRegions?.[0] || "");
-              setFieldValue("requestParams.nodeInstanceType", "GCP 2vCPU, 8GB");
+              setFieldValue(
+                "requestParams.nodeInstanceType",
+                defaultNodeInstanceType || "GCP 2vCPU, 8GB"
+              );
             } else if (newCloudProvider === "azure") {
               setFieldValue("region", offering.azureRegions?.[0] || "");
+              if (defaultNodeInstanceType) {
+                setFieldValue("requestParams.nodeInstanceType", defaultNodeInstanceType);
+              }
             } else if (newCloudProvider === "oci") {
               setFieldValue("region", offering.ociRegions?.[0] || "");
+              if (defaultNodeInstanceType) {
+                setFieldValue("requestParams.nodeInstanceType", defaultNodeInstanceType);
+              }
             } else if (newCloudProvider === "nebius") {
               setFieldValue("region", offering.nebiusRegions?.[0] || "");
+              if (defaultNodeInstanceType) {
+                setFieldValue("requestParams.nodeInstanceType", defaultNodeInstanceType);
+              }
             } else if (newCloudProvider === "byoc-onprem") {
               setFieldValue("region", offering?.byocOnpremRegions?.[0] || "on-prem");
             }

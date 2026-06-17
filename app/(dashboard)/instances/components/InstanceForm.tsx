@@ -39,6 +39,7 @@ import {
   getNetworkConfigurationFields,
   getStandardInformationFields,
 } from "./InstanceFormFields";
+import { filterInstanceTypesByProvider, sortInstanceTypes } from "../utils/instanceTypeUtils";
 
 type ValidationSchema =
   | StringSchema<string | undefined>
@@ -835,14 +836,67 @@ const InstanceForm = ({
       formData.values.cloudProvider
     );
 
+    const isEnterpriseOrByoaTier = /(enterprise|byoa)/i.test(offering?.productTierName || "");
+
+    const getDefaultNodeInstanceType = (param: any) => {
+      if (!isEnterpriseOrByoaTier) {
+        if (formData.values.cloudProvider === "aws") {
+          return "AWS 2vCPU, 8GB";
+        }
+
+        if (formData.values.cloudProvider === "gcp") {
+          return "GCP 2vCPU, 8GB";
+        }
+
+        return param.defaultValue || "";
+      }
+
+      const provider = (formData.values.cloudProvider || "").toLowerCase();
+      const providerPrefixPattern = /^(aws|gcp|azure)\s/i;
+
+      if (param.labeledOptions && typeof param.labeledOptions === "object") {
+        const entries = Object.entries(param.labeledOptions).map(([label, value]) => ({
+          label: String(label).toLowerCase(),
+          value: String(value),
+        }));
+
+        const providerEntries = entries.filter(
+          (entry) => entry.label.includes(`(${provider})`) || entry.label.startsWith(`${provider} `)
+        );
+
+        return providerEntries[0]?.value || entries[0]?.value || param.defaultValue || "";
+      }
+
+      if (Array.isArray(param.options)) {
+        const options = param.options.map((option: unknown) => String(option));
+        if (!options.length) {
+          return param.defaultValue || "";
+        }
+
+        const hasProviderPrefixedLabels = options.some((opt: string) => providerPrefixPattern.test(opt));
+        if (hasProviderPrefixedLabels) {
+          const providerOptions = options.filter((opt: string) => opt.toLowerCase().startsWith(`${provider} `));
+          return providerOptions[0] || options[0] || param.defaultValue || "";
+        }
+
+        const selectedCloudProvider = formData.values.cloudProvider as CloudProvider | "";
+        if (!selectedCloudProvider) {
+          return options[0] || param.defaultValue || "";
+        }
+
+        const filteredTypes = filterInstanceTypesByProvider(options, selectedCloudProvider);
+        const sortedTypes = sortInstanceTypes(filteredTypes, selectedCloudProvider);
+
+        return sortedTypes[0] || filteredTypes[0] || options[0] || param.defaultValue || "";
+      }
+
+      return param.defaultValue || "";
+    };
+
     const defaultValues = inputParameters.reduce((acc: any, param: any) => {
       acc[param.key] = param.defaultValue || "";
       if (param.key === "nodeInstanceType") {
-        if (formData.values.cloudProvider === "aws") {
-          acc[param.key] = "AWS 2vCPU, 8GB";
-        } else if (formData.values.cloudProvider === "gcp") {
-          acc[param.key] = "GCP 2vCPU, 8GB";
-        }
+        acc[param.key] = getDefaultNodeInstanceType(param);
       }
       return acc;
     }, {});

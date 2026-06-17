@@ -193,6 +193,12 @@ const buildImportSource = (
     };
   }
 
+  if (sourceType === "file") {
+    return {
+      type: "file",
+    };
+  }
+
   return undefined;
 };
 

@@ -76,6 +76,9 @@ type SubscriptionRouteData = Record<string, { productTierId?: string; serviceId?
 const DEFAULT_SCHEDULE_ALLOWED_TIERS = ["FalkorDB Pro", "FalkorDB Enterprise"];
 const DEFAULT_MAX_EXPORT_SCHEDULES = 5;
 const DEFAULT_SCHEDULE_FAILURE_THRESHOLD = 3;
+const MAX_RDB_IMPORT_UPLOAD_FILE_SIZE_BYTES = 2 * 1024 * 1024 * 1024;
+const RDB_IMPORT_UPLOAD_SIZE_ERROR =
+  "RDB file uploads are limited to 2 GB. Please use GCS, S3, URL, or another instance as the source.";
 
 const TASK_LOCATION_TYPE_LABELS: Record<string, string> = {
   default: "Link",
@@ -187,6 +190,12 @@ const buildImportSource = (
     return {
       type: "instance",
       instanceId: getFormValue(formJson, "importSourceInstanceId"),
+    };
+  }
+
+  if (sourceType === "file") {
+    return {
+      type: "file",
     };
   }
 
@@ -850,9 +859,17 @@ function ResourceImportExportRDB(props) {
                 return;
               }
 
-              if (importSourceType === "file" && !file) {
-                snackbar.showError(`Please select a valid RDB file`);
-                return;
+              if (importSourceType === "file") {
+                if (!file) {
+                  snackbar.showError(`Please select a valid RDB file`);
+                  return;
+                }
+
+                if (file.size > MAX_RDB_IMPORT_UPLOAD_FILE_SIZE_BYTES) {
+                  snackbar.showError(RDB_IMPORT_UPLOAD_SIZE_ERROR);
+                  setFile(undefined);
+                  return;
+                }
               }
 
               await importMutation.mutateAsync({
@@ -1356,7 +1373,16 @@ function ResourceImportExportRDB(props) {
                           type="file"
                           accept=".rdb"
                           onChange={(event) => {
-                            setFile(event?.target?.files?.[0]);
+                            const selectedFile = event?.target?.files?.[0];
+
+                            if (selectedFile && selectedFile.size > MAX_RDB_IMPORT_UPLOAD_FILE_SIZE_BYTES) {
+                              snackbar.showError(RDB_IMPORT_UPLOAD_SIZE_ERROR);
+                              setFile(undefined);
+                              event.target.value = "";
+                              return;
+                            }
+
+                            setFile(selectedFile);
                           }}
                         />
                       </Button>

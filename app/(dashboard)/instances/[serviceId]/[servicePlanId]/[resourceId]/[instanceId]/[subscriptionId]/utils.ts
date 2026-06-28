@@ -1,6 +1,8 @@
 import { RESOURCE_TYPES } from "src/constants/resource";
 
-const MIN_TIER_VERSION_FOR_USER_ACCESS = process.env.NEXT_PUBLIC_FALKORDB_LDAP_MIN_TIER_VERSION || "";
+const LDAP_MIN_TIER_VERSION_FREE = process.env.LDAP_MIN_TIER_VERSION_FREE || "80.0";
+const LDAP_MIN_TIER_VERSION_STARTUP = process.env.LDAP_MIN_TIER_VERSION_STARTUP || "58.0";
+const LDAP_MIN_TIER_VERSION_PRO = process.env.LDAP_MIN_TIER_VERSION_PRO || "88.0";
 
 type GetTabsParams = {
   isMetricsEnabled: boolean | undefined;
@@ -33,9 +35,14 @@ export const getTabs = ({
     nodes: "Nodes",
   };
 
-  const isFreeTier = productTierName === "FalkorDB Free";
-  if (isFreeTier && MIN_TIER_VERSION_FOR_USER_ACCESS && tierVersion && tierVersion > MIN_TIER_VERSION_FOR_USER_ACCESS) {
-    tabs["userAccess"] = "User Access";
+  if (tierVersion) {
+    if (
+      (productTierName === "FalkorDB Free" && tierVersion >= LDAP_MIN_TIER_VERSION_FREE) ||
+      (productTierName === "FalkorDB Startup" && tierVersion >= LDAP_MIN_TIER_VERSION_STARTUP) ||
+      (productTierName === "FalkorDB Pro" && tierVersion >= LDAP_MIN_TIER_VERSION_PRO)
+    ) {
+      tabs["userAccess"] = "User Access";
+    }
   }
 
   if (isMetricsEnabled && !isResourceBYOA) tabs["metrics"] = "Metrics";

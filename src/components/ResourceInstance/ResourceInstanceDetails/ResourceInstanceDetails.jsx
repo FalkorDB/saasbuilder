@@ -7,6 +7,7 @@ import InstanceLicenseStatusChip from "src/components/InstanceLicenseStatusChip/
 import { INTEGRATION_TYPE_LABEL_MAP } from "src/constants/productTierFeatures";
 import { extractAppVersion } from "src/utils/extractAppVersion";
 import formatDateLocal from "src/utils/formatDateLocal";
+import { isPrivateLinkEnabled } from "src/utils/instance";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 
 import NonOmnistrateIntegrationRow from "./NonOmnistrateIntegrationRow";
@@ -303,6 +304,14 @@ function ResourceInstanceDetails(props) {
           },
         });
       }
+      if (param.key === "private_link") {
+        return res.push({
+          label: param.displayName || param.key,
+          description: param.description,
+          value: isPrivateLinkEnabled(resultParameters) ? "Enabled" : "Disabled",
+          valueType: "boolean",
+        });
+      }
       if (param.key === "cloudformation_url_no_lb" || param.key === "cloudformation_url") {
         return res.push({
           label: param.displayName || param.key,
@@ -327,6 +336,19 @@ function ResourceInstanceDetails(props) {
       }
     });
 
+    // For AWS cloud accounts, always surface Private Link status, defaulting to Disabled when the field is absent.
+    if (
+      resultParameters.cloud_provider === "aws" &&
+      resultParameters.account_configuration_method &&
+      resultParameters.private_link === undefined
+    ) {
+      res.push({
+        label: "private_link",
+        value: "Disabled",
+        valueType: "boolean",
+      });
+    }
+
     return res;
   }, [
     resultParametersWithDescription,
@@ -337,6 +359,8 @@ function ResourceInstanceDetails(props) {
     cloudProviderAccountInstanceURL,
     resultParameters?.account_configuration_method,
     resultParameters.aws_account_id,
+    resultParameters.cloud_provider,
+    resultParameters.private_link,
   ]);
 
   const CloudPRoviderInstance = useMemo(() => {

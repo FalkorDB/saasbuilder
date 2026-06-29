@@ -75,6 +75,7 @@ const InstanceDetailsPage = ({
   const view = searchParams?.get("view");
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const [overlayType, setOverlayType] = useState<Overlay>("delete-dialog");
+  const [selectedCustomWorkflowId, setSelectedCustomWorkflowId] = useState("");
 
   const [currentTab, setCurrentTab] = useState<CurrentTab>("Instance Details");
 
@@ -150,12 +151,12 @@ const InstanceDetailsPage = ({
         ),
         serviceModelType: offering?.serviceModelType,
       }),
-    [resourceInstanceData, isCliManagedResource, resourceType, offering]
+    [resourceInstanceData, resourceType, offering]
   );
 
   const disabledTabs = useMemo(
     () => (resourceInstanceData?.status === "DISCONNECTED" ? ["backups"] : []),
-    [resourceInstanceData, tabs]
+    [resourceInstanceData]
   );
 
   if (!isFetchingServiceOfferings && !isFetchingSubscriptions && (!subscription || !offering)) {
@@ -310,6 +311,7 @@ const InstanceDetailsPage = ({
             subscription={subscription}
             setOverlayType={setOverlayType}
             setIsOverlayOpen={setIsOverlayOpen}
+            setSelectedCustomWorkflowId={setSelectedCustomWorkflowId}
             refetchData={refetchInstance}
           />
         </Stack>
@@ -440,6 +442,8 @@ const InstanceDetailsPage = ({
           }
           offering={offering}
           cloudProvider={cloudProvider}
+          instanceRegion={resourceInstanceData.region}
+          resourceType={resourceType}
           tab={"backups"}
           setCurrentTab={setCurrentTab}
           customNetworkExists={customNetworkExists}
@@ -459,6 +463,8 @@ const InstanceDetailsPage = ({
           }
           offering={offering}
           cloudProvider={cloudProvider}
+          instanceRegion={resourceInstanceData.region}
+          resourceType={resourceType}
           tab="snapshots"
           setCurrentTab={setCurrentTab}
           customNetworkExists={customNetworkExists}
@@ -493,6 +499,7 @@ const InstanceDetailsPage = ({
         setIsOverlayOpen={setIsOverlayOpen}
         overlayType={overlayType}
         setOverlayType={setOverlayType}
+        selectedCustomWorkflowId={selectedCustomWorkflowId}
         instance={resourceInstanceData?.unprocessedData}
         instances={instances}
         serviceOffering={offering}

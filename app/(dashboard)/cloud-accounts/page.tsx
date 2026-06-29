@@ -1,18 +1,11 @@
 "use client";
 
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Box, Stack } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { createColumnHelper } from "@tanstack/react-table";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
 
-import CloudProviderAccountOrgIdModal from "components/CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
-import DataTable from "components/DataTable/DataTable";
-import GridCellExpand from "components/GridCellExpand/GridCellExpand";
-import ViewInstructionsIcon from "components/Icons/AccountConfig/ViewInstrcutionsIcon";
-import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithLogo";
-import StatusChip from "components/StatusChip/StatusChip";
-import Tooltip from "components/Tooltip/Tooltip";
 import { $api } from "src/api/query";
 import { deleteResourceInstance, getResourceInstanceDetails } from "src/api/resourceInstance";
 import ConnectAccountConfigDialog from "src/components/AccountConfigDialog/ConnectAccountConfigDialog";
@@ -37,8 +30,15 @@ import {
   getOciShellScriptOffboardCommand,
 } from "src/utils/accountConfig/accountConfig";
 import formatDateLocal from "src/utils/formatDateLocal";
-import { getResultParams } from "src/utils/instance";
+import { getResultParams, isPrivateLinkEnabled } from "src/utils/instance";
 import { getCloudAccountsRoute } from "src/utils/routes";
+import CloudProviderAccountOrgIdModal from "components/CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
+import DataTable from "components/DataTable/DataTable";
+import GridCellExpand from "components/GridCellExpand/GridCellExpand";
+import ViewInstructionsIcon from "components/Icons/AccountConfig/ViewInstrcutionsIcon";
+import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithLogo";
+import StatusChip from "components/StatusChip/StatusChip";
+import Tooltip from "components/Tooltip/Tooltip";
 
 import FullScreenDrawer from "../components/FullScreenDrawer/FullScreenDrawer";
 import CloudAccountsIcon from "../components/Icons/CloudAccountsIcon";
@@ -58,8 +58,8 @@ import {
 } from "./components/deleteDialogState";
 import { OffboardInstructionDetails } from "./components/OffboardingInstructions";
 import SetupPrivateClusterDialog from "./components/SetupPrivateClusterDialog";
-import { DIALOG_DATA } from "./constants";
 import useAccountConfig from "./hooks/useAccountConfig";
+import { DIALOG_DATA } from "./constants";
 import { getOffboardReadiness } from "./utils";
 
 const columnHelper = createColumnHelper<ResourceInstance>();
@@ -412,6 +412,59 @@ const CloudAccountsPage = () => {
       }),
       columnHelper.accessor(
         (row) => {
+          const resultParams = getResultParams(row);
+          if (!resultParams?.aws_account_id) return "-";
+          const isEnabled = isPrivateLinkEnabled(resultParams);
+          return isEnabled ? "Enabled" : "Disabled";
+        },
+        {
+          id: "private_link",
+          header: "Private Link",
+          cell: (data) => {
+            const resultParams = getResultParams(data.row.original);
+            if (!resultParams?.aws_account_id) return "-";
+            const isEnabled = isPrivateLinkEnabled(resultParams);
+            return (
+              <StatusChip category={isEnabled ? "success" : "failed"} label={isEnabled ? "Enabled" : "Disabled"} />
+            );
+          },
+          meta: {
+            minWidth: 140,
+          },
+        }
+      ),
+      columnHelper.accessor(
+        (row) => {
+          const subscription = subscriptionsObj[row.subscriptionId as string];
+          return subscription?.subscriptionOwnerName;
+        },
+        {
+          id: "subscriptionOwner",
+          header: "Subscription Owner",
+        }
+      ),
+      columnHelper.accessor((row) => formatDateLocal(row.created_at), {
+        id: "created_at",
+        header: "Created On",
+        cell: (data) => {
+          return data.row.original.created_at ? formatDateLocal(data.row.original.created_at) : "-";
+        },
+        meta: {
+          minWidth: 225,
+        },
+      }),
+      columnHelper.accessor(
+        (row) => {
+          const subscription = subscriptionsObj[row.subscriptionId as string];
+          return subscription?.productTierName || "-";
+        },
+        {
+          id: "servicePlanName",
+          header: "Subscription Plan",
+        }
+      ),
+      columnHelper.accessor(
+        (row) => {
           const subscription = subscriptionsObj[row.subscriptionId as string];
           return subscription?.serviceName;
         },
@@ -427,17 +480,6 @@ const CloudAccountsPage = () => {
           },
         }
       ),
-      columnHelper.accessor(
-        (row) => {
-          const subscription = subscriptionsObj[row.subscriptionId as string];
-          return subscription?.productTierName || "-";
-        },
-        {
-          id: "servicePlanName",
-          header: "Subscription Plan",
-        }
-      ),
-
       columnHelper.accessor(
         // @ts-ignore
         (row) => {
@@ -468,26 +510,6 @@ const CloudAccountsPage = () => {
           },
         }
       ),
-      columnHelper.accessor(
-        (row) => {
-          const subscription = subscriptionsObj[row.subscriptionId as string];
-          return subscription?.subscriptionOwnerName;
-        },
-        {
-          id: "subscriptionOwner",
-          header: "Subscription Owner",
-        }
-      ),
-      columnHelper.accessor((row) => formatDateLocal(row.created_at), {
-        id: "created_at",
-        header: "Created On",
-        cell: (data) => {
-          return data.row.original.created_at ? formatDateLocal(data.row.original.created_at) : "-";
-        },
-        meta: {
-          minWidth: 225,
-        },
-      }),
     ];
   }, [subscriptionsObj, accountConfigsHash]);
 

@@ -48,14 +48,14 @@
     "@tanstack/react-query": "^5.77.1",
     "@tanstack/react-table": "^8.20.5",
     "ansi-to-react": "^6.1.6",
-    "axios": "1.15.2",
+    "axios": "1.16.0",
     "buffer": "^6.0.3",
     "clipboardy": "^3.0.0",
     "cloud-regions-country-flags": "^1.1.4",
     "clsx": "^2.1.1",
     "date-fns": "^2.29.3",
     "dayjs": "^1.11.11",
-    "dompurify": "3.4.0",
+    "dompurify": "3.4.11",
     "dotenv": "^16.4.5",
     "dotted-map": "^2.2.3",
     "ejs": "^3.1.10",
@@ -72,7 +72,7 @@
     "next-nprogress-bar": "^2.4.3",
     "next-plugin-yaml": "^1.0.1",
     "node-cron": "^3.0.3",
-    "nodemailer": "^8.0.5",
+    "nodemailer": "^9.0.1",
     "openapi-fetch": "^0.14.0",
     "openapi-react-query": "^0.5.0",
     "prop-types": "^15.6.0",
@@ -123,17 +123,17 @@
     "prettier": "^3.1.0",
     "puppeteer": "^24.3.1",
     "tailwindcss": "^3.4.17",
-    "tsx": "^4.19.0",
+    "tsx": "^4.22.4",
     "typescript": "^5.8.3",
     "wait-on": "^9.0.4"
   },
   "resolutions": {
-    "basic-ftp": "^5.3.1",
-    "brace-expansion@^5.0.5": "^5.0.6",
     "postcss": "^8.5.10",
     "qs@~6.14.0": "^6.15.2",
     "uuid": "14.0.0",
-    "ws@^8.18.3": "^8.20.1"
+    "form-data": "^4.0.6",
+    "shell-quote": "^1.8.4",
+    "dompurify": "3.4.11"
   },
   "packageManager": "yarn@4.5.0"
 }

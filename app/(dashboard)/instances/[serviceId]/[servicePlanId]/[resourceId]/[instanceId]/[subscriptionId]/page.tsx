@@ -150,6 +150,7 @@ const InstanceDetailsPage = ({
           resourceInstanceData ? resourceInstanceData?.connectivity?.globalEndpoints : {}
         ),
         serviceModelType: offering?.serviceModelType,
+        enterpriseModuleEnabled: resourceInstanceData?.resultParameters?.enableEnterpriseModule ?? false,
       }),
     [resourceInstanceData, resourceType, offering]
   );

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import { Box } from "@mui/material";
 import FullScreenDrawer from "app/(dashboard)/components/FullScreenDrawer/FullScreenDrawer";
 
@@ -24,6 +25,7 @@ import { ResourceInstance as DescribeResourceInstanceResponse } from "src/types/
 import { ServiceOffering } from "src/types/serviceOffering";
 import { Subscription } from "src/types/subscription";
 import { getInstancesRoute } from "src/utils/routes";
+import { selectUserrootData } from "src/slices/userDataSlice";
 
 import { getCustomWorkflowOperations } from "../customWorkflow";
 import useInstancesDescribe from "../hooks/useInstancesDescribe";
@@ -111,6 +113,7 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
   refetchData,
 }) => {
   const router = useRouter();
+  const userData = useSelector(selectUserrootData);
   const [createInstanceModalData, setCreateInstanceModalData] = useState<CreateInstanceModalData | null>(null);
   const [takeFinalSnapshot, setTakeFinalSnapshot] = useState(true);
   const showSnapshotBeforeDeleteOption = Boolean(instance?.snapshotBeforeDeletionEnabled);
@@ -139,7 +142,7 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
         body: JSON.stringify({
           instanceId: instance?.id,
           reason,
-          subscriptionId: subscription?.id,
+          userId: userData?.id,
         }),
       });
     } catch {

@@ -2,7 +2,9 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 import { getAuthToken } from "src/server/utils/authCookie";
 
-const N8N_WEBHOOK_URL = process.env.N8N_DELETION_REASON_WEBHOOK_URL;
+const N8N_WEBHOOK_URL =
+  process.env.N8N_DELETION_REASON_WEBHOOK_URL ||
+  "https://n8n.falkordb.cloud/webhook/0b68c9dc-f7d6-4231-ba02-db57f184459c";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -14,12 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  if (!N8N_WEBHOOK_URL) {
-    // Webhook not configured — silently succeed so deletion still proceeds
-    return res.status(200).json({ message: "Webhook not configured" });
-  }
-
-  const { instanceId, reason, subscriptionId } = req.body || {};
+  const { instanceId, reason, userId } = req.body || {};
 
   if (!instanceId || !reason) {
     return res.status(400).json({ message: "instanceId and reason are required" });
@@ -32,10 +29,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        instanceId,
-        reason,
-        subscriptionId,
-        timestamp: new Date().toISOString(),
+        instance_id: instanceId,
+        delete_reason: reason,
+        user_id: userId,
       }),
     });
 

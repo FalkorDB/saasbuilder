@@ -33,7 +33,7 @@ import { Overlay } from "../page";
 import { getMainResourceFromInstance } from "../utils";
 
 import CustomWorkflowForm from "./CustomWorkflowForm";
-import DeletionReasonDialog, { DeletionReasonValue } from "./DeletionReasonDialog";
+import DeletionReasonDialog from "./DeletionReasonDialog";
 import InstanceForm from "./InstanceForm";
 import SnapshotBeforeDeletionConfirmation from "./SnapshotBeforeDeletionConfirmation";
 
@@ -133,7 +133,7 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
     setIsOverlayOpen(false);
   };
 
-  const handleDeletionReasonConfirm = async (reason: DeletionReasonValue) => {
+  const handleDeletionReasonConfirm = async (reason: string) => {
     setIsDeletionReasonLoading(true);
     try {
       await fetch("/api/instance-deletion-reason", {

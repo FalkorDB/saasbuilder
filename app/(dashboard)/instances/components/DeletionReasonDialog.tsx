@@ -14,6 +14,7 @@ import {
 
 import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
 import Radio from "src/components/FormElementsv2/Radio/Radio";
+import TextField from "src/components/FormElementsv2/TextField/TextField";
 import DeleteCircleIcon from "src/components/Icons/DeleteCircle/DeleteCircleIcon";
 import { Text } from "src/components/Typography/Typography";
 import Button from "components/Button/Button";
@@ -81,6 +82,11 @@ export const DELETION_REASONS = [
     label: "Found a better solution",
     description: "Another tool fit my needs better. We would love to know which one.",
   },
+  {
+    value: "other",
+    label: "Other",
+    description: "",
+  },
 ] as const;
 
 export type DeletionReasonValue = (typeof DELETION_REASONS)[number]["value"];
@@ -88,7 +94,7 @@ export type DeletionReasonValue = (typeof DELETION_REASONS)[number]["value"];
 type DeletionReasonDialogProps = {
   open: boolean;
   onClose: () => void;
-  onConfirm: (reason: DeletionReasonValue) => Promise<void>;
+  onConfirm: (reason: string) => Promise<void>;
   instanceId?: string;
   isLoading?: boolean;
 };
@@ -101,16 +107,24 @@ const DeletionReasonDialog: FC<DeletionReasonDialogProps> = ({
   isLoading = false,
 }) => {
   const [selectedReason, setSelectedReason] = useState<DeletionReasonValue | "">("");
+  const [otherText, setOtherText] = useState("");
+
+  const isOtherSelected = selectedReason === "other";
+  const isConfirmDisabled = !selectedReason || (isOtherSelected && !otherText.trim()) || isLoading;
 
   const handleClose = () => {
     setSelectedReason("");
+    setOtherText("");
     onClose();
   };
 
   const handleConfirm = async () => {
     if (!selectedReason) return;
-    await onConfirm(selectedReason as DeletionReasonValue);
+    if (isOtherSelected && !otherText.trim()) return;
+    const resolvedReason = isOtherSelected ? otherText.trim() : selectedReason;
+    await onConfirm(resolvedReason);
     setSelectedReason("");
+    setOtherText("");
   };
 
   return (
@@ -144,13 +158,28 @@ const DeletionReasonDialog: FC<DeletionReasonDialogProps> = ({
               value={reason.value}
               control={<Radio />}
               label={
-                <Stack>
+                <Stack width="100%">
                   <Text size="small" weight="semibold" color="#344054">
                     {reason.label}
                   </Text>
-                  <Text size="small" weight="regular" color="#667085">
-                    {reason.description}
-                  </Text>
+                  {reason.description && (
+                    <Text size="small" weight="regular" color="#667085">
+                      {reason.description}
+                    </Text>
+                  )}
+                  {reason.value === "other" && isOtherSelected && (
+                    <TextField
+                      placeholder="Please specify your reason"
+                      value={otherText}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOtherText(e.target.value)}
+                      onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                      inputProps={{ maxLength: 500 }}
+                      multiline
+                      minRows={2}
+                      sx={{ marginTop: "8px" }}
+                      data-testid="deletion-reason-other-input"
+                    />
+                  )}
                 </Stack>
               }
             />
@@ -165,7 +194,7 @@ const DeletionReasonDialog: FC<DeletionReasonDialogProps> = ({
         <Button
           size="large"
           variant="contained"
-          disabled={!selectedReason || isLoading}
+          disabled={isConfirmDisabled}
           bgColor="#D92D20"
           fontColor="#FFFFFF"
           onClick={handleConfirm}

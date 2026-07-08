@@ -110,7 +110,7 @@ const DeletionReasonDialog: FC<DeletionReasonDialogProps> = ({
   const [otherText, setOtherText] = useState("");
 
   const isOtherSelected = selectedReason === "other";
-  const isConfirmDisabled = !selectedReason || (isOtherSelected && !otherText.trim()) || isLoading;
+  const isConfirmDisabled = !selectedReason || isLoading;
 
   const handleClose = () => {
     setSelectedReason("");
@@ -120,8 +120,7 @@ const DeletionReasonDialog: FC<DeletionReasonDialogProps> = ({
 
   const handleConfirm = async () => {
     if (!selectedReason) return;
-    if (isOtherSelected && !otherText.trim()) return;
-    const resolvedReason = isOtherSelected ? otherText.trim() : selectedReason;
+    const resolvedReason = isOtherSelected ? otherText.trim() || "other" : selectedReason;
     await onConfirm(resolvedReason);
     setSelectedReason("");
     setOtherText("");

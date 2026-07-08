@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import { Box } from "@mui/material";
 import FullScreenDrawer from "app/(dashboard)/components/FullScreenDrawer/FullScreenDrawer";
 
@@ -24,6 +25,7 @@ import { ResourceInstance as DescribeResourceInstanceResponse } from "src/types/
 import { ServiceOffering } from "src/types/serviceOffering";
 import { Subscription } from "src/types/subscription";
 import { getInstancesRoute } from "src/utils/routes";
+import { selectUserrootData } from "src/slices/userDataSlice";
 
 import { getCustomWorkflowOperations } from "../customWorkflow";
 import useInstancesDescribe from "../hooks/useInstancesDescribe";
@@ -31,6 +33,7 @@ import { Overlay } from "../page";
 import { getMainResourceFromInstance } from "../utils";
 
 import CustomWorkflowForm from "./CustomWorkflowForm";
+import DeletionReasonDialog from "./DeletionReasonDialog";
 import InstanceForm from "./InstanceForm";
 import SnapshotBeforeDeletionConfirmation from "./SnapshotBeforeDeletionConfirmation";
 
@@ -110,10 +113,50 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
   refetchData,
 }) => {
   const router = useRouter();
+  const userData = useSelector(selectUserrootData);
   const [createInstanceModalData, setCreateInstanceModalData] = useState<CreateInstanceModalData | null>(null);
   const [takeFinalSnapshot, setTakeFinalSnapshot] = useState(true);
   const showSnapshotBeforeDeleteOption = Boolean(instance?.snapshotBeforeDeletionEnabled);
   const snackbar = useSnackbar();
+  const [isDeletionReasonLoading, setIsDeletionReasonLoading] = useState(false);
+  const [deletionReasonProvided, setDeletionReasonProvided] = useState(false);
+
+  const isPaidSubscription = Boolean(subscription?.paymentMethodConfigured);
+
+  // For paid subscriptions deleting, intercept the delete dialog to show the reason dialog first
+  const isDeleteDialogRequested = isOverlayOpen && overlayType === "delete-dialog";
+  const showDeletionReasonDialog = isDeleteDialogRequested && isPaidSubscription && !deletionReasonProvided;
+  const showDeleteConfirmDialog = isDeleteDialogRequested && (!isPaidSubscription || deletionReasonProvided);
+
+  const handleDeletionReasonClose = () => {
+    setDeletionReasonProvided(false);
+    setIsOverlayOpen(false);
+  };
+
+  const handleDeletionReasonConfirm = async (reason: string) => {
+    setIsDeletionReasonLoading(true);
+    try {
+      await fetch("/api/instance-deletion-reason", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instanceId: instance?.id,
+          reason,
+          userId: userData?.id,
+        }),
+      });
+    } catch {
+      // Silently ignore webhook errors — deletion should proceed regardless
+    } finally {
+      setIsDeletionReasonLoading(false);
+    }
+    setDeletionReasonProvided(true);
+  };
+
+  const handleDeleteConfirmClose = () => {
+    setDeletionReasonProvided(false);
+    setIsOverlayOpen(false);
+  };
 
   // Resource of the Selected Instance
   const selectedResource = useMemo(() => {
@@ -174,6 +217,7 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
         refetchData();
         setIsOverlayOpen(false);
         setTakeFinalSnapshot(true);
+        setDeletionReasonProvided(false);
 
         snackbar.showSuccess("Deleting deployment instance...");
 
@@ -274,10 +318,22 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
         setSelectedRows={setSelectedRows}
       />
 
+      <DeletionReasonDialog
+        open={showDeletionReasonDialog}
+        onClose={handleDeletionReasonClose}
+        onConfirm={handleDeletionReasonConfirm}
+        instanceId={instance?.id}
+        isLoading={isDeletionReasonLoading}
+      />
+
       <TextConfirmationDialog
         maxWidth={overlayType === "delete-dialog" && showSnapshotBeforeDeleteOption ? "595px" : "521px"}
-        open={isOverlayOpen && Object.keys(DIALOG_DATA).includes(overlayType)}
-        handleClose={() => setIsOverlayOpen(false)}
+        open={
+          overlayType === "delete-dialog"
+            ? showDeleteConfirmDialog
+            : isOverlayOpen && Object.keys(DIALOG_DATA).includes(overlayType)
+        }
+        handleClose={overlayType === "delete-dialog" ? handleDeleteConfirmClose : () => setIsOverlayOpen(false)}
         onConfirm={async () => {
           if (!instance) snackbar.showError("No instance selected");
           if (!serviceOffering) {

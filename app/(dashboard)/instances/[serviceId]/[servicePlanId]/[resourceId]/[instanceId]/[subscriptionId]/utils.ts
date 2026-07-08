@@ -15,6 +15,7 @@ type GetTabsParams = {
   isBackup: number | undefined;
   isCustomDNS: boolean;
   serviceModelType: string | undefined;
+  enterpriseModuleEnabled: string | undefined;
 };
 
 export const getTabs = ({
@@ -28,6 +29,7 @@ export const getTabs = ({
   serviceModelType,
   tierVersion,
   productTierName,
+  enterpriseModuleEnabled,
 }: GetTabsParams) => {
   const tabs: Record<string, string | undefined> = {
     resourceInstanceDetails: "Instance Details",
@@ -43,6 +45,9 @@ export const getTabs = ({
     ) {
       tabs["userAccess"] = "User Access";
     }
+  }
+  if (productTierName === "FalkorDB Enterprise" && enterpriseModuleEnabled) {
+    tabs["userAccess"] = "User Access";
   }
 
   if (isMetricsEnabled && !isResourceBYOA) tabs["metrics"] = "Metrics";

@@ -178,17 +178,17 @@ const Sidebar = () => {
 
   const showCloudProvidersPage = useMemo(() => {
     return Boolean(
-      subscriptions.find(s => {
-        const offering = serviceOfferings.find(o => s.productTierId === o.productTierID);
-        return offering?.serviceModelType === "BYOA" || offering?.serviceModelType === "ON_PREM_COPILOT"
+      subscriptions.find((s) => {
+        const offering = serviceOfferings.find((o) => s.productTierId === o.productTierID);
+        return offering?.serviceModelType === "BYOA" || offering?.serviceModelType === "ON_PREM_COPILOT";
       })
     );
   }, [serviceOfferings, subscriptions]);
 
   const showCustomNetworksPage = useMemo(() => {
     return Boolean(
-      subscriptions.find(s => {
-        const offering = serviceOfferings.find(o => s.productTierId === o.productTierID)
+      subscriptions.find((s) => {
+        const offering = serviceOfferings.find((o) => s.productTierId === o.productTierID);
         return offering?.serviceModelFeatures?.find((el) => el.feature === "CUSTOM_NETWORKS");
       })
     );
@@ -216,8 +216,7 @@ const Sidebar = () => {
         name: "API Documentation",
         icon: APIDocsIcon,
         onClick: () => {
-          setIsOverlayOpen(true);
-          setOverlayType("api-documentation");
+          window.open("https://docs.falkordb.cloud/", "_blank");
         },
       },
       {

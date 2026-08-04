@@ -1,8 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Box, Stack } from "@mui/material";
 import DOMPurify from "isomorphic-dompurify";
-import { useState } from "react";
 
 import useDownloadCLI from "src/hooks/useDownloadCLI";
 import { colors } from "src/themeConfig";
@@ -54,6 +54,10 @@ const ServicePlanDetails: React.FC<ServicePlanDetailsProps> = ({ serviceOffering
             label={tabLabels[tab]}
             value={tab}
             onClick={() => {
+              if (tab === "api-documentation") {
+                window.open("https://docs.falkordb.cloud/", "_blank");
+                return;
+              }
               setCurrentTab(tab);
             }}
             disableRipple

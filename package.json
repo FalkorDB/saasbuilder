@@ -6,6 +6,7 @@
     "dev": "nodemon server.js",
     "dev:test": "node server.js",
     "build": "next build",
+    "build:frontend": "next build",
     "start": "NODE_ENV=production node server.js",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",

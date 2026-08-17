@@ -216,7 +216,7 @@ const Sidebar = () => {
         name: "API Documentation",
         icon: APIDocsIcon,
         onClick: () => {
-          window.open("https://docs.falkordb.cloud/", "_blank");
+          window.open("https://docs.falkordb.com/cloud", "_blank");
         },
       },
       {

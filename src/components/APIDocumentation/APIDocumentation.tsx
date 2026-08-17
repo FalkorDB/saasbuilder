@@ -11,7 +11,7 @@ const APIDocumentation: React.FC<APIDocumentationProps> = ({}) => {
     <CardWithTitle title="API Documentation" style={{ minHeight: "500px" }}>
       <Button
         onClick={() => {
-          window.open("https://docs.falkordb.cloud/", "_blank");
+          window.open("https://docs.falkordb.com/cloud", "_blank");
         }}
       >
         Open API Documentation

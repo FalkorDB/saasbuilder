@@ -55,7 +55,7 @@ const ServicePlanDetails: React.FC<ServicePlanDetailsProps> = ({ serviceOffering
             value={tab}
             onClick={() => {
               if (tab === "api-documentation") {
-                window.open("https://docs.falkordb.cloud/", "_blank");
+                window.open("https://docs.falkordb.com/cloud", "_blank");
                 return;
               }
               setCurrentTab(tab);

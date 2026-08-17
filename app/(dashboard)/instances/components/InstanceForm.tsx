@@ -364,51 +364,35 @@ const InstanceForm = ({
             }
           }
 
-        // Remove cloud_provider_native_network_id if cloudProvider is gcp or azure
-        if (data.cloudProvider === "gcp" || data.cloudProvider === "azure") {
-          delete data.requestParams.cloud_provider_native_network_id;
-        }
-
-        const selectedCloudAccountInstance = instances.find(
-          (instance) => instance.id === data.requestParams.cloud_provider_account_config_id
-        );
-        const allowNewCloudNativeNetworkCreation =
-          !selectedCloudAccountInstance ||
-          getResultParams(selectedCloudAccountInstance).allow_new_cloud_native_network_creation !== false;
-
-        if (data.requestParams._vpcType !== "choose_existing" && !allowNewCloudNativeNetworkCreation) {
-          return snackbar.showError("Creating new VPCs is not allowed for the selected cloud account config");
-        }
-
-        // Remove internal _vpcType field and only send cloudNativeNetworkId for existing VPC selections.
-        // Only applies when the VPC chooser is in play — otherwise the legacy
-        // cloud_provider_native_network_id input is the source of truth and must pass through.
-        if (data.requestParams._vpcType === "choose_existing") {
-          delete data.requestParams.cloud_provider_native_network_id;
-
-          if (!data.requestParams.cloudNativeNetworkId) {
-            return snackbar.showError("VPC is required");
+          // Remove cloud_provider_native_network_id if cloudProvider is gcp or azure
+          if (data.cloudProvider === "gcp" || data.cloudProvider === "azure") {
+            delete data.requestParams.cloud_provider_native_network_id;
           }
-        } else if (data.requestParams._vpcType) {
-          delete data.requestParams.cloudNativeNetworkId;
-        }
-        delete data.requestParams._vpcType;
 
-        // Check for Required Fields
-        const requiredFields = filterSchema
-          .filter((field) => !["cloud_provider", "region"].includes(field.key))
-          .filter((schemaParam) => schemaParam.required);
+          const selectedCloudAccountInstance = instances.find(
+            (instance) => instance.id === data.requestParams.cloud_provider_account_config_id
+          );
+          const allowNewCloudNativeNetworkCreation =
+            !selectedCloudAccountInstance ||
+            getResultParams(selectedCloudAccountInstance).allow_new_cloud_native_network_creation !== false;
 
-        data.cloud_provider = data.cloudProvider;
-        data.custom_network_id = data.requestParams.custom_network_id;
-
-        // For ON_PREM offerings: copy onprem_platform from root level to requestParams,
-        // and remove cloud_provider/cloudProvider since they're not relevant for on-prem
-        const isOnPremSubmission = offering?.serviceModelType === "ON_PREM" && inputParametersObj["onprem_platform"];
-        if (isOnPremSubmission) {
-          if (data.onprem_platform) {
-            data.requestParams.onprem_platform = data.onprem_platform;
+          if (data.requestParams._vpcType !== "choose_existing" && !allowNewCloudNativeNetworkCreation) {
+            return snackbar.showError("Creating new VPCs is not allowed for the selected cloud account config");
           }
+
+          // Remove internal _vpcType field and only send cloudNativeNetworkId for existing VPC selections.
+          // Only applies when the VPC chooser is in play — otherwise the legacy
+          // cloud_provider_native_network_id input is the source of truth and must pass through.
+          if (data.requestParams._vpcType === "choose_existing") {
+            delete data.requestParams.cloud_provider_native_network_id;
+
+            if (!data.requestParams.cloudNativeNetworkId) {
+              return snackbar.showError("VPC is required");
+            }
+          } else if (data.requestParams._vpcType) {
+            delete data.requestParams.cloudNativeNetworkId;
+          }
+          delete data.requestParams._vpcType;
 
           // Check for Required Fields
           const requiredFields = filterSchema
@@ -417,6 +401,21 @@ const InstanceForm = ({
 
           data.cloud_provider = data.cloudProvider;
           data.custom_network_id = data.requestParams.custom_network_id;
+
+          // For ON_PREM offerings: copy onprem_platform from root level to requestParams,
+          // and remove cloud_provider/cloudProvider since they're not relevant for on-prem
+          const isOnPremSubmission =
+            offering?.serviceModelType === "ON_PREM" && inputParametersObj["onprem_platform"];
+          if (isOnPremSubmission) {
+            if (data.onprem_platform) {
+              data.requestParams.onprem_platform = data.onprem_platform;
+            }
+            delete data.cloud_provider;
+            delete data.cloudProvider;
+            delete data.region;
+          } else {
+            delete data.requestParams.onprem_platform;
+          }
 
           const networkTypeFieldExists =
             inputParametersObj["cloud_provider"] &&

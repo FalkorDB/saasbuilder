@@ -20,7 +20,7 @@ import {
   getInstanceSnapshotsRoute,
   getInstancesRoute,
   getNotificationsRoute,
-  getPaymentMethodsRoute,
+  getPaymentSettingsRoute,
   getReleaseHistoryRoute,
   getSettingsRoute,
   getSnapshotDetailsRoute,
@@ -161,14 +161,15 @@ const Sidebar = () => {
       setExpandedMenus((prev) => ({
         ...prev,
         Deployments:
-          [getCustomNetworksRoute({}), getCloudAccountsRoute({}), getInstanceSnapshotsRoute()].includes(currentPath) ||
+          [getCustomNetworksRoute({}), getInstanceSnapshotsRoute()].includes(currentPath) ||
           currentPath.startsWith("/instances") ||
+          currentPath.startsWith(getCloudAccountsRoute({})) ||
           currentPath.startsWith(getSnapshotDetailsRoute("")),
         "Governance Hub": [getAccessControlRoute(), getEventsRoute(), getNotificationsRoute()].includes(currentPath),
         "Account Management": [
           getSettingsRoute(),
           getBillingRoute(),
-          getPaymentMethodsRoute(),
+          getPaymentSettingsRoute(),
           getCostExplorerRoute(),
           getSubscriptionsRoute({}),
         ].includes(currentPath),
@@ -303,8 +304,8 @@ const Sidebar = () => {
             isHidden: !isBillingEnabled,
           },
           {
-            name: "Payment Methods",
-            href: getPaymentMethodsRoute(),
+            name: "Payment Settings",
+            href: getPaymentSettingsRoute(),
             isHidden: !isBillingEnabled,
           },
           {

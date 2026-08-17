@@ -87,7 +87,7 @@ const Link = styled(NextLink)({
 
 type ConatainerCardProps = {
   title: string;
-  description?: string;
+  description?: ReactNode;
   children?: ReactNode;
   contentBoxProps?: BoxProps;
   statusChip?: ReactNode;
@@ -175,11 +175,7 @@ const PropertyDetails: FC<PropertyTableProps> = ({ rows, ...otherProps }) => {
           }
 
           if (typeof row.value === "boolean") {
-            // Handle booleans before the `!row.value` check so `false` isn't treated as missing.
-            // Explicit boolean valueType (e.g. private_link) renders Enabled/Disabled; plain booleans render True/False.
-            const isExplicitBooleanType = valueType === "boolean" || valueType === "Boolean";
-            const statusValue = isExplicitBooleanType ? (row.value ? "Enabled" : "Disabled") : String(row.value);
-            const statusStylesAndMap = getResourceInstanceDetailsStatusStylesAndLabel(statusValue);
+            const statusStylesAndMap = getResourceInstanceDetailsStatusStylesAndLabel(String(row.value));
             value = <StatusChip {...statusStylesAndMap} />;
           } else if (!row.value) {
             value = null;

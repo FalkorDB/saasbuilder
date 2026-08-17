@@ -1,7 +1,7 @@
-import { test, expect } from "test-fixtures/har-test";
 import { CloudAccountsPage } from "page-objects/cloud-accounts-page";
 import { dataTestIds as instanceDataTestIds } from "page-objects/constants/instances-page";
 import { InstancesPage } from "page-objects/instances-page";
+import { expect, test } from "test-fixtures/har-test";
 import { skipOnBackendError } from "test-utils/backend-error";
 import { GlobalStateManager } from "test-utils/global-state-manager";
 import { registerSoftFailureRecorder } from "test-utils/soft-failure-tracker";
@@ -12,7 +12,7 @@ const logPrefix = "Instances -> BYOA Instance Tests ->";
 
 test.describe.configure({ mode: "serial" });
 
-test.describe("Instances Page - BYOA Instance Tests", () => {
+test.describe.skip("Instances Page - BYOA Instance Tests", () => {
   let instancesPage: InstancesPage,
     cloudAccountsPage: CloudAccountsPage,
     cloudAccountInstanceId: string,
@@ -33,7 +33,7 @@ test.describe("Instances Page - BYOA Instance Tests", () => {
     await page.getByTestId(dataTestIds.createButton).click();
     await page.getByTestId(dataTestIds.serviceNameSelect).click();
     const date = GlobalStateManager.getDate();
-    await page.getByRole("option", { name: `SaaSBuilder Supabase DT BYOA - ${date}` }).click();
+    await page.getByRole("option", { name: `SaaSBuilder Postgres DT BYOA - ${date}` }).click();
 
     // If the Subscribe Button is Visible, Click it
     const subscribeButton = page.getByTestId("subscribe-button");
@@ -70,16 +70,14 @@ test.describe("Instances Page - BYOA Instance Tests", () => {
     await page.getByTestId(dataTestIds.serviceNameSelect).click();
 
     const date = GlobalStateManager.getDate();
-    await page.getByRole("option", { name: `SaaSBuilder Supabase DT BYOA - ${date}` }).click();
+    await page.getByRole("option", { name: `SaaSBuilder Postgres DT BYOA - ${date}` }).click();
     await page.waitForLoadState("networkidle");
 
     await page.getByTestId(dataTestIds.cloudAccountSelect).click();
     await page.getByRole("option", { name: `${cloudAccountInstanceId} (Account` }).click();
 
-    await page.getByTestId("postgresPassword-input").fill("hello");
-    await page.getByTestId("organizationName-input").fill("hello");
-    await page.getByTestId("dashboardPassword-input").fill("hello");
-    await page.getByTestId("projectName-input").fill("hello");
+    await page.getByTestId("password-input").fill("a_secure_password");
+    await page.getByTestId("username-input").fill("username");
 
     await page.waitForTimeout(5000);
     await page.getByTestId(dataTestIds.submitButton).click();

@@ -1,15 +1,17 @@
+import ArrowOutwardIcon from "@mui/icons-material/ArrowOutward";
 import { Box, Stack, styled } from "@mui/material";
 import Link from "next/link";
 import { FC } from "react";
 
 import { Text } from "components/Typography/Typography";
+import AwsCloudFormationInstructions from "src/components/AwsCloudFormationInstructions/AwsCloudFormationInstructions";
 import { TextContainerToCopy } from "src/components/CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
 import { addQuotesToShellCommand } from "src/utils/accountConfig/accountConfig";
+import { hasAwsCloudFormationCliCommands } from "src/utils/accountConfig/awsCloudFormation";
 
 const StyledLink = styled(Link)({
-  textDecoration: "underline",
   color: "#7F56D9",
-  fontWeight: 700,
+  fontWeight: 400,
   // fontStyle: "italic",
 });
 
@@ -42,8 +44,20 @@ const ArrowBullet = (props) => (
   </svg>
 );
 
+const StepBullet = styled(Box)({
+  display: "block",
+  width: "5px",
+  height: "5px",
+  flexShrink: 0,
+  marginTop: "8px",
+  borderRadius: "50%",
+  backgroundColor: "#344054",
+});
+
 export type OffboardInstructionDetails = {
   awsAccountID?: string;
+  /** Onboarding quick-create URL, used to derive the stack the CLI offboarding command targets. */
+  awsCloudFormationUrl?: string;
   gcpProjectID?: string;
   gcpProjectNumber?: string;
   gcpOffboardCommand?: string;
@@ -73,13 +87,13 @@ export const OffboardingInstructions: FC<{ offboardingInstructionDetails: Offboa
 
       {offboardingInstructionDetails?.gcpProjectID && (
         <Stack direction={"row"} alignItems={"flex-start"} gap="12px" marginBottom={"20px"}>
-          <Box flex={1} maxWidth={"50%"}>
+          <Box flex={1} minWidth={0}>
             <Text size="small" weight="semibold" color="#374151">
               GCP Project ID
             </Text>
             <TextContainerToCopy text={offboardingInstructionDetails?.gcpProjectID} marginTop="6px" />
           </Box>
-          <Box flex={1} maxWidth={"50%"}>
+          <Box flex={1} minWidth={0}>
             <Text size="small" weight="semibold" color="#374151">
               GCP Project Number
             </Text>
@@ -90,13 +104,13 @@ export const OffboardingInstructions: FC<{ offboardingInstructionDetails: Offboa
 
       {offboardingInstructionDetails?.azureSubscriptionID && (
         <Stack direction={"row"} alignItems={"flex-start"} gap="12px" marginBottom={"20px"}>
-          <Box flex={1} maxWidth={"50%"}>
+          <Box flex={1} minWidth={0}>
             <Text size="small" weight="semibold" color="#374151">
               Azure Subscription ID
             </Text>
             <TextContainerToCopy text={offboardingInstructionDetails?.azureSubscriptionID} marginTop="6px" />
           </Box>
-          <Box flex={1} maxWidth={"50%"}>
+          <Box flex={1} minWidth={0}>
             <Text size="small" weight="semibold" color="#374151">
               Azure Tenant ID
             </Text>
@@ -107,13 +121,13 @@ export const OffboardingInstructions: FC<{ offboardingInstructionDetails: Offboa
 
       {offboardingInstructionDetails?.ociTenancyID && (
         <Stack direction={"row"} alignItems={"flex-start"} gap="12px" marginBottom={"20px"}>
-          <Box flex={1} maxWidth={"50%"}>
+          <Box flex={1} minWidth={0}>
             <Text size="small" weight="semibold" color="#374151">
               OCI Tenancy OCID
             </Text>
             <TextContainerToCopy text={offboardingInstructionDetails?.ociTenancyID} marginTop="6px" />
           </Box>
-          <Box flex={1} maxWidth={"50%"}>
+          <Box flex={1} minWidth={0}>
             <Text size="small" weight="semibold" color="#374151">
               OCI Domain OCID
             </Text>
@@ -121,6 +135,7 @@ export const OffboardingInstructions: FC<{ offboardingInstructionDetails: Offboa
           </Box>
         </Stack>
       )}
+
       {offboardingInstructionDetails?.byocOnpremClusterName && (
         <Box marginBottom={"20px"}>
           <Text size="small" weight="semibold" color="#374151">
@@ -129,6 +144,7 @@ export const OffboardingInstructions: FC<{ offboardingInstructionDetails: Offboa
           <TextContainerToCopy text={offboardingInstructionDetails?.byocOnpremClusterName} marginTop="6px" />
         </Box>
       )}
+
       <Text size="small" weight="medium" color="#414651">
         This cloud account instance is marked for deletion
       </Text>
@@ -136,22 +152,74 @@ export const OffboardingInstructions: FC<{ offboardingInstructionDetails: Offboa
       <List>
         {offboardingInstructionDetails?.awsAccountID && (
           <ListItem>
-            <ListItemIcon>
-              <ArrowBullet />
-            </ListItemIcon>
+            {!hasAwsCloudFormationCliCommands(offboardingInstructionDetails?.awsCloudFormationUrl) && (
+              <ListItemIcon>
+                <ArrowBullet />
+              </ListItemIcon>
+            )}
 
-            <Text size="medium" weight="regular" color="#374151">
-              {/* <b>Using CloudFormation:</b>  */}
-              Follow the provided steps{" "}
-              <StyledLink
-                target="_blank"
-                rel="noopener noreferrer"
-                href="https://docs.omnistrate.com/getting-started/account-offboarding/"
+            <Box overflow="hidden" flex={1}>
+              <AwsCloudFormationInstructions
+                cloudFormationUrl={offboardingInstructionDetails?.awsCloudFormationUrl}
+                variant="offboarding"
+                awsAccountId={offboardingInstructionDetails?.awsAccountID}
               >
-                here
-              </StyledLink>{" "}
-              to complete the off-boarding process and revoke remaining access from your cloud account
-            </Text>
+                <Text size="medium" weight="regular" color="#374151">
+                  Delete the CloudFormation stack that was created during onboarding:
+                </Text>
+                <List sx={{ marginTop: "8px", gap: "6px" }}>
+                  <ListItem sx={{ gap: "8px" }}>
+                    <ListItemIcon>
+                      <StepBullet />
+                    </ListItemIcon>
+                    <Text size="small" weight="regular" color="#374151">
+                      Open the{" "}
+                      <StyledLink
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        href="https://console.aws.amazon.com/cloudformation/"
+                      >
+                        AWS CloudFormation Console
+                        <ArrowOutwardIcon
+                          sx={{
+                            fontSize: "1.3em !important",
+                            flexShrink: 0,
+                            color: "inherit",
+                            verticalAlign: "middle",
+                            ml: "2px",
+                          }}
+                          aria-hidden="true"
+                        />
+                      </StyledLink>
+                    </Text>
+                  </ListItem>
+                  <ListItem sx={{ gap: "8px" }}>
+                    <ListItemIcon>
+                      <StepBullet />
+                    </ListItemIcon>
+                    <Text size="small" weight="regular" color="#374151">
+                      Locate the onboarding stack created during setup
+                    </Text>
+                  </ListItem>
+                  <ListItem sx={{ gap: "8px" }}>
+                    <ListItemIcon>
+                      <StepBullet />
+                    </ListItemIcon>
+                    <Text size="small" weight="regular" color="#374151">
+                      Select the stack and choose Delete
+                    </Text>
+                  </ListItem>
+                  <ListItem sx={{ gap: "8px" }}>
+                    <ListItemIcon>
+                      <StepBullet />
+                    </ListItemIcon>
+                    <Text size="small" weight="regular" color="#374151">
+                      Wait for the stack deletion to complete
+                    </Text>
+                  </ListItem>
+                </List>
+              </AwsCloudFormationInstructions>
+            </Box>
           </ListItem>
         )}
 

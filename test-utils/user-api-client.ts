@@ -40,6 +40,9 @@ export class UserAPIClient {
     return request.newContext({
       baseURL: this.baseURL,
       extraHTTPHeaders: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      // Listing offerings in a busy environment takes ~23s, over Playwright's 30s
+      // default once the browser is competing for bandwidth. Matches ProviderAPIClient.
+      timeout: 60000,
     });
   }
 
@@ -61,8 +64,7 @@ export class UserAPIClient {
     );
 
     if (!response.ok()) {
-      console.error("Failed to create resource instance", await response.json());
-      throw new Error("Failed to create resource instance");
+      throw new Error(`Failed to create resource instance: ${response.status()} ${await response.text()}`);
     }
 
     const instanceId = (await response.json()).id;
@@ -179,6 +181,34 @@ export class UserAPIClient {
         },
       }
     );
+  }
+
+  async listSubscriptions(): Promise<Subscription[]> {
+    const context = await this.createUserRequest();
+    const response = await context.get(
+      `/${this.apiVersion}/subscription?environmentType=${process.env.ENVIRONMENT_TYPE}`
+    );
+
+    if (!response.ok()) {
+      throw new Error(`Failed to list subscriptions: ${response.status()} ${await response.text()}`);
+    }
+
+    return (await response.json()).subscriptions || [];
+  }
+
+  async createSubscription(serviceId: string, productTierId: string): Promise<string> {
+    const context = await this.createUserRequest();
+    const response = await context.post(`/${this.apiVersion}/subscription`, {
+      data: { serviceId, productTierId },
+    });
+
+    if (!response.ok()) {
+      throw new Error(`Failed to create subscription: ${response.status()} ${await response.text()}`);
+    }
+
+    // The API returns the bare id, either as a JSON string or wrapped in an object
+    const body = await response.json();
+    return typeof body === "string" ? body : Object.values(body).join("");
   }
 
   async describeSubscription(subscriptionId?: string): Promise<Subscription> {

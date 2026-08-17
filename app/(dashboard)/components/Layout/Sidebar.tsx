@@ -20,7 +20,7 @@ import {
   getInstanceSnapshotsRoute,
   getInstancesRoute,
   getNotificationsRoute,
-  getPaymentMethodsRoute,
+  getPaymentSettingsRoute,
   getReleaseHistoryRoute,
   getSettingsRoute,
   getSnapshotDetailsRoute,
@@ -29,7 +29,7 @@ import {
 import APIDocsIcon from "components/Icons/SideNavbar/APIDocs/APIDocsIcon";
 import DashboardNavIcon from "components/Icons/SideNavbar/Dashboard/Dashboard";
 import DeveloperDocsIcon from "components/Icons/SideNavbar/DeveloperDocs/DeveloperDocsIcon";
-import DownloadCLIIcon from "components/Icons/SideNavbar/DownloadCLI/DownloadCLIIcon";
+// import DownloadCLIIcon from "components/Icons/SideNavbar/DownloadCLI/DownloadCLIIcon";
 import FileLockIcon from "components/Icons/SideNavbar/FileLock/FileLockIcon";
 import PricingIcon from "components/Icons/SideNavbar/Pricing/PricingIcon";
 import ReleaseHistoryIcon from "components/Icons/SideNavbar/ReleaseHistory/ReleaseHistoryIcon";
@@ -149,7 +149,7 @@ const Sidebar = () => {
   const currentPath = usePathname();
   const { serviceOfferings, subscriptions } = useGlobalData();
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
-  const [overlayType, setOverlayType] = useState<Overlay>("plan-details");
+  const [overlayType, _] = useState<Overlay>("plan-details");
   const [expandedMenus, setExpandedMenus] = useState({
     Deployments: false,
     "Governance Hub": false,
@@ -161,14 +161,15 @@ const Sidebar = () => {
       setExpandedMenus((prev) => ({
         ...prev,
         Deployments:
-          [getCustomNetworksRoute({}), getCloudAccountsRoute({}), getInstanceSnapshotsRoute()].includes(currentPath) ||
+          [getCustomNetworksRoute({}), getInstanceSnapshotsRoute()].includes(currentPath) ||
           currentPath.startsWith("/instances") ||
+          currentPath.startsWith(getCloudAccountsRoute({})) ||
           currentPath.startsWith(getSnapshotDetailsRoute("")),
         "Governance Hub": [getAccessControlRoute(), getEventsRoute(), getNotificationsRoute()].includes(currentPath),
         "Account Management": [
           getSettingsRoute(),
           getBillingRoute(),
-          getPaymentMethodsRoute(),
+          getPaymentSettingsRoute(),
           getCostExplorerRoute(),
           getSubscriptionsRoute({}),
         ].includes(currentPath),
@@ -178,17 +179,17 @@ const Sidebar = () => {
 
   const showCloudProvidersPage = useMemo(() => {
     return Boolean(
-      subscriptions.find(s => {
-        const offering = serviceOfferings.find(o => s.productTierId === o.productTierID);
-        return offering?.serviceModelType === "BYOA" || offering?.serviceModelType === "ON_PREM_COPILOT"
+      subscriptions.find((s) => {
+        const offering = serviceOfferings.find((o) => s.productTierId === o.productTierID);
+        return offering?.serviceModelType === "BYOA" || offering?.serviceModelType === "ON_PREM_COPILOT";
       })
     );
   }, [serviceOfferings, subscriptions]);
 
   const showCustomNetworksPage = useMemo(() => {
     return Boolean(
-      subscriptions.find(s => {
-        const offering = serviceOfferings.find(o => s.productTierId === o.productTierID)
+      subscriptions.find((s) => {
+        const offering = serviceOfferings.find((o) => s.productTierId === o.productTierID);
         return offering?.serviceModelFeatures?.find((el) => el.feature === "CUSTOM_NETWORKS");
       })
     );
@@ -216,40 +217,28 @@ const Sidebar = () => {
         name: "API Documentation",
         icon: APIDocsIcon,
         onClick: () => {
-          setIsOverlayOpen(true);
-          setOverlayType("api-documentation");
-        },
-      },
-      {
-        name: "Download CLI",
-        icon: DownloadCLIIcon,
-        onClick: () => {
-          setIsOverlayOpen(true);
-          setOverlayType("download-cli");
+          window.open("https://docs.falkordb.com/cloud/api-reference/introduction", "_blank");
         },
       },
       {
         name: "Support",
         icon: SupportIcon,
         onClick: () => {
-          setIsOverlayOpen(true);
-          setOverlayType("support");
+          window.open("https://support.falkordb.com/", "_blank");
         },
       },
       {
         name: "Pricing",
         icon: PricingIcon,
         onClick: () => {
-          setIsOverlayOpen(true);
-          setOverlayType("pricing");
+          window.open("https://docs.falkordb.com/cloud/tiers/pro", "_blank");
         },
       },
       {
         name: "Documentation",
         icon: DeveloperDocsIcon,
         onClick: () => {
-          setIsOverlayOpen(true);
-          setOverlayType("documentation");
+          window.open("https://docs.falkordb.com/cloud", "_blank");
         },
       },
     ],
@@ -304,8 +293,8 @@ const Sidebar = () => {
             isHidden: !isBillingEnabled,
           },
           {
-            name: "Payment Methods",
-            href: getPaymentMethodsRoute(),
+            name: "Payment Settings",
+            href: getPaymentSettingsRoute(),
             isHidden: !isBillingEnabled,
           },
           {

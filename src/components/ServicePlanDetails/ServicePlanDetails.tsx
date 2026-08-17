@@ -1,23 +1,15 @@
 "use client";
 
-import { Box, Stack } from "@mui/material";
-import DOMPurify from "isomorphic-dompurify";
 import { useState } from "react";
+import DOMPurify from "isomorphic-dompurify";
 
-import useDownloadCLI from "src/hooks/useDownloadCLI";
-import { colors } from "src/themeConfig";
 import { ServiceOffering } from "src/types/serviceOffering";
 
 import APIDocumentation from "../APIDocumentation/APIDocumentation";
-import Button from "../Button/Button";
 import CardWithTitle from "../Card/CardWithTitle";
-import LoadingSpinnerSmall from "../CircularProgress/CircularProgress";
-import DownloadCLITitleIcon from "../Icons/DownloadCLI/DownloadCLITitleIcon";
-import DownloadCLIIcon from "../Icons/SideNavbar/DownloadCLI/DownloadCLIIcon";
 import { Tab, Tabs } from "../Tab/Tab";
-import { DisplayText, Text } from "../Typography/Typography";
 
-type CurrentTab = "plan-details" | "documentation" | "pricing" | "support" | "api-documentation" | "download-cli";
+type CurrentTab = "plan-details" | "documentation" | "pricing" | "support" | "api-documentation";
 
 type ServicePlanDetailsProps = {
   serviceOffering?: ServiceOffering;
@@ -30,12 +22,11 @@ const tabLabels: Record<CurrentTab, string> = {
   pricing: "Pricing",
   support: "Support",
   "api-documentation": "API Documentation",
-  "download-cli": "Download CLI",
+  // "download-cli": "Download CLI",
 };
 
 const ServicePlanDetails: React.FC<ServicePlanDetailsProps> = ({ serviceOffering, startingTab = "plan-details" }) => {
-  const { downloadCLI, isDownloading } = useDownloadCLI();
-  const [currentTab, setCurrentTab] = useState<CurrentTab>(startingTab);
+  const [currentTab, _] = useState<CurrentTab>(startingTab);
 
   if (!serviceOffering) return null;
 
@@ -54,7 +45,24 @@ const ServicePlanDetails: React.FC<ServicePlanDetailsProps> = ({ serviceOffering
             label={tabLabels[tab]}
             value={tab}
             onClick={() => {
-              setCurrentTab(tab);
+              if (tab === "api-documentation") {
+                window.open("https://docs.falkordb.com/cloud/api-reference/introduction", "_blank");
+              }
+              if (tab === "documentation") {
+                window.open("https://docs.falkordb.com/cloud", "_blank");
+              }
+              if (tab === "pricing") {
+                window.open("https://docs.falkordb.com/cloud/tiers/pro", "_blank");
+              }
+              if (tab === "support") {
+                window.open("https://falkordb.com/support", "_blank");
+              }
+              if (tab === "plan-details") {
+                window.open(
+                  `https://docs.falkordb.com/cloud/tiers/${serviceOffering.productTierName.toLowerCase().split(" ").pop()}`,
+                  "_blank"
+                );
+              }
             }}
             disableRipple
           />
@@ -111,51 +119,6 @@ const ServicePlanDetails: React.FC<ServicePlanDetailsProps> = ({ serviceOffering
 
       {currentTab === "api-documentation" && (
         <APIDocumentation serviceId={serviceOffering.serviceId} serviceAPIID={serviceOffering.serviceAPIID} />
-      )}
-
-      {currentTab === "download-cli" && (
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          gap={2}
-          sx={{ border: "1px solid #E9EAEB", borderRadius: "12px", p: 2 }}
-        >
-          <Stack direction="row" alignItems="center" gap={1.5}>
-            <Box
-              sx={{
-                p: 1,
-                border: `1px solid ${colors.gray200}`,
-                borderRadius: "8px",
-                display: "flex",
-                alignItems: "center",
-                backgroundColor: colors.white,
-              }}
-            >
-              <DownloadCLITitleIcon color={colors.success500} />
-            </Box>
-            <Box sx={{ display: "flex", flexDirection: "column" }}>
-              {/* @ts-ignore */}
-              <DisplayText size="xsmall" weight="bold" color="#181D27">
-                Download CLI
-              </DisplayText>
-              <Text size="small" weight="regular" color="#535862">
-                Supported platform:<b> Linux ARM64</b> 
-              </Text>
-            </Box>
-          </Stack>
-          <Button
-            variant="contained"
-            disabled={isDownloading}
-            onClick={() => {
-              downloadCLI(serviceOffering.serviceId, serviceOffering.serviceAPIID);
-            }}
-            startIcon={<DownloadCLIIcon color="#FFFFFF" disabled={isDownloading} />}
-          >
-            Download CLI
-            {isDownloading && <LoadingSpinnerSmall />}
-          </Button>
-        </Stack>
       )}
     </CardWithTitle>
   );

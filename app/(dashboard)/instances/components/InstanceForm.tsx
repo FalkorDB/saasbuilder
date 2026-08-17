@@ -44,9 +44,7 @@ import {
 } from "./InstanceFormFields";
 
 type ValidationSchema =
-  | StringSchema<string | undefined>
-  | StringSchema<string | null | undefined>
-  | ReturnType<typeof yup.mixed>;
+  StringSchema<string | undefined> | StringSchema<string | null | undefined> | ReturnType<typeof yup.mixed>;
 
 const InstanceForm = ({
   formMode,
@@ -404,8 +402,7 @@ const InstanceForm = ({
 
           // For ON_PREM offerings: copy onprem_platform from root level to requestParams,
           // and remove cloud_provider/cloudProvider since they're not relevant for on-prem
-          const isOnPremSubmission =
-            offering?.serviceModelType === "ON_PREM" && inputParametersObj["onprem_platform"];
+          const isOnPremSubmission = offering?.serviceModelType === "ON_PREM" && inputParametersObj["onprem_platform"];
           if (isOnPremSubmission) {
             if (data.onprem_platform) {
               data.requestParams.onprem_platform = data.onprem_platform;
@@ -1030,8 +1027,8 @@ const InstanceForm = ({
   const selectedAccountConfigId = getResultParams(selectedCloudAccountInstance)?.cloud_provider_account_config_id;
   const shouldFetchCloudNativeNetworks = Boolean(
     formMode === "create" &&
-      selectedAccountConfigId &&
-      (values.cloudProvider === "aws" || values.cloudProvider === "gcp" || values.cloudProvider === "azure")
+    selectedAccountConfigId &&
+    (values.cloudProvider === "aws" || values.cloudProvider === "gcp" || values.cloudProvider === "azure")
   );
 
   const cloudNativeNetworksQuery = $api.useQuery(

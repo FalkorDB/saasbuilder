@@ -494,7 +494,7 @@ function ResourceImportExportRDB(props) {
     mutationFn: async (vars) => {
       const { taskId, uploadUrl } = await postInstanceImportRdbRequestURL(instanceId, vars.source);
 
-      if (vars.source) {
+      if (vars.source && vars.source.type !== "file") {
         return;
       }
 

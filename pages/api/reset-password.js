@@ -58,6 +58,7 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
           message: defaultErrorMessage,
         });
       } else {
+        console.error("Reset password error", error);
         const responseErrorMessage = error.response?.data?.message;
 
         if (responseErrorMessage === "user not found: record not found") {

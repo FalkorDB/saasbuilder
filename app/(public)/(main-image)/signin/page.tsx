@@ -40,7 +40,7 @@ const Page = async () => {
     <SigninPage
       isReCaptchaSetup={checkReCaptchaSetup()}
       saasBuilderBaseURL={getSaaSDomainURL()}
-      googleReCaptchaSiteKey={process.env.GOOGLE_RECAPTCHA_SITE_KEY || ""}
+      googleReCaptchaSiteKey={process.env.NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY || ""}
       isPasswordLoginEnabled={isPasswordLoginEnabled}
       identityProviders={identityProviders}
     />

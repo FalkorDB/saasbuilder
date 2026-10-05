@@ -32,7 +32,7 @@ const ResetPasswordPage = (props) => {
   const { orgLogoURL, orgName } = useProviderOrgDetails();
 
   const snackbar = useSnackbar();
-  const reCaptchaRef = useRef<any>(null);
+  const reCaptchaRef = useRef<ReCAPTCHA | null>(null);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -58,7 +58,7 @@ const ResetPasswordPage = (props) => {
   async function handleFormSubmit(values) {
     const data = {};
 
-    if (reCaptchaRef.current && !hasCaptchaErrored) {
+    if (reCaptchaRef.current && !hasCaptchaErrored && isScriptLoaded) {
       const token = await reCaptchaRef.current.executeAsync();
       reCaptchaRef.current.reset();
       data["reCaptchaToken"] = token;
@@ -147,7 +147,7 @@ const ResetPasswordPage = (props) => {
           data-testid="submit-button"
           type="submit"
           onClick={formik.handleSubmit}
-          disabled={!formik.isValid || (isReCaptchaSetup && !isScriptLoaded)}
+          disabled={!formik.isValid || (isReCaptchaSetup && !hasCaptchaErrored && !isScriptLoaded)}
           loading={resetPasswordMutation.isPending}
         >
           Submit
@@ -164,6 +164,7 @@ const ResetPasswordPage = (props) => {
           }}
           onErrored={() => {
             setHasCaptchaErrored(true);
+            setIsScriptLoaded(true);
           }}
         />
       )}

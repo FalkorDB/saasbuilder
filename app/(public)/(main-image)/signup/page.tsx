@@ -36,7 +36,7 @@ const Page = async () => {
   return (
     <SignupPage
       isReCaptchaSetup={checkReCaptchaSetup()}
-      googleReCaptchaSiteKey={process.env.GOOGLE_RECAPTCHA_SITE_KEY || null}
+      googleReCaptchaSiteKey={process.env.NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY || null}
       isPasswordLoginEnabled={isPasswordLoginEnabled}
       identityProviders={identityProviders}
     />

@@ -30,7 +30,7 @@ type PasswordFormProps = {
 const PasswordForm: React.FC<PasswordFormProps> = ({ email, googleReCaptchaSiteKey, isReCaptchaSetup }) => {
   const snackbar = useSnackbar();
   const { logout } = useLogout();
-  const reCaptchaRef = useRef<any>(null);
+  const reCaptchaRef = useRef<ReCAPTCHA | null>(null);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
 
@@ -53,7 +53,7 @@ const PasswordForm: React.FC<PasswordFormProps> = ({ email, googleReCaptchaSiteK
     onSubmit: async (values) => {
       const data = { ...values };
 
-      if (reCaptchaRef.current && !hasCaptchaErrored) {
+      if (reCaptchaRef.current && !hasCaptchaErrored && isScriptLoaded) {
         const token = await reCaptchaRef.current.executeAsync();
         reCaptchaRef.current.reset();
         data["reCaptchaToken"] = token;
@@ -209,7 +209,7 @@ const PasswordForm: React.FC<PasswordFormProps> = ({ email, googleReCaptchaSiteK
                   border: "none",
                   padding: "0 !important",
                 }}
-                disabled={setPasswordMutation.isPending || (isReCaptchaSetup && !isScriptLoaded)}
+                disabled={setPasswordMutation.isPending || (isReCaptchaSetup && !hasCaptchaErrored && !isScriptLoaded)}
               >
                 click here
               </Button>
@@ -236,6 +236,7 @@ const PasswordForm: React.FC<PasswordFormProps> = ({ email, googleReCaptchaSiteK
             }}
             onErrored={() => {
               setHasCaptchaErrored(true);
+              setIsScriptLoaded(true);
             }}
           />
         )}

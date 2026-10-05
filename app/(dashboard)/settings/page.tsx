@@ -58,7 +58,7 @@ const SettingsPage = () => {
         {currentTab === "password" && (
           <PasswordForm
             email={selectUser?.email}
-            googleReCaptchaSiteKey={process.env.GOOGLE_RECAPTCHA_SITE_KEY || null}
+            googleReCaptchaSiteKey={process.env.NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY || null}
             isReCaptchaSetup={checkReCaptchaSetup()}
           />
         )}

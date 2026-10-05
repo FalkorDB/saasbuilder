@@ -19,6 +19,7 @@ type PasswordLoginFieldsProps = {
   isPasswordSignInLoading: boolean;
   isReCaptchaSetup: boolean;
   isRecaptchaScriptLoaded: boolean;
+  hasCaptchaErrored: boolean;
   identityProviders: IdentityProvider[];
 };
 
@@ -27,6 +28,7 @@ const PasswordLoginFields: FC<PasswordLoginFieldsProps> = ({
   isPasswordSignInLoading,
   isReCaptchaSetup,
   isRecaptchaScriptLoaded,
+  hasCaptchaErrored,
   identityProviders
 }) => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -95,7 +97,7 @@ const PasswordLoginFields: FC<PasswordLoginFieldsProps> = ({
         data-testid="login-button"
         type="submit"
         onClick={formData.handleSubmit}
-        disabled={!formData.isValid || (isReCaptchaSetup && !isRecaptchaScriptLoaded)}
+        disabled={!formData.isValid || (isReCaptchaSetup && !hasCaptchaErrored && !isRecaptchaScriptLoaded)}
         loading={isPasswordSignInLoading}
       >
         Sign In

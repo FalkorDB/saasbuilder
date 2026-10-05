@@ -29,7 +29,7 @@ const PasswordLoginFields: FC<PasswordLoginFieldsProps> = ({
   isReCaptchaSetup,
   isRecaptchaScriptLoaded,
   hasCaptchaErrored,
-  identityProviders
+  identityProviders,
 }) => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const environmentType = useEnvironmentType();

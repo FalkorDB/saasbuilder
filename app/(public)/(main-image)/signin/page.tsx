@@ -27,7 +27,7 @@ const Page = async () => {
   identityProviders.sort((a, b) => {
     const loginButtonTextA = getIdentityProviderButtonLabel(a).toLowerCase();
     const loginButtonTextB = getIdentityProviderButtonLabel(b).toLowerCase();
-    
+
     if (loginButtonTextA.includes("google")) return -1;
     if (loginButtonTextB.includes("google")) return 1;
 

@@ -44,6 +44,7 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
 
       return nextResponse.status(200).send();
     } catch (error) {
+      console.error("Reset password error", error);
       // Extract IP for error handling
       const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
@@ -58,7 +59,6 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
           message: defaultErrorMessage,
         });
       } else {
-        console.error("Reset password error", error);
         const responseErrorMessage = error.response?.data?.message;
 
         if (responseErrorMessage === "user not found: record not found") {

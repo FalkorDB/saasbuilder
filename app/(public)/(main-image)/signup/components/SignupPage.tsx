@@ -83,9 +83,24 @@ const SignupPage = (props) => {
   async function handleFormSubmit(values) {
     const data: any = {};
 
-    if (reCaptchaRef.current && !hasCaptchaErrored && isScriptLoaded) {
+    if (isReCaptchaSetup) {
+      if (hasCaptchaErrored) {
+        snackbar.showError("reCAPTCHA is unavailable right now. Please refresh and try again.");
+        return;
+      }
+
+      if (!reCaptchaRef.current || !isScriptLoaded) {
+        return;
+      }
+
       const token = await reCaptchaRef.current.executeAsync();
       reCaptchaRef.current.reset();
+
+      if (!token) {
+        snackbar.showError("reCAPTCHA verification failed. Please try again.");
+        return;
+      }
+
       data["reCaptchaToken"] = token;
     }
 
@@ -241,7 +256,7 @@ const SignupPage = (props) => {
             onSubmit={formik.handleSubmit}
             isSubmitDisabled={
               !formik.isValid ||
-              (isReCaptchaSetup && !hasCaptchaErrored && !isScriptLoaded) ||
+              (isReCaptchaSetup && (!isScriptLoaded || hasCaptchaErrored)) ||
               !isPasswordLoginEnabled ||
               hasIDPWithMatchingDomain
             }
@@ -296,7 +311,8 @@ const SignupPage = (props) => {
             }}
             onErrored={() => {
               setHasCaptchaErrored(true);
-              setIsScriptLoaded(true);
+              setIsScriptLoaded(false);
+              snackbar.showError("reCAPTCHA is unavailable right now. Please refresh and try again.");
             }}
           />
         )}

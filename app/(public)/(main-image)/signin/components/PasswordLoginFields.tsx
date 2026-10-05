@@ -97,7 +97,7 @@ const PasswordLoginFields: FC<PasswordLoginFieldsProps> = ({
         data-testid="login-button"
         type="submit"
         onClick={formData.handleSubmit}
-        disabled={!formData.isValid || (isReCaptchaSetup && !hasCaptchaErrored && !isRecaptchaScriptLoaded)}
+        disabled={!formData.isValid || (isReCaptchaSetup && (!isRecaptchaScriptLoaded || hasCaptchaErrored))}
         loading={isPasswordSignInLoading}
       >
         Sign In

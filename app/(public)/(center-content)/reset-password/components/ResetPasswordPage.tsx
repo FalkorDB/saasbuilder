@@ -58,9 +58,24 @@ const ResetPasswordPage = (props) => {
   async function handleFormSubmit(values) {
     const data = {};
 
-    if (reCaptchaRef.current && !hasCaptchaErrored && isScriptLoaded) {
+    if (isReCaptchaSetup) {
+      if (hasCaptchaErrored) {
+        snackbar.showError("reCAPTCHA is unavailable right now. Please refresh and try again.");
+        return;
+      }
+
+      if (!reCaptchaRef.current || !isScriptLoaded) {
+        return;
+      }
+
       const token = await reCaptchaRef.current.executeAsync();
       reCaptchaRef.current.reset();
+
+      if (!token) {
+        snackbar.showError("reCAPTCHA verification failed. Please try again.");
+        return;
+      }
+
       data["reCaptchaToken"] = token;
     }
 
@@ -147,7 +162,7 @@ const ResetPasswordPage = (props) => {
           data-testid="submit-button"
           type="submit"
           onClick={formik.handleSubmit}
-          disabled={!formik.isValid || (isReCaptchaSetup && !hasCaptchaErrored && !isScriptLoaded)}
+          disabled={!formik.isValid || (isReCaptchaSetup && (!isScriptLoaded || hasCaptchaErrored))}
           loading={resetPasswordMutation.isPending}
         >
           Submit
@@ -164,7 +179,8 @@ const ResetPasswordPage = (props) => {
           }}
           onErrored={() => {
             setHasCaptchaErrored(true);
-            setIsScriptLoaded(true);
+            setIsScriptLoaded(false);
+            snackbar.showError("reCAPTCHA is unavailable right now. Please refresh and try again.");
           }}
         />
       )}

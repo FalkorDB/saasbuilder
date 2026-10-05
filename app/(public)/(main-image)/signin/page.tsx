@@ -27,7 +27,7 @@ const Page = async () => {
   identityProviders.sort((a, b) => {
     const loginButtonTextA = getIdentityProviderButtonLabel(a).toLowerCase();
     const loginButtonTextB = getIdentityProviderButtonLabel(b).toLowerCase();
-    
+
     if (loginButtonTextA.includes("google")) return -1;
     if (loginButtonTextB.includes("google")) return 1;
 
@@ -40,7 +40,7 @@ const Page = async () => {
     <SigninPage
       isReCaptchaSetup={checkReCaptchaSetup()}
       saasBuilderBaseURL={getSaaSDomainURL()}
-      googleReCaptchaSiteKey={process.env.GOOGLE_RECAPTCHA_SITE_KEY || ""}
+      googleReCaptchaSiteKey={process.env.NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY || ""}
       isPasswordLoginEnabled={isPasswordLoginEnabled}
       identityProviders={identityProviders}
     />

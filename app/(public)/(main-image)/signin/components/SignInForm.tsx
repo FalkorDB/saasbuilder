@@ -137,7 +137,7 @@ const SignInForm: FC<SignInFormProps> = ({
   async function handleFormSubmit(values) {
     const data = { ...values, email: values.email.trim() };
 
-    if (reCaptchaRef.current && !hasCaptchaErrored) {
+    if (reCaptchaRef.current && !hasCaptchaErrored && isRecaptchaScriptLoaded) {
       const token = await reCaptchaRef.current.executeAsync();
       reCaptchaRef.current.reset();
       data["reCaptchaToken"] = token;
@@ -166,6 +166,7 @@ const SignInForm: FC<SignInFormProps> = ({
             isPasswordSignInLoading={passwordSignInMutation.isPending}
             isReCaptchaSetup={isReCaptchaSetup}
             isRecaptchaScriptLoaded={isRecaptchaScriptLoaded}
+            hasCaptchaErrored={hasCaptchaErrored}
           />
         )}
         {isReCaptchaSetup && (
@@ -179,6 +180,7 @@ const SignInForm: FC<SignInFormProps> = ({
             }}
             onErrored={() => {
               setHasCaptchaErrored(true);
+              setIsRecaptchaScriptLoaded(true);
             }}
           />
         )}

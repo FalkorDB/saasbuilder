@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
 
+import { Tab, Tabs } from "src/components/Tab/Tab";
 import useEnvironmentType from "src/hooks/useEnvironmentType";
 import useUserData from "src/hooks/usersData";
-import { Tab, Tabs } from "src/components/Tab/Tab";
+import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
 import { selectUserrootData } from "src/slices/userDataSlice";
 
 import AccountManagementHeader from "../components/AccountManagement/AccountManagementHeader";
@@ -37,19 +38,9 @@ const SettingsPage = () => {
         </PageTitle>
 
         <Tabs value={currentTab} sx={{ mb: "24px" }}>
-          <Tab
-            label={tabLabels.profile}
-            value={"profile"}
-            onClick={() => setCurrentTab("profile")}
-            disableRipple
-          />
+          <Tab label={tabLabels.profile} value={"profile"} onClick={() => setCurrentTab("profile")} disableRipple />
 
-          <Tab
-            label={tabLabels.password}
-            value={"password"}
-            onClick={() => setCurrentTab("password")}
-            disableRipple
-          />
+          <Tab label={tabLabels.password} value={"password"} onClick={() => setCurrentTab("password")} disableRipple />
           {isProduction && (
             <Tab
               label={tabLabels.deleteAccount}
@@ -64,7 +55,13 @@ const SettingsPage = () => {
           <ProfileForm userData={selectUser} refetchUserData={refetchUserData} isLoadingUserData={isLoadingUserData} />
         )}
 
-        {currentTab === "password" && <PasswordForm email={selectUser?.email} />}
+        {currentTab === "password" && (
+          <PasswordForm
+            email={selectUser?.email}
+            googleReCaptchaSiteKey={process.env.NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY || null}
+            isReCaptchaSetup={checkReCaptchaSetup()}
+          />
+        )}
 
         {currentTab === "deleteAccount" && isProduction && <DeleteAccount />}
       </PageContainer>

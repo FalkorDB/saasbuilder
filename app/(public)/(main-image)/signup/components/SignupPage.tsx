@@ -83,7 +83,7 @@ const SignupPage = (props) => {
   async function handleFormSubmit(values) {
     const data: any = {};
 
-    if (reCaptchaRef.current && !hasCaptchaErrored) {
+    if (reCaptchaRef.current && !hasCaptchaErrored && isScriptLoaded) {
       const token = await reCaptchaRef.current.executeAsync();
       reCaptchaRef.current.reset();
       data["reCaptchaToken"] = token;
@@ -241,7 +241,7 @@ const SignupPage = (props) => {
             onSubmit={formik.handleSubmit}
             isSubmitDisabled={
               !formik.isValid ||
-              (isReCaptchaSetup && !isScriptLoaded) ||
+              (isReCaptchaSetup && !hasCaptchaErrored && !isScriptLoaded) ||
               !isPasswordLoginEnabled ||
               hasIDPWithMatchingDomain
             }
@@ -296,6 +296,7 @@ const SignupPage = (props) => {
             }}
             onErrored={() => {
               setHasCaptchaErrored(true);
+              setIsScriptLoaded(true);
             }}
           />
         )}

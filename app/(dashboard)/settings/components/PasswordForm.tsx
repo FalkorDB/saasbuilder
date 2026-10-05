@@ -1,9 +1,11 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { Box, CircularProgress } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import BrokenCircleCheckIcon from "app/(dashboard)/components/Icons/BrokenCircleCheckIcon";
 import { useFormik } from "formik";
+import ReCAPTCHA from "react-google-recaptcha";
 
 import { customerUserResetPassword } from "src/api/customer-user";
 import { $api } from "src/api/query";
@@ -22,10 +24,16 @@ import { FieldCell, FieldTitleCell, getPasswordValidationSchema } from "./Common
 import FormHeader from "./FormHeader";
 type PasswordFormProps = {
   email: string;
+  googleReCaptchaSiteKey: string | null;
+  isReCaptchaSetup: boolean;
 };
-const PasswordForm: React.FC<PasswordFormProps> = ({ email }) => {
+const PasswordForm: React.FC<PasswordFormProps> = ({ email, googleReCaptchaSiteKey, isReCaptchaSetup }) => {
   const snackbar = useSnackbar();
   const { logout } = useLogout();
+  const reCaptchaRef = useRef<any>(null);
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
+
   const loggedInUsingSSO = localStorage.getItem("loggedInUsingSSO");
   const isLoggedInUsingSSO = loggedInUsingSSO === "true";
 
@@ -42,8 +50,15 @@ const PasswordForm: React.FC<PasswordFormProps> = ({ email }) => {
       newPassword: "",
       confirmPassword: "",
     },
-    onSubmit: (values) => {
+    onSubmit: async (values) => {
       const data = { ...values };
+
+      if (reCaptchaRef.current && !hasCaptchaErrored) {
+        const token = await reCaptchaRef.current.executeAsync();
+        reCaptchaRef.current.reset();
+        data["reCaptchaToken"] = token;
+      }
+
       // Remove Empty Fields
       for (const key in data) {
         if (data[key] === "") {
@@ -194,7 +209,7 @@ const PasswordForm: React.FC<PasswordFormProps> = ({ email }) => {
                   border: "none",
                   padding: "0 !important",
                 }}
-                disabled={setPasswordMutation.isPending}
+                disabled={setPasswordMutation.isPending || (isReCaptchaSetup && !isScriptLoaded)}
               >
                 click here
               </Button>
@@ -209,6 +224,21 @@ const PasswordForm: React.FC<PasswordFormProps> = ({ email }) => {
           </Box>
           <Divider sx={{ mt: 3, mb: 3 }} />
         </Box>
+
+        {isReCaptchaSetup && googleReCaptchaSiteKey && (
+          // @ts-ignore
+          <ReCAPTCHA
+            size="invisible"
+            sitekey={googleReCaptchaSiteKey}
+            ref={reCaptchaRef}
+            asyncScriptOnLoad={() => {
+              setIsScriptLoaded(true);
+            }}
+            onErrored={() => {
+              setHasCaptchaErrored(true);
+            }}
+          />
+        )}
       </>
     );
   }

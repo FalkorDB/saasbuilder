@@ -1,13 +1,14 @@
 import Cookies from "js-cookie";
 import createFetchClient from "openapi-fetch";
 
-import { logoutBroadcastChannel } from "src/broadcastChannel";
 import { paths } from "src/types/schema";
 import { checkIsNonProtectedEndpoint, isAuthError } from "src/utils/authUtils";
 
+import { AUTH_INDICATOR_COOKIE } from "./authIndicatorCookie";
+import { forceLogout } from "./forceLogout";
 import { refreshAuth } from "./refreshAuth";
 
-export const AUTH_INDICATOR_COOKIE = "omnistrate_logged_in";
+export { AUTH_INDICATOR_COOKIE };
 
 export const baseDomain = process.env.NEXT_PUBLIC_BACKEND_BASE_DOMAIN || "https://api.omnistrate.cloud";
 
@@ -206,29 +207,7 @@ apiClient.use({
           if (!logoutInProgress) {
             logoutInProgress = true;
             try {
-              try {
-                await fetch("/api/logout", { method: "POST", keepalive: true });
-              } catch {
-                // Ignore — we're redirecting regardless.
-              }
-
-              Cookies.remove(AUTH_INDICATOR_COOKIE);
-              localStorage.removeItem("paymentNotificationHidden");
-              try {
-                localStorage.removeItem("loggedInUsingSSO");
-              } catch (error) {
-                console.warn("Failed to clear SSO state:", error);
-              }
-
-              if (logoutBroadcastChannel) {
-                try {
-                  logoutBroadcastChannel.postMessage("logout");
-                } catch (error) {
-                  console.warn("Failed to broadcast logout:", error);
-                }
-              }
-
-              window.location.replace("/signin");
+              await forceLogout();
             } finally {
               setTimeout(() => {
                 logoutInProgress = false;

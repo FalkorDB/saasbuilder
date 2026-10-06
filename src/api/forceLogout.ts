@@ -2,12 +2,12 @@ import Cookies from "js-cookie";
 
 import { logoutBroadcastChannel } from "src/broadcastChannel";
 
-import { AUTH_INDICATOR_COOKIE } from "./client";
+import { AUTH_INDICATOR_COOKIE } from "./authIndicatorCookie";
 
 /**
- * Clears the session and hard-navigates to /signin, mirroring the logout
- * sequence in src/api/client.ts. A soft redirect is not enough because the
- * middleware bounces users with valid auth cookies away from /signin.
+ * Clears the session and hard-navigates to /signin after an unrecoverable auth error.
+ * The server must finish clearing the httpOnly cookies before /signin loads, because
+ * the middleware bounces users with valid auth cookies away from /signin.
  */
 export async function forceLogout() {
   try {
@@ -24,6 +24,7 @@ export async function forceLogout() {
     console.warn("Failed to clear local auth state:", error);
   }
 
+  // Broadcast so other open tabs/windows also log out
   if (logoutBroadcastChannel) {
     try {
       logoutBroadcastChannel.postMessage("logout");
@@ -32,5 +33,7 @@ export async function forceLogout() {
     }
   }
 
+  // Use replace so /signin doesn't get added to history (Back would
+  // land on the protected page and trigger another 401 bounce)
   window.location.replace("/signin");
 }

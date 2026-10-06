@@ -11,6 +11,7 @@ import { selectUserrootData } from "src/slices/userDataSlice";
 import { getEndOfCurrentUTCDay, getFirstDayOfUTCMonth } from "src/utils/time";
 
 import useConsumptionUsagePerDay from "../billing/hooks/useConsumptionUsagePerDay";
+import { useRedirectToBillingInFlexpriceMode } from "../billing/hooks/useFlexpricePortal";
 import AccountManagementHeader from "../components/AccountManagement/AccountManagementHeader";
 import CostExplorerIcon from "../components/Icons/CostExplorer";
 import PageContainer from "../components/Layout/PageContainer";
@@ -25,6 +26,7 @@ const defaultDailyDateRange = {
 };
 
 function CostExplorerPage() {
+  useRedirectToBillingInFlexpriceMode();
   const selectUser = useSelector(selectUserrootData);
   const [dateRange, setDateRange] = useState<DateRange>(defaultDailyDateRange);
   const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<string>("");

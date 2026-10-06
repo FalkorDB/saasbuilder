@@ -296,6 +296,8 @@ const SignupPage = (props) => {
             }}
             onErrored={() => {
               setHasCaptchaErrored(true);
+              // Enable submit anyway so the server can decide whether a token is required
+              setIsScriptLoaded(true);
             }}
           />
         )}

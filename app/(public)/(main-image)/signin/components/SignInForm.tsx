@@ -179,6 +179,8 @@ const SignInForm: FC<SignInFormProps> = ({
             }}
             onErrored={() => {
               setHasCaptchaErrored(true);
+              // Enable submit anyway so the server can decide whether a token is required
+              setIsRecaptchaScriptLoaded(true);
             }}
           />
         )}

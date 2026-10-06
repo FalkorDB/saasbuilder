@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import { Collapse } from "@mui/material";
 import useBillingStatus from "app/(dashboard)/billing/hooks/useBillingStatus";
+import { useFlexpricePortalStatus } from "app/(dashboard)/billing/hooks/useFlexpricePortal";
 import clsx from "clsx";
 
 import { useGlobalData } from "src/providers/GlobalDataProvider";
@@ -211,6 +212,10 @@ const Sidebar = () => {
 
   const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled);
 
+  // Billing is handled by the Flexprice customer portal when it is configured
+  const flexpricePortalStatusQuery = useFlexpricePortalStatus();
+  const isFlexpriceEnabled = Boolean(flexpricePortalStatusQuery.data?.enabled);
+
   const bottomItems = useMemo(
     () => [
       {
@@ -290,7 +295,7 @@ const Sidebar = () => {
           {
             name: "Billing",
             href: getBillingRoute(),
-            isHidden: !isBillingEnabled,
+            isHidden: !isBillingEnabled && !isFlexpriceEnabled,
           },
           {
             name: "Payment Settings",
@@ -315,7 +320,13 @@ const Sidebar = () => {
           ]
         : []),
     ];
-  }, [isBillingEnabled, showCloudProvidersPage, showCustomNetworksPage, versionSetOverrideOfferings]);
+  }, [
+    isBillingEnabled,
+    isFlexpriceEnabled,
+    showCloudProvidersPage,
+    showCustomNetworksPage,
+    versionSetOverrideOfferings,
+  ]);
 
   return (
     <aside

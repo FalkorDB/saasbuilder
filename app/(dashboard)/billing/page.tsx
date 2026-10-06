@@ -22,12 +22,14 @@ import PageTitle from "../components/Layout/PageTitle";
 
 import BillingProviderTabs from "./components/BillingProviderTabs";
 import ConsumptionUsage from "./components/ConsumptionUsage";
+import FlexpricePortal from "./components/FlexpricePortal";
 import InvoicesTable from "./components/InvoicesTable";
 import StripeDefaultPaymentMethodSummary from "./components/StripeDefaultPaymentMethodSummary";
 import useBillingDetails from "./hooks/useBillingDetails";
 import useBillingStatus from "./hooks/useBillingStatus";
 import useConsumptionInvoices from "./hooks/useConsumptionInvoices";
 import useConsumptionUsage from "./hooks/useConsumptionUsage";
+import { useFlexpricePortalStatus } from "./hooks/useFlexpricePortal";
 import getBillingDetailsErrorMessage from "./utils/getBillingDetailsErrorMessage";
 
 const BillingPage = () => {
@@ -40,8 +42,10 @@ const BillingPage = () => {
   const previousPaymentConfiguredRef = useRef<boolean | undefined>(undefined);
 
   const billingStatusQuery = useBillingStatus();
+  const flexpricePortalStatusQuery = useFlexpricePortalStatus();
 
-  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled);
+  const isFlexpriceEnabled = Boolean(flexpricePortalStatusQuery.data?.enabled);
+  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled) && !isFlexpriceEnabled;
 
   const {
     isPending: isBillingDetailsPending,
@@ -105,6 +109,22 @@ const BillingPage = () => {
       setIsStripePaymentMethodsEmpty(false);
     }
   }, [isCustomPaymentPortalEnabled]);
+
+  if (flexpricePortalStatusQuery.isPending) return <LoadingSpinner />;
+
+  if (isFlexpriceEnabled) {
+    return (
+      <div>
+        <AccountManagementHeader userName={selectUser?.name} userEmail={selectUser?.email} />
+        <PageContainer>
+          <PageTitle icon={BillingIcon} className="mb-6">
+            Billing & Invoices
+          </PageTitle>
+          <FlexpricePortal />
+        </PageContainer>
+      </div>
+    );
+  }
 
   if (isLoading) return <LoadingSpinner />;
   const balanceDueLink =

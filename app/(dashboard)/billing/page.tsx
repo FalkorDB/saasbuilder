@@ -45,7 +45,9 @@ const BillingPage = () => {
   const flexpricePortalStatusQuery = useFlexpricePortalStatus();
 
   const isFlexpriceEnabled = Boolean(flexpricePortalStatusQuery.data?.enabled);
-  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled) && !isFlexpriceEnabled;
+  // Only load the legacy Omnistrate billing data once Flexprice is known to be disabled
+  const isLegacyBillingView = flexpricePortalStatusQuery.isSuccess && !isFlexpriceEnabled;
+  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled) && isLegacyBillingView;
 
   const {
     isPending: isBillingDetailsPending,
@@ -53,8 +55,11 @@ const BillingPage = () => {
     error,
     refetch: refetchBillingDetails,
   } = useBillingDetails(isBillingEnabled);
-  const { data: consumptionUsageData, isPending: isConsumptionDataPending } = useConsumptionUsage();
-  const { data: invoicesData, isPending: isInvoicesPending } = useConsumptionInvoices();
+  const { data: consumptionUsageData, isPending: isConsumptionDataPending } = useConsumptionUsage(
+    {},
+    isLegacyBillingView
+  );
+  const { data: invoicesData, isPending: isInvoicesPending } = useConsumptionInvoices(isLegacyBillingView);
 
   const invoices = useMemo(() => invoicesData?.invoices || [], [invoicesData]);
 

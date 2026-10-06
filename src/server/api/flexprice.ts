@@ -31,8 +31,15 @@ export function isFlexpriceEnabled() {
   return Boolean(process.env.FLEXPRICE_API_KEY);
 }
 
+// The API key is sent with every request, so only allow https (http allowed outside production)
 function getFlexpriceBaseURL() {
-  return (process.env.FLEXPRICE_API_BASE_URL || DEFAULT_FLEXPRICE_API_BASE_URL).replace(/\/+$/, "");
+  const baseURL = getSafeExternalURL(process.env.FLEXPRICE_API_BASE_URL || DEFAULT_FLEXPRICE_API_BASE_URL);
+  if (!baseURL) {
+    console.error("FLEXPRICE_API_BASE_URL must be a valid https url");
+    throw new FlexpriceError("Billing portal is misconfigured");
+  }
+
+  return baseURL.replace(/\/+$/, "");
 }
 
 function getOrigin(url?: string) {
@@ -64,9 +71,10 @@ function getSafePortalURL(url: string | undefined, requestHost?: string) {
   if (!safeURL) return "";
 
   const portalOrigin = getOrigin(safeURL);
-  const expectedOrigin = getOrigin(process.env.FLEXPRICE_PORTAL_ORIGIN);
-  if (expectedOrigin) {
-    return portalOrigin === expectedOrigin ? safeURL : "";
+  if (process.env.FLEXPRICE_PORTAL_ORIGIN) {
+    // An unparsable configured origin rejects every session instead of falling back
+    const expectedOrigin = getOrigin(getSafeExternalURL(process.env.FLEXPRICE_PORTAL_ORIGIN));
+    return expectedOrigin && portalOrigin === expectedOrigin ? safeURL : "";
   }
 
   const appOrigins = [

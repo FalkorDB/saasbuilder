@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 
 import { getRenderIdentityProvidersList } from "src/server/api/identity-provider";
-import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
+import { checkReCaptchaSetup, getReCaptchaSiteKey } from "src/server/utils/checkReCaptchaSetup";
 import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
 import { getSaaSDomainURL } from "src/server/utils/getSaaSDomainURL";
 import { IdentityProvider } from "src/types/identityProvider";
@@ -36,7 +36,7 @@ const Page = async () => {
   return (
     <SignupPage
       isReCaptchaSetup={checkReCaptchaSetup()}
-      googleReCaptchaSiteKey={process.env.NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY || null}
+      googleReCaptchaSiteKey={getReCaptchaSiteKey()}
       isPasswordLoginEnabled={isPasswordLoginEnabled}
       identityProviders={identityProviders}
     />

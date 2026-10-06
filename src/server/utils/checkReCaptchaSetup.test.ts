@@ -1,31 +1,53 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { checkReCaptchaSetup } from "./checkReCaptchaSetup";
+import { checkReCaptchaSetup, getReCaptchaSiteKey } from "./checkReCaptchaSetup";
 
-test("checkReCaptchaSetup accepts NEXT_PUBLIC site key", () => {
+function withEnv(env: Record<string, string | undefined>, fn: () => void) {
   const previousEnv = { ...process.env };
-
   try {
-    process.env.GOOGLE_RECAPTCHA_SECRET_KEY = "secret";
-    process.env.NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY = "public-site-key";
-    delete process.env.GOOGLE_RECAPTCHA_SITE_KEY;
-
-    assert.equal(checkReCaptchaSetup(), true);
+    for (const [key, value] of Object.entries(env)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    fn();
   } finally {
     process.env = previousEnv;
   }
+}
+
+test("uses GOOGLE_RECAPTCHA_SITE_KEY when NEXT_PUBLIC key is missing", () => {
+  withEnv(
+    { GOOGLE_RECAPTCHA_SECRET_KEY: "secret", GOOGLE_RECAPTCHA_SITE_KEY: "site-key", NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY: undefined },
+    () => {
+      assert.equal(getReCaptchaSiteKey(), "site-key");
+      assert.equal(checkReCaptchaSetup(), true);
+    }
+  );
 });
 
-test("checkReCaptchaSetup rejects empty or disabled values", () => {
-  const previousEnv = { ...process.env };
+test("falls back to NEXT_PUBLIC site key", () => {
+  withEnv(
+    { GOOGLE_RECAPTCHA_SECRET_KEY: "secret", GOOGLE_RECAPTCHA_SITE_KEY: undefined, NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY: "public-site-key" },
+    () => {
+      assert.equal(getReCaptchaSiteKey(), "public-site-key");
+      assert.equal(checkReCaptchaSetup(), true);
+    }
+  );
+});
 
-  try {
-    process.env.GOOGLE_RECAPTCHA_SECRET_KEY = "DISABLED";
-    process.env.NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY = "disabled";
+test("is not set up when the site key is empty", () => {
+  withEnv(
+    { GOOGLE_RECAPTCHA_SECRET_KEY: "secret", GOOGLE_RECAPTCHA_SITE_KEY: "", NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY: "" },
+    () => {
+      assert.equal(getReCaptchaSiteKey(), null);
+      assert.equal(checkReCaptchaSetup(), false);
+    }
+  );
+});
 
+test("rejects disabled values", () => {
+  withEnv({ GOOGLE_RECAPTCHA_SECRET_KEY: "DISABLED", GOOGLE_RECAPTCHA_SITE_KEY: "disabled" }, () => {
     assert.equal(checkReCaptchaSetup(), false);
-  } finally {
-    process.env = previousEnv;
-  }
+  });
 });

@@ -19,7 +19,6 @@ type PasswordLoginFieldsProps = {
   isPasswordSignInLoading: boolean;
   isReCaptchaSetup: boolean;
   isRecaptchaScriptLoaded: boolean;
-  hasCaptchaErrored: boolean;
   identityProviders: IdentityProvider[];
 };
 
@@ -28,8 +27,7 @@ const PasswordLoginFields: FC<PasswordLoginFieldsProps> = ({
   isPasswordSignInLoading,
   isReCaptchaSetup,
   isRecaptchaScriptLoaded,
-  hasCaptchaErrored,
-  identityProviders,
+  identityProviders
 }) => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const environmentType = useEnvironmentType();
@@ -97,7 +95,7 @@ const PasswordLoginFields: FC<PasswordLoginFieldsProps> = ({
         data-testid="login-button"
         type="submit"
         onClick={formData.handleSubmit}
-        disabled={!formData.isValid || (isReCaptchaSetup && (!isRecaptchaScriptLoaded || hasCaptchaErrored))}
+        disabled={!formData.isValid || (isReCaptchaSetup && !isRecaptchaScriptLoaded)}
         loading={isPasswordSignInLoading}
       >
         Sign In

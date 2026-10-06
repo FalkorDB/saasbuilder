@@ -137,24 +137,9 @@ const SignInForm: FC<SignInFormProps> = ({
   async function handleFormSubmit(values) {
     const data = { ...values, email: values.email.trim() };
 
-    if (isReCaptchaSetup) {
-      if (hasCaptchaErrored) {
-        snackbar.showError("reCAPTCHA is unavailable right now. Please refresh and try again.");
-        return;
-      }
-
-      if (!reCaptchaRef.current || !isRecaptchaScriptLoaded) {
-        return;
-      }
-
+    if (reCaptchaRef.current && !hasCaptchaErrored) {
       const token = await reCaptchaRef.current.executeAsync();
       reCaptchaRef.current.reset();
-
-      if (!token) {
-        snackbar.showError("reCAPTCHA verification failed. Please try again.");
-        return;
-      }
-
       data["reCaptchaToken"] = token;
     }
 
@@ -181,7 +166,6 @@ const SignInForm: FC<SignInFormProps> = ({
             isPasswordSignInLoading={passwordSignInMutation.isPending}
             isReCaptchaSetup={isReCaptchaSetup}
             isRecaptchaScriptLoaded={isRecaptchaScriptLoaded}
-            hasCaptchaErrored={hasCaptchaErrored}
           />
         )}
         {isReCaptchaSetup && (
@@ -195,8 +179,6 @@ const SignInForm: FC<SignInFormProps> = ({
             }}
             onErrored={() => {
               setHasCaptchaErrored(true);
-              setIsRecaptchaScriptLoaded(false);
-              snackbar.showError("reCAPTCHA is unavailable right now. Please refresh and try again.");
             }}
           />
         )}

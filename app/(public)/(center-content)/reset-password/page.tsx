@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { Metadata } from "next";
 
-import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
+import { checkReCaptchaSetup, getReCaptchaSiteKey } from "src/server/utils/checkReCaptchaSetup";
 
 import ResetPasswordPage from "./components/ResetPasswordPage";
 
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 const Page: FC = () => {
   return (
     <ResetPasswordPage
-      googleReCaptchaSiteKey={process.env.NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY || null}
+      googleReCaptchaSiteKey={getReCaptchaSiteKey()}
       isReCaptchaSetup={checkReCaptchaSetup()}
     />
   );

@@ -32,7 +32,6 @@ type LoginMethodStepProps = {
   isPasswordLoginEnabled: boolean;
   isPasswordSignInLoading: boolean;
   isRecaptchaScriptLoaded: boolean;
-  hasCaptchaErrored: boolean;
   isReCaptchaSetup: boolean;
 };
 
@@ -45,7 +44,6 @@ const LoginMethodStep: FC<LoginMethodStepProps> = (props) => {
     isPasswordSignInLoading,
     isReCaptchaSetup,
     isRecaptchaScriptLoaded,
-    hasCaptchaErrored,
   } = props;
   const searchParams = useSearchParams();
   const org = searchParams?.get("org");
@@ -279,7 +277,6 @@ const LoginMethodStep: FC<LoginMethodStepProps> = (props) => {
                 formData={formData}
                 isReCaptchaSetup={isReCaptchaSetup}
                 isRecaptchaScriptLoaded={isRecaptchaScriptLoaded}
-                hasCaptchaErrored={hasCaptchaErrored}
                 isPasswordSignInLoading={isPasswordSignInLoading}
                 identityProviders={identityProviders}
               />

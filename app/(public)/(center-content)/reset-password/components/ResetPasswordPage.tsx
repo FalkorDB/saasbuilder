@@ -32,7 +32,7 @@ const ResetPasswordPage = (props) => {
   const { orgLogoURL, orgName } = useProviderOrgDetails();
 
   const snackbar = useSnackbar();
-  const reCaptchaRef = useRef<ReCAPTCHA | null>(null);
+  const reCaptchaRef = useRef<any>(null);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -58,24 +58,9 @@ const ResetPasswordPage = (props) => {
   async function handleFormSubmit(values) {
     const data = {};
 
-    if (isReCaptchaSetup) {
-      if (hasCaptchaErrored) {
-        snackbar.showError("reCAPTCHA is unavailable right now. Please refresh and try again.");
-        return;
-      }
-
-      if (!reCaptchaRef.current || !isScriptLoaded) {
-        return;
-      }
-
+    if (reCaptchaRef.current && !hasCaptchaErrored) {
       const token = await reCaptchaRef.current.executeAsync();
       reCaptchaRef.current.reset();
-
-      if (!token) {
-        snackbar.showError("reCAPTCHA verification failed. Please try again.");
-        return;
-      }
-
       data["reCaptchaToken"] = token;
     }
 
@@ -162,7 +147,7 @@ const ResetPasswordPage = (props) => {
           data-testid="submit-button"
           type="submit"
           onClick={formik.handleSubmit}
-          disabled={!formik.isValid || (isReCaptchaSetup && (!isScriptLoaded || hasCaptchaErrored))}
+          disabled={!formik.isValid || (isReCaptchaSetup && !isScriptLoaded)}
           loading={resetPasswordMutation.isPending}
         >
           Submit
@@ -179,8 +164,6 @@ const ResetPasswordPage = (props) => {
           }}
           onErrored={() => {
             setHasCaptchaErrored(true);
-            setIsScriptLoaded(false);
-            snackbar.showError("reCAPTCHA is unavailable right now. Please refresh and try again.");
           }}
         />
       )}

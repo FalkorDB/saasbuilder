@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { Stack } from "@mui/material";
 import axios from "axios";
 
@@ -20,17 +20,20 @@ const getErrorMessage = (error: Error | null) =>
 const FlexpricePortal = () => {
   const { data: session, isPending, isFetching, error, refetch } = useFlexpricePortalSession(true);
 
+  // Every refetch creates a new portal session, so join an in-flight request instead of starting another
+  const refresh = useCallback(() => refetch({ cancelRefetch: false }), [refetch]);
+
   useEffect(() => {
     if (!session?.expiresAt) return;
 
     const getRefreshIn = () => new Date(session.expiresAt).getTime() - Date.now() - SESSION_REFRESH_BUFFER_MS;
-    const timeout = setTimeout(() => refetch(), Math.max(getRefreshIn(), 0));
+    const timeout = setTimeout(refresh, Math.max(getRefreshIn(), 0));
 
     // Timers are throttled in hidden tabs and paused while the device sleeps,
     // so re-check the expiry when the tab becomes visible again
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible" && getRefreshIn() <= 0) {
-        refetch();
+        refresh();
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -39,12 +42,12 @@ const FlexpricePortal = () => {
       clearTimeout(timeout);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [session?.expiresAt, refetch]);
+  }, [session?.expiresAt, refresh]);
 
   if (isPending) return <LoadingSpinner />;
 
   const retryButton = (
-    <Button variant="contained" onClick={() => refetch()} disabled={isFetching}>
+    <Button variant="contained" onClick={refresh} disabled={isFetching}>
       Retry
     </Button>
   );

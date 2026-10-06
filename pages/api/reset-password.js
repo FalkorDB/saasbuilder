@@ -1,6 +1,7 @@
 import axios from "src/axios";
 import { customerUserResetPassword } from "src/server/api/customer-user";
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
+import { getAuthToken } from "src/server/utils/authCookie";
 import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
 import { isRateLimited, recordAttempt, resetAttempts } from "src/server/utils/rateLimiter";
 import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
@@ -24,7 +25,7 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
       const requestBody = nextRequest.body || {};
       const { email, token: resetToken, newPassword, reCaptchaToken } = requestBody;
       const isReCaptchaSetup = checkReCaptchaSetup();
-      const sessionToken = nextRequest.cookies?.token;
+      const sessionToken = getAuthToken(nextRequest);
       let tokenValidate = false;
       if (sessionToken) {
         tokenValidate = await getUser(sessionToken);

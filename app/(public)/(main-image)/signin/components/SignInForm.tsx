@@ -14,6 +14,7 @@ import useEnvironmentType from "src/hooks/useEnvironmentType";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
 import { IdentityProvider } from "src/types/identityProvider";
+import { getReCaptchaToken } from "src/utils/getReCaptchaToken";
 import checkRouteValidity from "src/utils/route/checkRouteValidity";
 import { getInstancesRoute } from "src/utils/routes";
 
@@ -37,7 +38,6 @@ const SignInForm: FC<SignInFormProps> = ({
   googleReCaptchaSiteKey,
 }) => {
   const [shouldRememberLoginDetails, setShouldRememberLoginDetails] = useState(true);
-  const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
   const { email } = useLastLoginDetails();
   const [currentStep, setCurrentStep] = useState(email ? 1 : 0);
   const [isRecaptchaScriptLoaded, setIsRecaptchaScriptLoaded] = useState(false);
@@ -137,11 +137,8 @@ const SignInForm: FC<SignInFormProps> = ({
   async function handleFormSubmit(values) {
     const data = { ...values, email: values.email.trim() };
 
-    if (reCaptchaRef.current && !hasCaptchaErrored && isRecaptchaScriptLoaded) {
-      const token = await reCaptchaRef.current.executeAsync();
-      reCaptchaRef.current.reset();
-      data["reCaptchaToken"] = token;
-    }
+    const token = await getReCaptchaToken(reCaptchaRef.current);
+    if (token) data["reCaptchaToken"] = token;
 
     passwordSignInMutation.mutate(data);
   }
@@ -166,7 +163,6 @@ const SignInForm: FC<SignInFormProps> = ({
             isPasswordSignInLoading={passwordSignInMutation.isPending}
             isReCaptchaSetup={isReCaptchaSetup}
             isRecaptchaScriptLoaded={isRecaptchaScriptLoaded}
-            hasCaptchaErrored={hasCaptchaErrored}
           />
         )}
         {isReCaptchaSetup && (
@@ -179,7 +175,7 @@ const SignInForm: FC<SignInFormProps> = ({
               setIsRecaptchaScriptLoaded(true);
             }}
             onErrored={() => {
-              setHasCaptchaErrored(true);
+              // Enable submit anyway so the server can decide whether a token is required
               setIsRecaptchaScriptLoaded(true);
             }}
           />

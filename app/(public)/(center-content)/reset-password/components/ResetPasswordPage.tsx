@@ -12,6 +12,7 @@ import { customerUserResetPassword } from "src/api/customer-user";
 import useSnackbar from "src/hooks/useSnackbar";
 import { styleConfig } from "src/providerConfig";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
+import { getReCaptchaToken } from "src/utils/getReCaptchaToken";
 import DisplayHeading from "components/NonDashboardComponents/DisplayHeading";
 import FieldContainer from "components/NonDashboardComponents/FormElementsV2/FieldContainer";
 import FieldLabel from "components/NonDashboardComponents/FormElementsV2/FieldLabel";
@@ -34,7 +35,6 @@ const ResetPasswordPage = (props) => {
   const snackbar = useSnackbar();
   const reCaptchaRef = useRef<ReCAPTCHA | null>(null);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
-  const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
   const resetPasswordMutation = useMutation({
@@ -58,11 +58,8 @@ const ResetPasswordPage = (props) => {
   async function handleFormSubmit(values) {
     const data = {};
 
-    if (reCaptchaRef.current && !hasCaptchaErrored && isScriptLoaded) {
-      const token = await reCaptchaRef.current.executeAsync();
-      reCaptchaRef.current.reset();
-      data["reCaptchaToken"] = token;
-    }
+    const token = await getReCaptchaToken(reCaptchaRef.current);
+    if (token) data["reCaptchaToken"] = token;
 
     for (const key in values) {
       if (values[key]) {
@@ -147,7 +144,7 @@ const ResetPasswordPage = (props) => {
           data-testid="submit-button"
           type="submit"
           onClick={formik.handleSubmit}
-          disabled={!formik.isValid || (isReCaptchaSetup && !hasCaptchaErrored && !isScriptLoaded)}
+          disabled={!formik.isValid || (isReCaptchaSetup && !isScriptLoaded)}
           loading={resetPasswordMutation.isPending}
         >
           Submit
@@ -163,7 +160,7 @@ const ResetPasswordPage = (props) => {
             setIsScriptLoaded(true);
           }}
           onErrored={() => {
-            setHasCaptchaErrored(true);
+            // Enable submit anyway so the server can decide whether a token is required
             setIsScriptLoaded(true);
           }}
         />

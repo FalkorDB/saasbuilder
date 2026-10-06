@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const userId = await getCustomerUserId(authToken);
-    const session = await createFlexpricePortalSession(userId);
+    const session = await createFlexpricePortalSession(userId, req.headers.host);
 
     // The session URL carries a token that grants access to the customer's billing data
     res.setHeader("Cache-Control", "no-store");

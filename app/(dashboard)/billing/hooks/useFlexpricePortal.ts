@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 
+import { refreshAuth } from "src/api/refreshAuth";
+
 type FlexpricePortalStatus = {
   enabled: boolean;
 };
@@ -25,8 +27,20 @@ export function useFlexpricePortalSession(enabled = false) {
   return useQuery({
     queryKey: ["flexprice-portal-session"],
     queryFn: async () => {
-      const response = await axios.post<FlexpricePortalSession>("/api/flexprice-portal/session");
-      return response.data;
+      try {
+        const response = await axios.post<FlexpricePortalSession>("/api/flexprice-portal/session");
+        return response.data;
+      } catch (error) {
+        if (!axios.isAxiosError(error) || error.response?.status !== 401) throw error;
+
+        // Follow the app's auth recovery: refresh the token and retry once, otherwise sign in again
+        if (!(await refreshAuth())) {
+          window.location.href = "/signin";
+          throw error;
+        }
+        const response = await axios.post<FlexpricePortalSession>("/api/flexprice-portal/session");
+        return response.data;
+      }
     },
     enabled,
     // Session URLs carry a short-lived token, so never reuse one across page visits
@@ -34,6 +48,7 @@ export function useFlexpricePortalSession(enabled = false) {
     gcTime: 0,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
-    retry: 1,
+    // Every request creates a new portal session, so don't retry automatically
+    retry: false,
   });
 }

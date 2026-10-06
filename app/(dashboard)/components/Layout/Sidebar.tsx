@@ -206,11 +206,11 @@ const Sidebar = () => {
   // Prefetch Billing Data
   const billingStatusQuery = useBillingStatus();
 
-  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled);
-
   // Billing is handled by the Flexprice customer portal when it is configured
   const flexpricePortalStatusQuery = useFlexpricePortalStatus();
   const isFlexpriceEnabled = Boolean(flexpricePortalStatusQuery.data?.enabled);
+
+  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled) && !isFlexpriceEnabled;
 
   const bottomItems = useMemo(
     () => [

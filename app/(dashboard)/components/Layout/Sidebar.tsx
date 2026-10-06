@@ -214,7 +214,9 @@ const Sidebar = () => {
   const flexpricePortalStatusQuery = useFlexpricePortalStatus();
   const isFlexpriceEnabled = Boolean(flexpricePortalStatusQuery.data?.enabled);
 
-  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled) && !isFlexpriceEnabled;
+  // Only show legacy billing links once Flexprice is known to be disabled, matching the Billing page
+  const isBillingEnabled =
+    Boolean(billingStatusQuery.data?.enabled) && flexpricePortalStatusQuery.isSuccess && !isFlexpriceEnabled;
 
   const bottomItems = useMemo(
     () => [

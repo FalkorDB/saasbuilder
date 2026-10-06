@@ -42,6 +42,16 @@ function getFlexpriceBaseURL() {
   return baseURL.replace(/\/+$/, "");
 }
 
+// Portal urls carry the session token, so they must always be https (no development exception)
+function getHttpsOrigin(url?: string) {
+  try {
+    const parsedURL = url ? new URL(url.trim()) : null;
+    return parsedURL?.protocol === "https:" ? parsedURL.origin.toLowerCase() : "";
+  } catch {
+    return "";
+  }
+}
+
 function getOrigin(url?: string) {
   try {
     return url ? new URL(url).origin.toLowerCase() : "";
@@ -50,9 +60,15 @@ function getOrigin(url?: string) {
   }
 }
 
+/**
+ * Fetches a url and reads its body, both under the same timeout,
+ * so a stalled response body also maps to a retryable 504.
+ */
 async function fetchWithTimeout(url: string, init: Parameters<typeof fetch>[1]) {
   try {
-    return await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    const response = await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    const body = await response.text();
+    return { ok: response.ok, status: response.status, body };
   } catch (error) {
     if (error?.name === "TimeoutError" || error?.name === "AbortError") {
       throw new FlexpriceError("Billing service timed out. Please retry", 504);
@@ -61,26 +77,46 @@ async function fetchWithTimeout(url: string, init: Parameters<typeof fetch>[1]) 
   }
 }
 
+function parseJSON(body: string) {
+  try {
+    return JSON.parse(body);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The portal url is embedded in an iframe that allows scripts and same-origin access,
- * so it must be an https url that is not served from this application's origin.
- * When FLEXPRICE_PORTAL_ORIGIN is set, the url must match it exactly.
+ * so it must be an https url that is never served from this application's origin.
+ * When FLEXPRICE_PORTAL_ORIGIN is set, the url must also match it exactly.
+ * Returns the reason when the url is rejected, so operators can fix the configuration.
  */
-function getSafePortalURL(url: string | undefined) {
-  const safeURL = getSafeExternalURL(url);
-  if (!safeURL) return "";
-
-  const portalOrigin = getOrigin(safeURL);
-  if (process.env.FLEXPRICE_PORTAL_ORIGIN) {
-    // An unparsable configured origin rejects every session instead of falling back
-    const expectedOrigin = getOrigin(getSafeExternalURL(process.env.FLEXPRICE_PORTAL_ORIGIN));
-    return expectedOrigin && portalOrigin === expectedOrigin ? safeURL : "";
+function validatePortalURL(url: string | undefined): { url: string } | { reason: string } {
+  const portalOrigin = getHttpsOrigin(url);
+  if (!portalOrigin) {
+    return { reason: "Flexprice returned a portal url that is not a valid https url" };
   }
 
-  // Use the configured app origin rather than the client-supplied Host header,
-  // and reject sessions when the app origin can't be established
   const appOrigin = getOrigin(getSaaSDomainURL());
-  return appOrigin && portalOrigin !== appOrigin ? safeURL : "";
+  if (!appOrigin) {
+    return { reason: "YOUR_SAAS_DOMAIN_URL (or YOUR_SAAS_DOMAIN_ALIAS) must be set to validate the portal url" };
+  }
+  if (portalOrigin === appOrigin) {
+    return { reason: "The Flexprice portal url must not be served from the application's origin" };
+  }
+
+  if (process.env.FLEXPRICE_PORTAL_ORIGIN) {
+    // An invalid configured origin rejects every session instead of falling back
+    const expectedOrigin = getHttpsOrigin(process.env.FLEXPRICE_PORTAL_ORIGIN);
+    if (!expectedOrigin) {
+      return { reason: "FLEXPRICE_PORTAL_ORIGIN must be a valid https origin" };
+    }
+    if (portalOrigin !== expectedOrigin) {
+      return { reason: `The Flexprice portal url origin ${portalOrigin} does not match FLEXPRICE_PORTAL_ORIGIN` };
+    }
+  }
+
+  return { url: new URL((url as string).trim()).toString() };
 }
 
 /**
@@ -102,7 +138,7 @@ export async function getCustomerUserId(authToken: string): Promise<string> {
     );
   }
 
-  const user = await response.json();
+  const user = parseJSON(response.body);
   if (!user?.id) {
     throw new FlexpriceError("Failed to fetch user details");
   }
@@ -126,8 +162,7 @@ export async function createFlexpricePortalSession(externalId: string): Promise<
   );
 
   if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    console.error("Flexprice portal session error", response.status, text);
+    console.error("Flexprice portal session error", response.status, response.body);
 
     if (response.status === 404) {
       throw new FlexpriceError("Billing account not found", 404);
@@ -135,12 +170,12 @@ export async function createFlexpricePortalSession(externalId: string): Promise<
     throw new FlexpriceError("Failed to create billing portal session");
   }
 
-  const session = (await response.json()) as FlexpricePortalSession;
-  const safeURL = getSafePortalURL(session?.url);
-  if (!safeURL) {
-    console.error("Flexprice portal session returned an invalid url");
+  const session = parseJSON(response.body) as FlexpricePortalSession | null;
+  const result = validatePortalURL(session?.url);
+  if ("reason" in result) {
+    console.error(`Rejected Flexprice portal session: ${result.reason}`);
     throw new FlexpriceError("Failed to create billing portal session");
   }
 
-  return { ...session, url: safeURL };
+  return { ...(session as FlexpricePortalSession), url: result.url };
 }

@@ -12,13 +12,15 @@ import { useFlexpricePortalSession } from "../hooks/useFlexpricePortal";
 
 // Refresh the session slightly before the token expires
 const SESSION_REFRESH_BUFFER_MS = 60 * 1000;
+// Delay before retrying a failed session refresh
+const SESSION_REFRESH_RETRY_MS = 30 * 1000;
 
 const getErrorMessage = (error: Error | null) =>
   (axios.isAxiosError(error) && error.response?.data?.message) ||
   "Something went wrong while loading the billing portal. Please retry";
 
 const FlexpricePortal = () => {
-  const { data: session, isPending, isFetching, error, refetch } = useFlexpricePortalSession(true);
+  const { data: session, isPending, isFetching, error, errorUpdatedAt, refetch } = useFlexpricePortalSession(true);
 
   // Every refetch creates a new portal session, so join an in-flight request instead of starting another
   const refresh = useCallback(() => refetch({ cancelRefetch: false }), [refetch]);
@@ -27,7 +29,9 @@ const FlexpricePortal = () => {
     if (!session?.expiresAt) return;
 
     const getRefreshIn = () => new Date(session.expiresAt).getTime() - Date.now() - SESSION_REFRESH_BUFFER_MS;
-    const timeout = setTimeout(refresh, Math.max(getRefreshIn(), 0));
+    // After a failed refresh, keep retrying on a short delay instead of waiting for the user
+    const minDelay = error ? SESSION_REFRESH_RETRY_MS : 0;
+    const timeout = setTimeout(refresh, Math.max(getRefreshIn(), minDelay));
 
     // Timers are throttled in hidden tabs and paused while the device sleeps,
     // so re-check the expiry when the tab becomes visible again
@@ -42,7 +46,7 @@ const FlexpricePortal = () => {
       clearTimeout(timeout);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [session?.expiresAt, refresh]);
+  }, [session?.expiresAt, error, errorUpdatedAt, refresh]);
 
   if (isPending) return <LoadingSpinner />;
 

@@ -112,6 +112,32 @@ const BillingPage = () => {
 
   if (flexpricePortalStatusQuery.isPending) return <LoadingSpinner />;
 
+  if (flexpricePortalStatusQuery.isError) {
+    return (
+      <div>
+        <AccountManagementHeader userName={selectUser?.name} userEmail={selectUser?.email} />
+        <PageContainer>
+          <PageTitle icon={BillingIcon} className="mb-6">
+            Billing & Invoices
+          </PageTitle>
+          <Stack p={3} pt="200px" gap="24px" alignItems="center" justifyContent="center">
+            {/*@ts-ignore */}
+            <DisplayText size="xsmall" sx={{ textAlign: "center" }}>
+              Something went wrong while loading billing details. Please retry
+            </DisplayText>
+            <Button
+              variant="contained"
+              onClick={() => flexpricePortalStatusQuery.refetch()}
+              disabled={flexpricePortalStatusQuery.isFetching}
+            >
+              Retry
+            </Button>
+          </Stack>
+        </PageContainer>
+      </div>
+    );
+  }
+
   if (isFlexpriceEnabled) {
     return (
       <div>

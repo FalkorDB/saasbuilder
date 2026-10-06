@@ -35,7 +35,6 @@ const ResetPasswordPage = (props) => {
   const snackbar = useSnackbar();
   const reCaptchaRef = useRef<ReCAPTCHA | null>(null);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
-  const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
   const resetPasswordMutation = useMutation({
@@ -59,10 +58,8 @@ const ResetPasswordPage = (props) => {
   async function handleFormSubmit(values) {
     const data = {};
 
-    if (!hasCaptchaErrored) {
-      const token = await getReCaptchaToken(reCaptchaRef.current);
-      if (token) data["reCaptchaToken"] = token;
-    }
+    const token = await getReCaptchaToken(reCaptchaRef.current);
+    if (token) data["reCaptchaToken"] = token;
 
     for (const key in values) {
       if (values[key]) {
@@ -163,7 +160,6 @@ const ResetPasswordPage = (props) => {
             setIsScriptLoaded(true);
           }}
           onErrored={() => {
-            setHasCaptchaErrored(true);
             // Enable submit anyway so the server can decide whether a token is required
             setIsScriptLoaded(true);
           }}

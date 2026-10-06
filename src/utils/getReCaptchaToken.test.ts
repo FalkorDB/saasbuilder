@@ -4,10 +4,11 @@ import type ReCAPTCHA from "react-google-recaptcha";
 
 import { getReCaptchaToken } from "./getReCaptchaToken";
 
-function fakeReCaptcha(executeAsync: () => Promise<string | null>) {
+function fakeReCaptcha(executeAsync: () => Promise<string | null>, widgetId: number | null = 0) {
   let resetCount = 0;
   const reCaptcha = {
     executeAsync,
+    getWidgetId: () => widgetId,
     reset: () => {
       resetCount++;
     },
@@ -17,6 +18,16 @@ function fakeReCaptcha(executeAsync: () => Promise<string | null>) {
 
 test("returns null when there is no reCAPTCHA instance", async () => {
   assert.equal(await getReCaptchaToken(null), null);
+});
+
+test("returns null without executing when the widget never rendered", async () => {
+  let executed = false;
+  const { reCaptcha } = fakeReCaptcha(async () => {
+    executed = true;
+    return "token";
+  }, null);
+  assert.equal(await getReCaptchaToken(reCaptcha), null);
+  assert.equal(executed, false);
 });
 
 test("returns the token and resets the widget", async () => {

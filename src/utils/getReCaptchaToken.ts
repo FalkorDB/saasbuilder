@@ -1,10 +1,11 @@
 import type ReCAPTCHA from "react-google-recaptcha";
 
 // Runs the invisible reCAPTCHA challenge and always resets the widget.
-// Returns null if the challenge fails (executeAsync rejects on network errors or
-// timeouts) so the form still submits and the server decides whether a token is required.
+// Returns null if the widget never rendered (executeAsync would wait forever for the script)
+// or if the challenge fails (executeAsync rejects on network errors or timeouts), so the
+// form still submits and the server decides whether a token is required.
 export async function getReCaptchaToken(reCaptcha: ReCAPTCHA | null): Promise<string | null> {
-  if (!reCaptcha) return null;
+  if (!reCaptcha || reCaptcha.getWidgetId() === null) return null;
 
   try {
     return await reCaptcha.executeAsync();

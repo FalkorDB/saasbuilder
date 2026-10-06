@@ -57,7 +57,6 @@ const SignupPage = (props) => {
 
   const [showSuccess, setShowSuccess] = useState(false);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
-  const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
   const [formStep, setFormStep] = useState<"email-input" | "complete-form">(email ? "complete-form" : "email-input");
 
   const snackbar = useSnackbar();
@@ -84,10 +83,8 @@ const SignupPage = (props) => {
   async function handleFormSubmit(values) {
     const data: any = {};
 
-    if (!hasCaptchaErrored) {
-      const token = await getReCaptchaToken(reCaptchaRef.current);
-      if (token) data["reCaptchaToken"] = token;
-    }
+    const token = await getReCaptchaToken(reCaptchaRef.current);
+    if (token) data["reCaptchaToken"] = token;
 
     const fieldsToSkipTrim = ["password", "confirmPassword"];
     for (const key in values) {
@@ -295,7 +292,6 @@ const SignupPage = (props) => {
               setIsScriptLoaded(true);
             }}
             onErrored={() => {
-              setHasCaptchaErrored(true);
               // Enable submit anyway so the server can decide whether a token is required
               setIsScriptLoaded(true);
             }}

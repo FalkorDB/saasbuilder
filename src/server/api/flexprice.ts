@@ -66,7 +66,7 @@ async function fetchWithTimeout(url: string, init: Parameters<typeof fetch>[1]) 
  * so it must be an https url that is not served from this application's origin.
  * When FLEXPRICE_PORTAL_ORIGIN is set, the url must match it exactly.
  */
-function getSafePortalURL(url: string | undefined, requestHost?: string) {
+function getSafePortalURL(url: string | undefined) {
   const safeURL = getSafeExternalURL(url);
   if (!safeURL) return "";
 
@@ -77,15 +77,10 @@ function getSafePortalURL(url: string | undefined, requestHost?: string) {
     return expectedOrigin && portalOrigin === expectedOrigin ? safeURL : "";
   }
 
-  const appOrigins = [
-    requestHost && `https://${requestHost}`,
-    requestHost && `http://${requestHost}`,
-    getSaaSDomainURL(),
-  ]
-    .map(getOrigin)
-    .filter(Boolean);
-
-  return appOrigins.includes(portalOrigin) ? "" : safeURL;
+  // Use the configured app origin rather than the client-supplied Host header,
+  // and reject sessions when the app origin can't be established
+  const appOrigin = getOrigin(getSaaSDomainURL());
+  return appOrigin && portalOrigin !== appOrigin ? safeURL : "";
 }
 
 /**
@@ -119,10 +114,7 @@ export async function getCustomerUserId(authToken: string): Promise<string> {
  * Generates a short-lived (1 hour) Flexprice customer portal session.
  * https://docs.flexprice.io/docs/customers/customer-portal#generating-a-portal-session
  */
-export async function createFlexpricePortalSession(
-  externalId: string,
-  requestHost?: string
-): Promise<FlexpricePortalSession> {
+export async function createFlexpricePortalSession(externalId: string): Promise<FlexpricePortalSession> {
   const response = await fetchWithTimeout(
     `${getFlexpriceBaseURL()}/v1/customers/portal/${encodeURIComponent(externalId)}`,
     {
@@ -144,7 +136,7 @@ export async function createFlexpricePortalSession(
   }
 
   const session = (await response.json()) as FlexpricePortalSession;
-  const safeURL = getSafePortalURL(session?.url, requestHost);
+  const safeURL = getSafePortalURL(session?.url);
   if (!safeURL) {
     console.error("Flexprice portal session returned an invalid url");
     throw new FlexpriceError("Failed to create billing portal session");

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 
+import { forceLogout } from "src/api/forceLogout";
 import { refreshAuth } from "src/api/refreshAuth";
 
 type FlexpricePortalStatus = {
@@ -35,7 +36,7 @@ export function useFlexpricePortalSession(enabled = false) {
 
         // Follow the app's auth recovery: refresh the token and retry once, otherwise sign in again
         if (!(await refreshAuth())) {
-          window.location.href = "/signin";
+          await forceLogout();
           throw error;
         }
         const response = await axios.post<FlexpricePortalSession>("/api/flexprice-portal/session");

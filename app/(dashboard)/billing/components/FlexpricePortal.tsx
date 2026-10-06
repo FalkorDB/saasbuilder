@@ -48,6 +48,9 @@ const FlexpricePortal = () => {
     <iframe
       src={session.url}
       title="Billing portal"
+      // Hosted checkout and card forms open in a new tab; block top-level navigation of the dashboard
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
+      referrerPolicy="no-referrer"
       className="w-full border-0 rounded-xl"
       style={{ height: "calc(100vh - 220px)", minHeight: "800px" }}
     />

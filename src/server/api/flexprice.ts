@@ -1,4 +1,5 @@
 import { baseDomain } from "src/api/client";
+import getSafeExternalURL from "src/utils/getSafeExternalURL";
 
 //These apis are supposed to be used on the nextjs server only
 //The Flexprice API key must never be exposed to the browser
@@ -79,9 +80,12 @@ export async function createFlexpricePortalSession(externalId: string): Promise<
   }
 
   const session = (await response.json()) as FlexpricePortalSession;
-  if (!session?.url) {
+  // The url is embedded in an iframe, so only accept https urls (http allowed outside production)
+  const safeURL = getSafeExternalURL(session?.url);
+  if (!safeURL) {
+    console.error("Flexprice portal session returned an invalid url");
     throw new FlexpriceError("Failed to create billing portal session");
   }
 
-  return session;
+  return { ...session, url: safeURL };
 }

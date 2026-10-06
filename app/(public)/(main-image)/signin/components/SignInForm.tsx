@@ -14,6 +14,7 @@ import useEnvironmentType from "src/hooks/useEnvironmentType";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
 import { IdentityProvider } from "src/types/identityProvider";
+import { getReCaptchaToken } from "src/utils/getReCaptchaToken";
 import checkRouteValidity from "src/utils/route/checkRouteValidity";
 import { getInstancesRoute } from "src/utils/routes";
 
@@ -137,10 +138,9 @@ const SignInForm: FC<SignInFormProps> = ({
   async function handleFormSubmit(values) {
     const data = { ...values, email: values.email.trim() };
 
-    if (reCaptchaRef.current && !hasCaptchaErrored) {
-      const token = await reCaptchaRef.current.executeAsync();
-      reCaptchaRef.current.reset();
-      data["reCaptchaToken"] = token;
+    if (!hasCaptchaErrored) {
+      const token = await getReCaptchaToken(reCaptchaRef.current);
+      if (token) data["reCaptchaToken"] = token;
     }
 
     passwordSignInMutation.mutate(data);

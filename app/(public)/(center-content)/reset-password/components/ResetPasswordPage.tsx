@@ -12,6 +12,7 @@ import { customerUserResetPassword } from "src/api/customer-user";
 import useSnackbar from "src/hooks/useSnackbar";
 import { styleConfig } from "src/providerConfig";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
+import { getReCaptchaToken } from "src/utils/getReCaptchaToken";
 import DisplayHeading from "components/NonDashboardComponents/DisplayHeading";
 import FieldContainer from "components/NonDashboardComponents/FormElementsV2/FieldContainer";
 import FieldLabel from "components/NonDashboardComponents/FormElementsV2/FieldLabel";
@@ -32,7 +33,7 @@ const ResetPasswordPage = (props) => {
   const { orgLogoURL, orgName } = useProviderOrgDetails();
 
   const snackbar = useSnackbar();
-  const reCaptchaRef = useRef<any>(null);
+  const reCaptchaRef = useRef<ReCAPTCHA | null>(null);
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [hasCaptchaErrored, setHasCaptchaErrored] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -58,10 +59,9 @@ const ResetPasswordPage = (props) => {
   async function handleFormSubmit(values) {
     const data = {};
 
-    if (reCaptchaRef.current && !hasCaptchaErrored) {
-      const token = await reCaptchaRef.current.executeAsync();
-      reCaptchaRef.current.reset();
-      data["reCaptchaToken"] = token;
+    if (!hasCaptchaErrored) {
+      const token = await getReCaptchaToken(reCaptchaRef.current);
+      if (token) data["reCaptchaToken"] = token;
     }
 
     for (const key in values) {

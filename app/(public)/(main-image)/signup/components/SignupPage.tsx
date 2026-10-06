@@ -17,6 +17,7 @@ import Logo from "src/components/NonDashboardComponents/Logo";
 import { Text } from "src/components/Typography/Typography";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
+import { getReCaptchaToken } from "src/utils/getReCaptchaToken";
 import { isPasswordSameAsEmail, passwordMatchesEmailText, passwordRegex, passwordText } from "src/utils/passwordRegex";
 import DisplayHeading from "components/NonDashboardComponents/DisplayHeading";
 import FieldLabel from "components/NonDashboardComponents/FormElementsV2/FieldLabel";
@@ -83,10 +84,9 @@ const SignupPage = (props) => {
   async function handleFormSubmit(values) {
     const data: any = {};
 
-    if (reCaptchaRef.current && !hasCaptchaErrored) {
-      const token = await reCaptchaRef.current.executeAsync();
-      reCaptchaRef.current.reset();
-      data["reCaptchaToken"] = token;
+    if (!hasCaptchaErrored) {
+      const token = await getReCaptchaToken(reCaptchaRef.current);
+      if (token) data["reCaptchaToken"] = token;
     }
 
     const fieldsToSkipTrim = ["password", "confirmPassword"];

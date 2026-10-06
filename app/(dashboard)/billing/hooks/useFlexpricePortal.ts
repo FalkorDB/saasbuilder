@@ -45,8 +45,8 @@ export function useFlexpricePortalStatus() {
   });
 }
 
-const createSession = async () => {
-  const response = await axios.post<FlexpricePortalSession>("/api/flexprice-portal/session");
+const createSession = async (signal: AbortSignal) => {
+  const response = await axios.post<FlexpricePortalSession>("/api/flexprice-portal/session", undefined, { signal });
   return response.data;
 };
 
@@ -55,20 +55,23 @@ const isUnauthorized = (error: unknown) => axios.isAxiosError(error) && error.re
 export function useFlexpricePortalSession(enabled = false) {
   return useQuery({
     queryKey: ["flexprice-portal-session"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       try {
-        return await createSession();
+        return await createSession(signal);
       } catch (error) {
         if (!isUnauthorized(error)) throw error;
 
         // Follow the app's auth recovery: refresh the token and retry once, otherwise sign in again
         if (await refreshAuth()) {
           try {
-            return await createSession();
+            return await createSession(signal);
           } catch (retryError) {
             if (!isUnauthorized(retryError)) throw retryError;
           }
         }
+        // The user left the Billing page while recovering; don't log them out from elsewhere
+        if (signal.aborted) throw error;
+
         await forceLogout();
         throw error;
       }

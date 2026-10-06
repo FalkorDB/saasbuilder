@@ -177,5 +177,12 @@ export async function createFlexpricePortalSession(externalId: string): Promise<
     throw new FlexpriceError("Failed to create billing portal session");
   }
 
+  // The client schedules the session refresh from expires_at, so it must be a valid future time
+  const expiresAt = Date.parse(session?.expires_at ?? "");
+  if (Number.isNaN(expiresAt) || expiresAt <= Date.now()) {
+    console.error("Rejected Flexprice portal session: expires_at is missing, invalid or in the past");
+    throw new FlexpriceError("Failed to create billing portal session");
+  }
+
   return { ...(session as FlexpricePortalSession), url: result.url };
 }

@@ -217,6 +217,8 @@ const Sidebar = () => {
   // Only show legacy billing links once Flexprice is known to be disabled, matching the Billing page
   const isBillingEnabled =
     Boolean(billingStatusQuery.data?.enabled) && flexpricePortalStatusQuery.isSuccess && !isFlexpriceEnabled;
+  // Keep Billing reachable when the Flexprice status check fails, so users can use its Retry action
+  const isBillingLinkHidden = flexpricePortalStatusQuery.isError ? false : !isBillingEnabled && !isFlexpriceEnabled;
 
   const bottomItems = useMemo(
     () => [
@@ -297,7 +299,7 @@ const Sidebar = () => {
           {
             name: "Billing",
             href: getBillingRoute(),
-            isHidden: !isBillingEnabled && !isFlexpriceEnabled,
+            isHidden: isBillingLinkHidden,
           },
           {
             name: "Payment Settings",
@@ -324,7 +326,7 @@ const Sidebar = () => {
     ];
   }, [
     isBillingEnabled,
-    isFlexpriceEnabled,
+    isBillingLinkHidden,
     showCloudProvidersPage,
     showCustomNetworksPage,
     versionSetOverrideOfferings,

@@ -399,13 +399,13 @@ export default function NodesTable(props) {
             failoverDisabledMessage: !selectedNode
               ? "Please select a node"
               : !modifyAccessServiceAllowed
-                ? "Unauthorized to failover nodes"
+                ? "Unauthorized to restart nodes"
                 : isInventoryManageInstance && isManagedProxy
                   ? "System managed proxy nodes cannot be failed over"
                   : selectedNode?.status !== "RUNNING"
-                    ? "Node must be running to failover"
+                    ? "Node must be running to restart"
                     : failoverMutation.isPending
-                      ? "Failover in progress"
+                      ? "Restart in progress"
                       : "",
             selectedNode,
             showFailoverButton: !isCustomTenancy && (isAccessSide || isInventoryManageInstance),

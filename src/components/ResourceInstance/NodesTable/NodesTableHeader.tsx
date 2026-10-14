@@ -82,7 +82,7 @@ const NodesTableHeader: React.FC<NodesTableHeaderProps> = ({
                 }
               }}
             >
-              Failover
+              Restart
               {failoverMutation.isPending && <LoadingSpinnerSmall sx={{ marginLeft: "12px" }} />}
             </Button>
           )}

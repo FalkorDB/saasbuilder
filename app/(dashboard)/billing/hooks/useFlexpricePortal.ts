@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
@@ -45,27 +45,29 @@ export function useFlexpricePortalStatus() {
   });
 }
 
-const createSession = async () => {
-  const response = await axios.post<FlexpricePortalSession>("/api/flexprice-portal/session");
+const createSession = async (signal: AbortSignal) => {
+  const response = await axios.post<FlexpricePortalSession>("/api/flexprice-portal/session", undefined, { signal });
   return response.data;
 };
 
 const isUnauthorized = (error: unknown) => axios.isAxiosError(error) && error.response?.status === 401;
 
-const createSessionWithAuthRecovery = async () => {
+const createSessionWithAuthRecovery = async (signal: AbortSignal) => {
   try {
-    return await createSession();
+    return await createSession(signal);
   } catch (error) {
     if (!isUnauthorized(error)) throw error;
 
     // Follow the app's auth recovery: refresh the token and retry once, otherwise sign in again
     if (await refreshAuth()) {
       try {
-        return await createSession();
+        return await createSession(signal);
       } catch (retryError) {
         if (!isUnauthorized(retryError)) throw retryError;
       }
     }
+    // The user left the Billing page while recovering; don't log them out from elsewhere
+    if (signal.aborted) throw error;
 
     await forceLogout();
     throw error;
@@ -78,10 +80,15 @@ const createSessionWithAuthRecovery = async () => {
  * short-lived token, so a new session is created on every click.
  */
 export function useOpenFlexpricePortal({ onError }: { onError: (message: string) => void }) {
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Abandon a pending session request when the user leaves the page
+  useEffect(() => () => abortControllerRef.current?.abort(), []);
+
   const mutation = useMutation({
-    mutationFn: async (portalTab: Window) => {
+    mutationFn: async ({ portalTab, signal }: { portalTab: Window; signal: AbortSignal }) => {
       try {
-        const session = await createSessionWithAuthRecovery();
+        const session = await createSessionWithAuthRecovery(signal);
         // The portal must not be able to navigate the dashboard
         portalTab.opener = null;
         portalTab.location.href = session.url;
@@ -90,7 +97,9 @@ export function useOpenFlexpricePortal({ onError }: { onError: (message: string)
         throw error;
       }
     },
-    onError: (error) => {
+    onError: (error, { signal }) => {
+      if (signal.aborted) return;
+
       onError(
         (axios.isAxiosError(error) && error.response?.data?.message) ||
           "Failed to open the billing portal. Please retry"
@@ -105,7 +114,9 @@ export function useOpenFlexpricePortal({ onError }: { onError: (message: string)
       onError("Please allow popups to open the billing portal");
       return;
     }
-    mutation.mutate(portalTab);
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    mutation.mutate({ portalTab, signal: abortControllerRef.current.signal });
   };
 
   return { openPortal, isOpening: mutation.isPending };

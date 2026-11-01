@@ -105,7 +105,11 @@ const BillingPage = () => {
   const paymentConfigured = billingDetails?.paymentConfigured;
   const errorDisplayText = error ? getBillingDetailsErrorMessage(error) : "";
 
-  const isLoading = (isBillingEnabled && isBillingDetailsPending) || isConsumptionDataPending || isInvoicesPending;
+  const isLoading =
+    billingStatusQuery.isPending ||
+    (isBillingEnabled && isBillingDetailsPending) ||
+    isConsumptionDataPending ||
+    isInvoicesPending;
   const isStripe = selectedBillingProvider === "STRIPE";
   const isCustomPaymentPortalEnabled = isStripe && Boolean(billingDetails?.customPaymentPortalEnabled);
   const showStripePaymentMethodEmptyState = isCustomPaymentPortalEnabled && isStripePaymentMethodsEmpty;
@@ -157,6 +161,14 @@ const BillingPage = () => {
   const safePaymentInfoPortalURL = getSafeExternalURL(billingDetails?.paymentInfoPortalURL);
   const payNowLink = isStripe ? safePaymentURL : safeBalanceDueLink;
 
+  const consumptionUsage = (
+    <ConsumptionUsage
+      consumptionUsageData={consumptionUsageData}
+      onOpenUsageBreakdown={isFlexpriceEnabled ? openFlexpricePortal : undefined}
+      isOpeningUsageBreakdown={isOpeningFlexpricePortal}
+    />
+  );
+
   return (
     <div>
       <AccountManagementHeader userName={selectUser?.name} userEmail={selectUser?.email} />
@@ -168,26 +180,26 @@ const BillingPage = () => {
         {isLoading ? (
           <LoadingSpinner />
         ) : error ? (
-          <Stack p={3} pt="200px" alignItems="center" justifyContent="center">
-            <DisplayText
-              // @ts-ignore
-              size="xsmall"
-              sx={{
-                wordBreak: "break-word",
-                textAlign: "center",
-                maxWidth: 900,
-              }}
-            >
-              {errorDisplayText}
-            </DisplayText>
-          </Stack>
+          <>
+            {/* The Flexprice portal doesn't depend on billing details, so keep its button reachable */}
+            {isFlexpriceEnabled && consumptionUsage}
+            <Stack p={3} pt={isFlexpriceEnabled ? "48px" : "200px"} alignItems="center" justifyContent="center">
+              <DisplayText
+                // @ts-ignore
+                size="xsmall"
+                sx={{
+                  wordBreak: "break-word",
+                  textAlign: "center",
+                  maxWidth: 900,
+                }}
+              >
+                {errorDisplayText}
+              </DisplayText>
+            </Stack>
+          </>
         ) : (
           <>
-            <ConsumptionUsage
-              consumptionUsageData={consumptionUsageData}
-              onOpenUsageBreakdown={isFlexpriceEnabled ? openFlexpricePortal : undefined}
-              isOpeningUsageBreakdown={isOpeningFlexpricePortal}
-            />
+            {consumptionUsage}
 
             {billingDetails && billingDetails?.billingProviders && billingDetails?.billingProviders?.length > 0 && (
               <div className="mt-6 pb-2 border-b border-[#E9EAEB]">

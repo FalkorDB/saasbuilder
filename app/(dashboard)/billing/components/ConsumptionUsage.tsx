@@ -56,7 +56,8 @@ const ConsumptionUsage: FC<ConsumptionUsageProps> = (props) => {
     isFetched: isSubscriptionUsageFetched,
     isPending: isSubscriptionsUsagePending,
   } = useMultiSubscriptionUsage({
-    subscriptionIds,
+    // The inline breakdown isn't shown when it opens elsewhere, so skip the per-subscription requests
+    subscriptionIds: onOpenUsageBreakdown ? [] : subscriptionIds,
   });
 
   const rows = useMemo(() => {

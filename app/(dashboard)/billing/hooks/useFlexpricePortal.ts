@@ -18,7 +18,7 @@ type FlexpricePortalSession = {
 
 /**
  * Sends users to the Billing page when Flexprice handles billing, for legacy
- * Omnistrate billing pages that are hidden from the sidebar in that mode.
+ * Omnistrate usage pages that are hidden from the sidebar in that mode.
  */
 export function useRedirectToBillingInFlexpriceMode() {
   const router = useRouter();

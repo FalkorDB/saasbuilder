@@ -1,4 +1,5 @@
 import { FC, useMemo, useState } from "react";
+import ArrowOutwardIcon from "@mui/icons-material/ArrowOutward";
 import { Collapse } from "@mui/material";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -23,10 +24,13 @@ dayjs.extend(utc);
 type ConsumptionUsageProps = {
   // consumptionUsagePerDayData: ConsumptionUsagePerDay | undefined;
   consumptionUsageData: ConsumptionUsageData | undefined;
+  // When set, the usage breakdown lives outside the dashboard (e.g. the Flexprice portal) and the button opens it
+  onOpenUsageBreakdown?: () => void;
+  isOpeningUsageBreakdown?: boolean;
 };
 
 const ConsumptionUsage: FC<ConsumptionUsageProps> = (props) => {
-  const { consumptionUsageData } = props;
+  const { consumptionUsageData, onOpenUsageBreakdown, isOpeningUsageBreakdown } = props;
   const [showUsageBreakdown, setShowUsageBreakdown] = useState(false);
 
   const aggregatedConsumptionDataHash = useMemo(() => {
@@ -90,16 +94,30 @@ const ConsumptionUsage: FC<ConsumptionUsageProps> = (props) => {
                 `(Until ${dayjs.utc(consumptionUsageData?.endTime).format("MMM DD, YYYY, HH:mm:ss")} UTC)`}
             </Text>
           </div>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setShowUsageBreakdown((prev) => !prev);
-            }}
-            fontColor={"#5925DC"}
-            outlineColor={"#5925DC"}
-          >
-            {showUsageBreakdown ? "Hide" : "Show"} Usage Breakdown
-          </Button>
+          {onOpenUsageBreakdown ? (
+            <Button
+              variant="outlined"
+              onClick={onOpenUsageBreakdown}
+              disabled={isOpeningUsageBreakdown}
+              isLoading={isOpeningUsageBreakdown}
+              fontColor={"#5925DC"}
+              outlineColor={"#5925DC"}
+              endIcon={!isOpeningUsageBreakdown && <ArrowOutwardIcon sx={{ fontSize: "18px" }} />}
+            >
+              Show Usage Breakdown
+            </Button>
+          ) : (
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setShowUsageBreakdown((prev) => !prev);
+              }}
+              fontColor={"#5925DC"}
+              outlineColor={"#5925DC"}
+            >
+              {showUsageBreakdown ? "Hide" : "Show"} Usage Breakdown
+            </Button>
+          )}
         </div>
       </div>
       <div className=" py-3">
@@ -114,7 +132,7 @@ const ConsumptionUsage: FC<ConsumptionUsageProps> = (props) => {
           ))}
         </div>
       </div>
-      <Collapse in={showUsageBreakdown}>
+      <Collapse in={showUsageBreakdown && !onOpenUsageBreakdown}>
         <SubscriptionUsageTable rows={rows} isSubscriptionsUsagePending={isSubscriptionsUsagePending} />
       </Collapse>
     </div>

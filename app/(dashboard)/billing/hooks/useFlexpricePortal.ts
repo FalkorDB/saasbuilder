@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 
 import { forceLogout } from "src/api/forceLogout";
@@ -45,44 +45,68 @@ export function useFlexpricePortalStatus() {
   });
 }
 
-const createSession = async (signal: AbortSignal) => {
-  const response = await axios.post<FlexpricePortalSession>("/api/flexprice-portal/session", undefined, { signal });
+const createSession = async () => {
+  const response = await axios.post<FlexpricePortalSession>("/api/flexprice-portal/session");
   return response.data;
 };
 
 const isUnauthorized = (error: unknown) => axios.isAxiosError(error) && error.response?.status === 401;
 
-export function useFlexpricePortalSession(enabled = false) {
-  return useQuery({
-    queryKey: ["flexprice-portal-session"],
-    queryFn: async ({ signal }) => {
+const createSessionWithAuthRecovery = async () => {
+  try {
+    return await createSession();
+  } catch (error) {
+    if (!isUnauthorized(error)) throw error;
+
+    // Follow the app's auth recovery: refresh the token and retry once, otherwise sign in again
+    if (await refreshAuth()) {
       try {
-        return await createSession(signal);
+        return await createSession();
+      } catch (retryError) {
+        if (!isUnauthorized(retryError)) throw retryError;
+      }
+    }
+
+    await forceLogout();
+    throw error;
+  }
+};
+
+/**
+ * Opens the Flexprice customer portal in a new tab.
+ * Flexprice doesn't allow the portal to be framed, and session urls carry a
+ * short-lived token, so a new session is created on every click.
+ */
+export function useOpenFlexpricePortal({ onError }: { onError: (message: string) => void }) {
+  const mutation = useMutation({
+    mutationFn: async (portalTab: Window) => {
+      try {
+        const session = await createSessionWithAuthRecovery();
+        // The portal must not be able to navigate the dashboard
+        portalTab.opener = null;
+        portalTab.location.href = session.url;
       } catch (error) {
-        if (!isUnauthorized(error)) throw error;
-
-        // Follow the app's auth recovery: refresh the token and retry once, otherwise sign in again
-        if (await refreshAuth()) {
-          try {
-            return await createSession(signal);
-          } catch (retryError) {
-            if (!isUnauthorized(retryError)) throw retryError;
-          }
-        }
-        // The user left the Billing page while recovering; don't log them out from elsewhere
-        if (signal.aborted) throw error;
-
-        await forceLogout();
+        portalTab.close();
         throw error;
       }
     },
-    enabled,
-    // Session URLs carry a short-lived token, so never reuse one across page visits
-    // and avoid refetching (which would reload the embedded portal) while it is valid
-    gcTime: 0,
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-    // Every request creates a new portal session, so don't retry automatically
-    retry: false,
+    onError: (error) => {
+      onError(
+        (axios.isAxiosError(error) && error.response?.data?.message) ||
+          "Failed to open the billing portal. Please retry"
+      );
+    },
   });
+
+  // Must be called from a click handler: the tab is opened synchronously so popup blockers allow it
+  const openPortal = () => {
+    const portalTab = window.open("", "_blank");
+    if (!portalTab) {
+      onError("Please allow popups to open the billing portal");
+      return;
+    }
+    mutation.mutate(portalTab);
+  };
+
+  return { openPortal, isOpening: mutation.isPending };
 }

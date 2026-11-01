@@ -7,6 +7,7 @@ import { Box, Stack } from "@mui/material";
 import { useSelector } from "react-redux";
 
 import StatusChip from "src/components/StatusChip/StatusChip";
+import useSnackbar from "src/hooks/useSnackbar";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { selectUserrootData } from "src/slices/userDataSlice";
 import getSafeExternalURL from "src/utils/getSafeExternalURL";
@@ -22,14 +23,13 @@ import PageTitle from "../components/Layout/PageTitle";
 
 import BillingProviderTabs from "./components/BillingProviderTabs";
 import ConsumptionUsage from "./components/ConsumptionUsage";
-import FlexpricePortal from "./components/FlexpricePortal";
 import InvoicesTable from "./components/InvoicesTable";
 import StripeDefaultPaymentMethodSummary from "./components/StripeDefaultPaymentMethodSummary";
 import useBillingDetails from "./hooks/useBillingDetails";
 import useBillingStatus from "./hooks/useBillingStatus";
 import useConsumptionInvoices from "./hooks/useConsumptionInvoices";
 import useConsumptionUsage from "./hooks/useConsumptionUsage";
-import { useFlexpricePortalStatus } from "./hooks/useFlexpricePortal";
+import { useFlexpricePortalStatus, useOpenFlexpricePortal } from "./hooks/useFlexpricePortal";
 import getBillingDetailsErrorMessage from "./utils/getBillingDetailsErrorMessage";
 
 const BillingPage = () => {
@@ -43,11 +43,16 @@ const BillingPage = () => {
 
   const billingStatusQuery = useBillingStatus();
   const flexpricePortalStatusQuery = useFlexpricePortalStatus();
+  const snackbar = useSnackbar();
+  const { openPortal: openFlexpricePortal, isOpening: isOpeningFlexpricePortal } = useOpenFlexpricePortal({
+    onError: (message) => snackbar.showError(message),
+  });
 
+  // Flexprice only replaces the usage breakdown, which opens its customer portal in a new tab
   const isFlexpriceEnabled = Boolean(flexpricePortalStatusQuery.data?.enabled);
-  // Only load the legacy Omnistrate billing data once Flexprice is known to be disabled
-  const isLegacyBillingView = flexpricePortalStatusQuery.isSuccess && !isFlexpriceEnabled;
-  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled) && isLegacyBillingView;
+  // Wait for the Flexprice status, so the usage breakdown button knows what to open
+  const isBillingDataEnabled = flexpricePortalStatusQuery.isSuccess;
+  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled) && isBillingDataEnabled;
 
   const {
     isPending: isBillingDetailsPending,
@@ -57,9 +62,9 @@ const BillingPage = () => {
   } = useBillingDetails(isBillingEnabled);
   const { data: consumptionUsageData, isPending: isConsumptionDataPending } = useConsumptionUsage(
     {},
-    isLegacyBillingView
+    isBillingDataEnabled
   );
-  const { data: invoicesData, isPending: isInvoicesPending } = useConsumptionInvoices(isLegacyBillingView);
+  const { data: invoicesData, isPending: isInvoicesPending } = useConsumptionInvoices(isBillingDataEnabled);
 
   const invoices = useMemo(() => invoicesData?.invoices || [], [invoicesData]);
 
@@ -100,7 +105,7 @@ const BillingPage = () => {
   const paymentConfigured = billingDetails?.paymentConfigured;
   const errorDisplayText = error ? getBillingDetailsErrorMessage(error) : "";
 
-  const isLoading = isBillingDetailsPending || isConsumptionDataPending || isInvoicesPending;
+  const isLoading = (isBillingEnabled && isBillingDetailsPending) || isConsumptionDataPending || isInvoicesPending;
   const isStripe = selectedBillingProvider === "STRIPE";
   const isCustomPaymentPortalEnabled = isStripe && Boolean(billingDetails?.customPaymentPortalEnabled);
   const showStripePaymentMethodEmptyState = isCustomPaymentPortalEnabled && isStripePaymentMethodsEmpty;
@@ -143,20 +148,6 @@ const BillingPage = () => {
     );
   }
 
-  if (isFlexpriceEnabled) {
-    return (
-      <div>
-        <AccountManagementHeader userName={selectUser?.name} userEmail={selectUser?.email} />
-        <PageContainer>
-          <PageTitle icon={BillingIcon} className="mb-6">
-            Billing & Invoices
-          </PageTitle>
-          <FlexpricePortal />
-        </PageContainer>
-      </div>
-    );
-  }
-
   if (isLoading) return <LoadingSpinner />;
   const balanceDueLink =
     billingDetails?.billingProviders?.find((provider) => provider.type === selectedBillingProvider)?.balanceDueLink ||
@@ -192,7 +183,11 @@ const BillingPage = () => {
           </Stack>
         ) : (
           <>
-            <ConsumptionUsage consumptionUsageData={consumptionUsageData} />
+            <ConsumptionUsage
+              consumptionUsageData={consumptionUsageData}
+              onOpenUsageBreakdown={isFlexpriceEnabled ? openFlexpricePortal : undefined}
+              isOpeningUsageBreakdown={isOpeningFlexpricePortal}
+            />
 
             {billingDetails && billingDetails?.billingProviders && billingDetails?.billingProviders?.length > 0 && (
               <div className="mt-6 pb-2 border-b border-[#E9EAEB]">

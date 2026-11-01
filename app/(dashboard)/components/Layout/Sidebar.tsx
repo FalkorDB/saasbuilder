@@ -219,6 +219,8 @@ const Sidebar = () => {
     Boolean(billingStatusQuery.data?.enabled) && flexpricePortalStatusQuery.isSuccess && !isFlexpriceEnabled;
   // Keep Billing reachable when the Flexprice status check fails, so users can use its Retry action
   const isBillingLinkHidden = flexpricePortalStatusQuery.isError ? false : !isBillingEnabled && !isFlexpriceEnabled;
+  // Payment methods stay managed through Stripe even when Flexprice replaces the usage views
+  const isPaymentSettingsEnabled = Boolean(billingStatusQuery.data?.enabled);
 
   const bottomItems = useMemo(
     () => [
@@ -304,7 +306,7 @@ const Sidebar = () => {
           {
             name: "Payment Settings",
             href: getPaymentSettingsRoute(),
-            isHidden: !isBillingEnabled,
+            isHidden: !isPaymentSettingsEnabled,
           },
           {
             name: "Cost Explorer",
@@ -327,6 +329,7 @@ const Sidebar = () => {
   }, [
     isBillingEnabled,
     isBillingLinkHidden,
+    isPaymentSettingsEnabled,
     showCloudProvidersPage,
     showCustomNetworksPage,
     versionSetOverrideOfferings,

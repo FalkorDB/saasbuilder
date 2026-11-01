@@ -4,9 +4,9 @@ import Cookies from "js-cookie";
 import _ from "lodash";
 
 import { AUTH_INDICATOR_COOKIE } from "src/api/client";
+import { forceLogout } from "src/api/forceLogout";
 import { refreshAuth } from "src/api/refreshAuth";
 import axios, { baseURL } from "src/axios";
-import { logoutBroadcastChannel } from "src/broadcastChannel";
 import { checkIsNonProtectedEndpoint, isAuthError } from "src/utils/authUtils";
 
 const AxiosGlobalErrorHandler = () => {
@@ -111,29 +111,7 @@ const AxiosGlobalErrorHandler = () => {
             // before /signin loads — middleware redirects away from /signin
             // when the auth cookie is still present and valid, which would
             // bounce us back.
-            try {
-              await fetch("/api/logout", { method: "POST", keepalive: true });
-            } catch {
-              // Ignore — we're redirecting regardless.
-            }
-            Cookies.remove(AUTH_INDICATOR_COOKIE);
-            localStorage.removeItem("paymentNotificationHidden");
-            try {
-              localStorage.removeItem("loggedInUsingSSO");
-            } catch (err) {
-              console.warn("Failed to clear SSO state:", err);
-            }
-            // Broadcast so other open tabs/windows also log out.
-            if (logoutBroadcastChannel) {
-              try {
-                logoutBroadcastChannel.postMessage("logout");
-              } catch (err) {
-                console.warn("Failed to broadcast logout:", err);
-              }
-            }
-            // Use replace so /signin doesn't get added to history (Back would
-            // land on the protected page and trigger another 401 bounce).
-            window.location.replace("/signin");
+            await forceLogout();
           }
         } else if (!ignoreGlobalErrorSnack) {
           if (error.response && error.response.data) {

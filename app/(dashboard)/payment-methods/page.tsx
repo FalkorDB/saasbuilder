@@ -19,6 +19,7 @@ import { DisplayText, Text } from "components/Typography/Typography";
 import BillingProviderTabs from "../billing/components/BillingProviderTabs";
 import useBillingDetails from "../billing/hooks/useBillingDetails";
 import useBillingStatus from "../billing/hooks/useBillingStatus";
+import { useRedirectToBillingInFlexpriceMode } from "../billing/hooks/useFlexpricePortal";
 import getBillingDetailsErrorMessage from "../billing/utils/getBillingDetailsErrorMessage";
 import AccountManagementHeader from "../components/AccountManagement/AccountManagementHeader";
 import SlidersIcon from "../components/Icons/Sliders";
@@ -62,6 +63,7 @@ const ProviderManagedPaymentMethodPanel = ({ provider }: { provider: BillingProv
 };
 
 const PaymentMethodsPage = () => {
+  useRedirectToBillingInFlexpriceMode();
   const router = useRouter();
   const searchParams = useSearchParams();
   const snackbar = useSnackbar();

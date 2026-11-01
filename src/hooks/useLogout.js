@@ -1,10 +1,9 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import Cookies from "js-cookie";
 import { useDispatch } from "react-redux";
 
-import { logoutBroadcastChannel } from "src/broadcastChannel";
+import { broadcastLogout, clearClientAuthState } from "src/api/forceLogout";
 import { initialiseUserData } from "src/slices/userDataSlice";
 
 function useLogout() {
@@ -15,14 +14,7 @@ function useLogout() {
 
   // remove indicator cookie, clear user data and redirect to signin
   function handleLogout() {
-    Cookies.remove("omnistrate_logged_in");
-    localStorage.removeItem("paymentNotificationHidden");
-    try {
-      localStorage.removeItem("loggedInUsingSSO");
-    } catch (error) {
-      console.warn("Failed to clear SSO state:", error);
-    }
-
+    clearClientAuthState();
     router.replace("/signin");
   }
 
@@ -42,13 +34,7 @@ function useLogout() {
       .finally(() => {
         handleLogout();
         //broadcasts the logout event to other windows and tabs to log them out
-        if (logoutBroadcastChannel) {
-          try {
-            logoutBroadcastChannel.postMessage("logout");
-          } catch (error) {
-            console.error("Failed to post message on broadcast channel:", error);
-          }
-        }
+        broadcastLogout();
       });
   }
 

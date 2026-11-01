@@ -22,12 +22,14 @@ import PageTitle from "../components/Layout/PageTitle";
 
 import BillingProviderTabs from "./components/BillingProviderTabs";
 import ConsumptionUsage from "./components/ConsumptionUsage";
+import FlexpricePortal from "./components/FlexpricePortal";
 import InvoicesTable from "./components/InvoicesTable";
 import StripeDefaultPaymentMethodSummary from "./components/StripeDefaultPaymentMethodSummary";
 import useBillingDetails from "./hooks/useBillingDetails";
 import useBillingStatus from "./hooks/useBillingStatus";
 import useConsumptionInvoices from "./hooks/useConsumptionInvoices";
 import useConsumptionUsage from "./hooks/useConsumptionUsage";
+import { useFlexpricePortalStatus } from "./hooks/useFlexpricePortal";
 import getBillingDetailsErrorMessage from "./utils/getBillingDetailsErrorMessage";
 
 const BillingPage = () => {
@@ -40,8 +42,12 @@ const BillingPage = () => {
   const previousPaymentConfiguredRef = useRef<boolean | undefined>(undefined);
 
   const billingStatusQuery = useBillingStatus();
+  const flexpricePortalStatusQuery = useFlexpricePortalStatus();
 
-  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled);
+  const isFlexpriceEnabled = Boolean(flexpricePortalStatusQuery.data?.enabled);
+  // Only load the legacy Omnistrate billing data once Flexprice is known to be disabled
+  const isLegacyBillingView = flexpricePortalStatusQuery.isSuccess && !isFlexpriceEnabled;
+  const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled) && isLegacyBillingView;
 
   const {
     isPending: isBillingDetailsPending,
@@ -49,8 +55,11 @@ const BillingPage = () => {
     error,
     refetch: refetchBillingDetails,
   } = useBillingDetails(isBillingEnabled);
-  const { data: consumptionUsageData, isPending: isConsumptionDataPending } = useConsumptionUsage();
-  const { data: invoicesData, isPending: isInvoicesPending } = useConsumptionInvoices();
+  const { data: consumptionUsageData, isPending: isConsumptionDataPending } = useConsumptionUsage(
+    {},
+    isLegacyBillingView
+  );
+  const { data: invoicesData, isPending: isInvoicesPending } = useConsumptionInvoices(isLegacyBillingView);
 
   const invoices = useMemo(() => invoicesData?.invoices || [], [invoicesData]);
 
@@ -105,6 +114,48 @@ const BillingPage = () => {
       setIsStripePaymentMethodsEmpty(false);
     }
   }, [isCustomPaymentPortalEnabled]);
+
+  if (flexpricePortalStatusQuery.isPending) return <LoadingSpinner />;
+
+  if (flexpricePortalStatusQuery.isError) {
+    return (
+      <div>
+        <AccountManagementHeader userName={selectUser?.name} userEmail={selectUser?.email} />
+        <PageContainer>
+          <PageTitle icon={BillingIcon} className="mb-6">
+            Billing & Invoices
+          </PageTitle>
+          <Stack p={3} pt="200px" gap="24px" alignItems="center" justifyContent="center">
+            {/*@ts-ignore */}
+            <DisplayText size="xsmall" sx={{ textAlign: "center" }}>
+              Something went wrong while loading billing details. Please retry
+            </DisplayText>
+            <Button
+              variant="contained"
+              onClick={() => flexpricePortalStatusQuery.refetch()}
+              disabled={flexpricePortalStatusQuery.isFetching}
+            >
+              Retry
+            </Button>
+          </Stack>
+        </PageContainer>
+      </div>
+    );
+  }
+
+  if (isFlexpriceEnabled) {
+    return (
+      <div>
+        <AccountManagementHeader userName={selectUser?.name} userEmail={selectUser?.email} />
+        <PageContainer>
+          <PageTitle icon={BillingIcon} className="mb-6">
+            Billing & Invoices
+          </PageTitle>
+          <FlexpricePortal />
+        </PageContainer>
+      </div>
+    );
+  }
 
   if (isLoading) return <LoadingSpinner />;
   const balanceDueLink =

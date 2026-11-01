@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getConsumptionUsage, GetConsumptionUsageQueryParams } from "src/api/consumption";
 
-function useConsumptionUsage(queryParams: GetConsumptionUsageQueryParams = {}) {
+function useConsumptionUsage(queryParams: GetConsumptionUsageQueryParams = {}, enabled = true) {
   const { subscriptionID } = queryParams;
 
   const query = useQuery({
@@ -12,6 +12,7 @@ function useConsumptionUsage(queryParams: GetConsumptionUsageQueryParams = {}) {
 
       return response.data;
     },
+    enabled,
   });
 
   return query;

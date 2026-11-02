@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import { Collapse } from "@mui/material";
 import useBillingStatus from "app/(dashboard)/billing/hooks/useBillingStatus";
-import { useFlexpricePortalStatus } from "app/(dashboard)/billing/hooks/useFlexpricePortal";
+import { useFlexpriceStatus } from "app/(dashboard)/billing/hooks/useFlexprice";
 import clsx from "clsx";
 
 import { useGlobalData } from "src/providers/GlobalDataProvider";
@@ -210,15 +210,15 @@ const Sidebar = () => {
   // Prefetch Billing Data
   const billingStatusQuery = useBillingStatus();
 
-  // Billing is handled by the Flexprice customer portal when it is configured
-  const flexpricePortalStatusQuery = useFlexpricePortalStatus();
-  const isFlexpriceEnabled = Boolean(flexpricePortalStatusQuery.data?.enabled);
+  // When Flexprice is configured, usage comes from Flexprice and the legacy usage pages are hidden
+  const flexpriceStatusQuery = useFlexpriceStatus();
+  const isFlexpriceEnabled = Boolean(flexpriceStatusQuery.data?.enabled);
 
   // Only show legacy billing links once Flexprice is known to be disabled, matching the Billing page
   const isBillingEnabled =
-    Boolean(billingStatusQuery.data?.enabled) && flexpricePortalStatusQuery.isSuccess && !isFlexpriceEnabled;
+    Boolean(billingStatusQuery.data?.enabled) && flexpriceStatusQuery.isSuccess && !isFlexpriceEnabled;
   // Keep Billing reachable when the Flexprice status check fails, so users can use its Retry action
-  const isBillingLinkHidden = flexpricePortalStatusQuery.isError ? false : !isBillingEnabled && !isFlexpriceEnabled;
+  const isBillingLinkHidden = flexpriceStatusQuery.isError ? false : !isBillingEnabled && !isFlexpriceEnabled;
   // Payment methods stay managed through Stripe even when Flexprice replaces the usage views
   const isPaymentSettingsEnabled = Boolean(billingStatusQuery.data?.enabled);
 

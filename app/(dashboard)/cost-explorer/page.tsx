@@ -11,7 +11,7 @@ import { selectUserrootData } from "src/slices/userDataSlice";
 import { getEndOfCurrentUTCDay, getFirstDayOfUTCMonth } from "src/utils/time";
 
 import useConsumptionUsagePerDay from "../billing/hooks/useConsumptionUsagePerDay";
-import { useRedirectToBillingInFlexpriceMode } from "../billing/hooks/useFlexpricePortal";
+import { useRedirectToBillingInFlexpriceMode } from "../billing/hooks/useFlexprice";
 import AccountManagementHeader from "../components/AccountManagement/AccountManagementHeader";
 import CostExplorerIcon from "../components/Icons/CostExplorer";
 import PageContainer from "../components/Layout/PageContainer";

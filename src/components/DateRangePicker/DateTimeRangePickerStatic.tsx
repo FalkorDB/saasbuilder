@@ -100,6 +100,7 @@ type RelativeRangeProps = {
   handleTabChange: (tab: string) => void;
   relativeRangeOptions: RelativeRangeOption[];
   selectionType: "date" | "date-time";
+  hideClearButton?: boolean;
 };
 
 export const initialRangeState: DateRange = {
@@ -143,6 +144,7 @@ const RelativeRange = ({
   handleTabChange,
   relativeRangeOptions = defaultRelativeRangeOptions,
   selectionType,
+  hideClearButton = false,
 }: RelativeRangeProps) => {
   const [selectedValue, setSelectedValue] = useState<number | null>(null);
 
@@ -230,14 +232,16 @@ const RelativeRange = ({
       </Stack>
       <Stack
         direction="row"
-        justifyContent="space-between"
+        justifyContent={hideClearButton ? "flex-end" : "space-between"}
         alignItems="center"
         borderTop={`1px solid ${themeConfig.colors.gray200}`}
         padding="16px"
       >
-        <Button variant="text" fontColor={themeConfig.colors.success600} onClick={onClear} bgColor={"#0794550a"}>
-          Clear
-        </Button>
+        {!hideClearButton && (
+          <Button variant="text" fontColor={themeConfig.colors.success600} onClick={onClear} bgColor={"#0794550a"}>
+            Clear
+          </Button>
+        )}
         <Stack direction="row" justifyContent="flex-end" alignItems="center" gap="12px">
           <Button variant="outlined" onClick={handleCancel}>
             Cancel

@@ -13,6 +13,8 @@ const WINDOW_SIZES: FlexpriceUsageWindowSize[] = ["HOUR", "DAY"];
 // Custom ranges can be up to a year (plus a day of room for time zones and leap years)
 const MAX_RANGE_DAYS = 367;
 const MAX_RANGE_MS = MAX_RANGE_DAYS * 24 * 60 * 60 * 1000;
+// Hourly points are only used for a single day; allow two to cover time zones and DST changes
+const MAX_HOURLY_RANGE_MS = 2 * 24 * 60 * 60 * 1000;
 
 function parseTime(value: unknown) {
   const time = typeof value === "string" ? Date.parse(value) : NaN;
@@ -45,6 +47,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   if (!WINDOW_SIZES.includes(windowSize)) {
     return res.status(400).json({ message: "Invalid window size" });
+  }
+  if (windowSize === "HOUR" && end - start > MAX_HOURLY_RANGE_MS) {
+    return res.status(400).json({ message: "Hourly usage is only available for up to two days" });
   }
   // Only known properties are allowed, since the key is sent to Flexprice as a group_by path
   if (!FLEXPRICE_USAGE_GROUP_BY_KEYS.includes(groupBy)) {

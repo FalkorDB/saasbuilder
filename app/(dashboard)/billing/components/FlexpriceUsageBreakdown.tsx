@@ -40,6 +40,8 @@ const MAX_CHART_SERIES = 8;
 const seriesColors = ["#7F56D9", "#2E90FA", "#12B76A", "#F79009", "#F04438", "#0BA5EC", "#EE46BC", "#6172F3"];
 const otherSeriesColor = "#98A2B3";
 const NO_VALUE_LABEL = "(none)";
+// Matches the server's limit for a usage range
+const MAX_CUSTOM_RANGE_DAYS = 366;
 
 function getUsageParams(preset: UsageRangePreset, groupBy: FlexpriceUsageGroupByKey): FlexpriceUsageParams {
   const now = dayjs();
@@ -262,10 +264,18 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
   // Cancelling the picker passes back an empty range, which keeps the current selection
   const handleCustomRangeChange = (action: SetStateAction<DateRange>) => {
     if (typeof action === "function" || !action.startDate || !action.endDate) return;
+    // Cancelling the picker passes back the current range; keep it as is instead of reloading it
+    if (preset === "custom" && action.startDate === customRange.startDate && action.endDate === customRange.endDate) {
+      return;
+    }
 
     const customParams = getCustomUsageParams(action, groupBy);
     if (!customParams) {
       snackbar.showError("Choose a date range that includes today or earlier");
+      return;
+    }
+    if (dayjs(customParams.endTime).diff(customParams.startTime, "day", true) > MAX_CUSTOM_RANGE_DAYS) {
+      snackbar.showError("Choose a date range of up to a year");
       return;
     }
 

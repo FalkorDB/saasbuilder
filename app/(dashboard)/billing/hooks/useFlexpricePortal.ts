@@ -86,6 +86,8 @@ export function useOpenFlexpricePortal({ onError }: { onError: (message: string)
   useEffect(() => () => abortControllerRef.current?.abort(), []);
 
   const mutation = useMutation({
+    // Don't pause while offline: the request fails right away, which closes the blank tab and shows the error
+    networkMode: "always",
     mutationFn: async ({ portalTab, signal }: { portalTab: Window; signal: AbortSignal }) => {
       // Close the blank tab as soon as the user leaves, even while auth recovery (which can't be cancelled) is pending
       const closePortalTab = () => portalTab.close();

@@ -57,13 +57,16 @@ function getUsageParams(preset: UsageRangePreset, groupBy: FlexpriceUsageGroupBy
   return { startTime: start.toISOString(), endTime: end.toISOString(), windowSize, groupBy };
 }
 
-function formatCost(value: number, currency: string) {
+// Unit prices can be fractions of a cent, so they keep up to 6 decimals instead of rounding to the currency's 2
+function formatCost(value: number, currency: string, { isUnitPrice = false } = {}) {
   try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency: currency.toUpperCase() || "USD" }).format(
-      value
-    );
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency.toUpperCase() || "USD",
+      ...(isUnitPrice && { maximumFractionDigits: 6 }),
+    }).format(value);
   } catch {
-    return value.toFixed(2);
+    return isUnitPrice ? String(value) : value.toFixed(2);
   }
 }
 
@@ -163,7 +166,7 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
           unitPrice:
             group.unitPrice === null
               ? "-"
-              : `${formatCost(group.unitPrice, currency)}${group.unit ? ` / ${group.unit}` : ""}`,
+              : `${formatCost(group.unitPrice, currency, { isUnitPrice: true })}${group.unit ? ` / ${group.unit}` : ""}`,
           totalCost: group.totalCost,
         })),
     [usage, currency]
@@ -330,7 +333,8 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
                       name={label}
                       stroke={color}
                       strokeWidth={2}
-                      dot={false}
+                      // A single time bucket has no line to draw, so mark it with a dot instead
+                      dot={chartData.length === 1}
                     />
                   ))}
                 </LineChart>
@@ -339,8 +343,8 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
           </Card>
 
           <DataTable
-            // DataTable keeps its page when rows change, so start each range on the first page
-            key={`${shownParams.startTime}-${shownParams.endTime}-${shownParams.groupBy}`}
+            // DataTable keeps its page when rows change, so start on the first page for each new result
+            key={`${shownParams.startTime}-${shownParams.endTime}-${shownParams.groupBy}-${rows.length}`}
             columns={columns}
             rows={rows}
             HeaderComponent={BreakdownTableHeader}

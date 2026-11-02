@@ -160,8 +160,8 @@ function groupUsageByInstance(items: UsageAnalyticsItem[]): FlexpriceUsageGroup[
       ...group,
       unitPrice: hasFlatUnitPrice ? toNumber(onlyItem.price?.amount) : null,
       unit: hasFlatUnitPrice ? onlyItem.unit || null : null,
-      points: Array.from(costByTimestamp, ([timestamp, cost]) => ({ timestamp, cost })).sort((pointA, pointB) =>
-        Date.parse(pointA.timestamp) < Date.parse(pointB.timestamp) ? -1 : 1
+      points: Array.from(costByTimestamp, ([timestamp, cost]) => ({ timestamp, cost })).sort(
+        (pointA, pointB) => Date.parse(pointA.timestamp) - Date.parse(pointB.timestamp)
       ),
     };
   });
@@ -201,7 +201,8 @@ export async function getFlexpriceUsage(
   }
 
   const analytics = parseJSON(response.body);
-  if (!analytics) {
+  // Don't show an error or proxy payload as a period without usage
+  if (!analytics || !Array.isArray(analytics.items)) {
     console.error("Flexprice usage analytics returned an invalid response");
     throw new FlexpriceError("Failed to load usage");
   }
@@ -209,6 +210,6 @@ export async function getFlexpriceUsage(
   return {
     currency: typeof analytics.currency === "string" ? analytics.currency : "",
     totalCost: toNumber(analytics.total_cost),
-    groups: groupUsageByInstance(Array.isArray(analytics.items) ? analytics.items : []),
+    groups: groupUsageByInstance(analytics.items),
   };
 }

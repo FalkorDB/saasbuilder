@@ -24,11 +24,11 @@ type ConsumptionUsageProps = {
   // consumptionUsagePerDayData: ConsumptionUsagePerDay | undefined;
   consumptionUsageData: ConsumptionUsageData | undefined;
   // Replaces the per-subscription breakdown table (e.g. with the Flexprice usage breakdown)
-  usageBreakdown?: ReactNode;
+  renderUsageBreakdown?: (isOpen: boolean) => ReactNode;
 };
 
 const ConsumptionUsage: FC<ConsumptionUsageProps> = (props) => {
-  const { consumptionUsageData, usageBreakdown } = props;
+  const { consumptionUsageData, renderUsageBreakdown } = props;
   const [showUsageBreakdown, setShowUsageBreakdown] = useState(false);
 
   const aggregatedConsumptionDataHash = useMemo(() => {
@@ -55,7 +55,7 @@ const ConsumptionUsage: FC<ConsumptionUsageProps> = (props) => {
     isPending: isSubscriptionsUsagePending,
   } = useMultiSubscriptionUsage({
     // The per-subscription table isn't shown when it's replaced, so skip its requests
-    subscriptionIds: usageBreakdown ? [] : subscriptionIds,
+    subscriptionIds: renderUsageBreakdown ? [] : subscriptionIds,
   });
 
   const rows = useMemo(() => {
@@ -117,9 +117,10 @@ const ConsumptionUsage: FC<ConsumptionUsageProps> = (props) => {
           ))}
         </div>
       </div>
-      {/* A replacement breakdown loads its own data, so only mount it while it's shown */}
-      <Collapse in={showUsageBreakdown} unmountOnExit={Boolean(usageBreakdown)}>
-        {usageBreakdown || (
+      <Collapse in={showUsageBreakdown}>
+        {renderUsageBreakdown ? (
+          renderUsageBreakdown(showUsageBreakdown)
+        ) : (
           <SubscriptionUsageTable rows={rows} isSubscriptionsUsagePending={isSubscriptionsUsagePending} />
         )}
       </Collapse>

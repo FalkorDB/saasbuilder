@@ -53,7 +53,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader("Cache-Control", "no-store");
     return res.status(200).json(usage);
   } catch (error) {
-    if (error?.name !== "FlexpriceError") {
+    // Expected client errors (bad range, unknown customer) aren't logged; server-side failures are
+    if (error?.name !== "FlexpriceError" || error.status >= 500) {
       console.error("Error loading Flexprice usage:", error);
     }
 

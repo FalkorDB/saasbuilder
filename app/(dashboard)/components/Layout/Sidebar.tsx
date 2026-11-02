@@ -210,7 +210,7 @@ const Sidebar = () => {
   // Prefetch Billing Data
   const billingStatusQuery = useBillingStatus();
 
-  // Billing is handled by the Flexprice customer portal when it is configured
+  // When Flexprice is configured, usage comes from Flexprice and the legacy usage pages are hidden
   const flexpriceStatusQuery = useFlexpriceStatus();
   const isFlexpriceEnabled = Boolean(flexpriceStatusQuery.data?.enabled);
 

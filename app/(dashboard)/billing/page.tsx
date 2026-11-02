@@ -160,7 +160,7 @@ const BillingPage = () => {
   const consumptionUsage = (
     <ConsumptionUsage
       consumptionUsageData={consumptionUsageData}
-      usageBreakdown={isFlexpriceEnabled ? <FlexpriceUsageBreakdown /> : undefined}
+      renderUsageBreakdown={isFlexpriceEnabled ? (isOpen) => <FlexpriceUsageBreakdown isOpen={isOpen} /> : undefined}
     />
   );
 

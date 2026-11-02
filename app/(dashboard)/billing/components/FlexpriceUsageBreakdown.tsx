@@ -71,7 +71,7 @@ type ChartSeries = { key: string; label: string; color: string; groups: Flexpric
 function getChartSeries(groups: FlexpriceUsageGroup[]): ChartSeries[] {
   const sortedGroups = [...groups].sort((groupA, groupB) => groupB.totalCost - groupA.totalCost);
   const hasOther = sortedGroups.length > MAX_CHART_SERIES;
-  const topGroups = sortedGroups.slice(0, hasOther ? MAX_CHART_SERIES - 1 : MAX_CHART_SERIES);
+  const topGroups = sortedGroups.slice(0, MAX_CHART_SERIES);
 
   const series: ChartSeries[] = topGroups.map((group, index) => ({
     // Instance ids are used as labels only, since recharts treats dots in data keys as paths
@@ -128,12 +128,17 @@ const BreakdownTableHeader = () => (
   </div>
 );
 
-const FlexpriceUsageBreakdown = () => {
+type FlexpriceUsageBreakdownProps = {
+  // Stays mounted while hidden to keep the selected range; usage only loads once it's shown
+  isOpen: boolean;
+};
+
+const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
   const [preset, setPreset] = useState<UsageRangePreset>("7d");
   // Computed when the preset changes, so the query key stays stable between renders
   const [params, setParams] = useState(() => getUsageParams("7d"));
 
-  const { data: usage, isPending, isFetching, error, refetch } = useFlexpriceUsage(params);
+  const { data: usage, isPending, isFetching, error, refetch } = useFlexpriceUsage(params, isOpen);
   const currency = usage?.currency || "USD";
 
   const series = useMemo(() => getChartSeries(usage?.groups || []), [usage]);
@@ -195,10 +200,12 @@ const FlexpriceUsageBreakdown = () => {
     setParams(getUsageParams(value));
   };
 
-  const xAxisFormat = params.windowSize === "HOUR" ? "HH:mm" : "MMM D";
+  // While a new range loads the previous one stays on screen, so describe the range actually shown
+  const shownParams = usage?.params ?? params;
+  const xAxisFormat = shownParams.windowSize === "HOUR" ? "HH:mm" : "MMM D";
   // The range end is exclusive (e.g. midnight on the 1st for Last Month), so label the last day it covers
-  const rangeStart = dayjs(params.startTime).format("MMM D");
-  const rangeEnd = dayjs(params.endTime).subtract(1, "millisecond").format("MMM D");
+  const rangeStart = dayjs(shownParams.startTime).format("MMM D");
+  const rangeEnd = dayjs(shownParams.endTime).subtract(1, "millisecond").format("MMM D");
   const rangeLabel = rangeStart === rangeEnd ? rangeStart : `${rangeStart} – ${rangeEnd}`;
 
   return (
@@ -296,6 +303,8 @@ const FlexpriceUsageBreakdown = () => {
           </Card>
 
           <DataTable
+            // DataTable keeps its page when rows change, so start each range on the first page
+            key={`${shownParams.startTime}-${shownParams.endTime}`}
             columns={columns}
             rows={rows}
             HeaderComponent={BreakdownTableHeader}

@@ -1,4 +1,4 @@
-import { SetStateAction, useEffect, useMemo, useRef, useState } from "react";
+import { SetStateAction, useMemo, useState } from "react";
 import { Stack } from "@mui/material";
 import { createColumnHelper } from "@tanstack/react-table";
 import axios from "axios";
@@ -182,17 +182,17 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
   const [customRange, setCustomRange] = useState<DateRange>(initialRangeState);
   const snackbar = useSnackbar();
 
-  // The breakdown stays mounted while hidden, so refresh the selected range up to now whenever it's reopened
-  const wasOpenRef = useRef(isOpen);
-  useEffect(() => {
-    const isReopened = isOpen && !wasOpenRef.current;
-    wasOpenRef.current = isOpen;
-    if (!isReopened) return;
-
-    const refreshedParams =
-      preset === "custom" ? getCustomUsageParams(customRange, groupBy) : getUsageParams(preset, groupBy);
-    if (refreshedParams) setParams(refreshedParams);
-  }, [isOpen, preset, customRange, groupBy]);
+  // The breakdown stays mounted while hidden, so refresh the selected range up to now whenever it's opened.
+  // This adjusts state during render (not in an effect), so no request goes out with the old range first.
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) {
+      const refreshedParams =
+        preset === "custom" ? getCustomUsageParams(customRange, groupBy) : getUsageParams(preset, groupBy);
+      if (refreshedParams) setParams(refreshedParams);
+    }
+  }
 
   const { data: usage, isPending, isFetching, error, refetch } = useFlexpriceUsage(params, isOpen);
   const currency = usage?.currency || "USD";

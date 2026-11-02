@@ -8,8 +8,11 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 
 import Button from "src/components/Button/Button";
 import DataTable from "src/components/DataTable/DataTable";
+import MenuItem from "src/components/FormElementsv2/MenuItem/MenuItem";
+import Select from "src/components/FormElementsv2/Select/Select";
 import LoadingSpinner from "src/components/LoadingSpinner/LoadingSpinner";
 import { Text } from "src/components/Typography/Typography";
+import { FLEXPRICE_USAGE_GROUP_BY_OPTIONS, FlexpriceUsageGroupByKey } from "src/constants/flexpriceUsage";
 import type { FlexpriceUsageGroup, FlexpriceUsageWindowSize } from "src/server/api/flexprice";
 import Card from "components/Card/Card";
 
@@ -29,9 +32,9 @@ const usageRangePresets: { value: UsageRangePreset; label: string }[] = [
 const MAX_CHART_SERIES = 8;
 const seriesColors = ["#7F56D9", "#2E90FA", "#12B76A", "#F79009", "#F04438", "#0BA5EC", "#EE46BC", "#6172F3"];
 const otherSeriesColor = "#98A2B3";
-const NO_INSTANCE_LABEL = "(none)";
+const NO_VALUE_LABEL = "(none)";
 
-function getUsageParams(preset: UsageRangePreset): FlexpriceUsageParams {
+function getUsageParams(preset: UsageRangePreset, groupBy: FlexpriceUsageGroupByKey): FlexpriceUsageParams {
   const now = dayjs();
   const startOfToday = now.startOf("day");
   let start = startOfToday;
@@ -51,7 +54,7 @@ function getUsageParams(preset: UsageRangePreset): FlexpriceUsageParams {
     end = now.startOf("month");
   }
 
-  return { startTime: start.toISOString(), endTime: end.toISOString(), windowSize };
+  return { startTime: start.toISOString(), endTime: end.toISOString(), windowSize, groupBy };
 }
 
 function formatCost(value: number, currency: string) {
@@ -64,7 +67,10 @@ function formatCost(value: number, currency: string) {
   }
 }
 
-const getInstanceLabel = (group: FlexpriceUsageGroup) => group.instanceId || NO_INSTANCE_LABEL;
+const getGroupLabel = (group: FlexpriceUsageGroup) => group.value || NO_VALUE_LABEL;
+
+const getGroupByLabel = (groupBy: FlexpriceUsageGroupByKey) =>
+  FLEXPRICE_USAGE_GROUP_BY_OPTIONS.find(({ key }) => key === groupBy)?.label ?? groupBy;
 
 type ChartSeries = { key: string; label: string; color: string; groups: FlexpriceUsageGroup[] };
 
@@ -74,9 +80,9 @@ function getChartSeries(groups: FlexpriceUsageGroup[]): ChartSeries[] {
   const topGroups = sortedGroups.slice(0, MAX_CHART_SERIES);
 
   const series: ChartSeries[] = topGroups.map((group, index) => ({
-    // Instance ids are used as labels only, since recharts treats dots in data keys as paths
+    // Group values are used as labels only, since recharts treats dots in data keys as paths
     key: `series${index}`,
-    label: getInstanceLabel(group),
+    label: getGroupLabel(group),
     color: seriesColors[index],
     groups: [group],
   }));
@@ -113,7 +119,7 @@ function getChartData(series: ChartSeries[]) {
 }
 
 type UsageRow = {
-  instanceLabel: string;
+  groupLabel: string;
   unitPrice: string;
   totalCost: number;
 };
@@ -136,10 +142,14 @@ type FlexpriceUsageBreakdownProps = {
 const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
   const [preset, setPreset] = useState<UsageRangePreset>("7d");
   // Computed when the preset changes, so the query key stays stable between renders
-  const [params, setParams] = useState(() => getUsageParams("7d"));
+  const [groupBy, setGroupBy] = useState<FlexpriceUsageGroupByKey>("instance_id");
+  const [params, setParams] = useState(() => getUsageParams("7d", "instance_id"));
 
   const { data: usage, isPending, isFetching, error, refetch } = useFlexpriceUsage(params, isOpen);
   const currency = usage?.currency || "USD";
+
+  // While a new range loads the previous one stays on screen, so describe the range and grouping actually shown
+  const shownParams = usage?.params ?? params;
 
   const series = useMemo(() => getChartSeries(usage?.groups || []), [usage]);
   const chartData = useMemo(() => getChartData(series), [series]);
@@ -149,7 +159,7 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
       [...(usage?.groups || [])]
         .sort((groupA, groupB) => groupB.totalCost - groupA.totalCost)
         .map((group) => ({
-          instanceLabel: getInstanceLabel(group),
+          groupLabel: getGroupLabel(group),
           unitPrice:
             group.unitPrice === null
               ? "-"
@@ -161,13 +171,13 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
 
   const columns = useMemo(
     () => [
-      columnHelper.accessor("instanceLabel", {
-        id: "instanceLabel",
-        header: "Instance ID",
+      columnHelper.accessor("groupLabel", {
+        id: "groupLabel",
+        header: getGroupByLabel(shownParams.groupBy),
         meta: { minWidth: 240 },
         cell: (data) => (
           <Text size="small" weight="medium" color="#181D27" ellipsis>
-            {data.row.original.instanceLabel}
+            {data.row.original.groupLabel}
           </Text>
         ),
       }),
@@ -192,16 +202,20 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
         ),
       }),
     ],
-    [currency]
+    [currency, shownParams.groupBy]
   );
 
   const handlePresetChange = (value: UsageRangePreset) => {
     setPreset(value);
-    setParams(getUsageParams(value));
+    setParams(getUsageParams(value, groupBy));
   };
 
-  // While a new range loads the previous one stays on screen, so describe the range actually shown
-  const shownParams = usage?.params ?? params;
+  const handleGroupByChange = (value: FlexpriceUsageGroupByKey) => {
+    setGroupBy(value);
+    // Keep the selected range as it is, only regroup it
+    setParams((currentParams) => ({ ...currentParams, groupBy: value }));
+  };
+
   const xAxisFormat = shownParams.windowSize === "HOUR" ? "HH:mm" : "MMM D";
   // The range end is exclusive (e.g. midnight on the 1st for Last Month), so label the last day it covers
   const rangeStart = dayjs(shownParams.startTime).format("MMM D");
@@ -210,21 +224,43 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
 
   return (
     <Stack gap="20px" pt="12px" pb="8px">
-      <div className="inline-flex self-start rounded-lg border border-[#D5D7DA] bg-white p-1">
-        {usageRangePresets.map(({ value, label }) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => handlePresetChange(value)}
-            className={clsx(
-              "rounded-md px-3 py-1.5 text-sm font-medium",
-              preset === value ? "bg-[#F5F5F5] text-[#181D27]" : "text-[#535862] hover:text-[#181D27]"
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Stack direction="row" alignItems="center" gap="12px" flexWrap="wrap">
+        <div className="inline-flex self-start rounded-lg border border-[#D5D7DA] bg-white p-1">
+          {usageRangePresets.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => handlePresetChange(value)}
+              className={clsx(
+                "rounded-md px-3 py-1.5 text-sm font-medium",
+                preset === value ? "bg-[#F5F5F5] text-[#181D27]" : "text-[#535862] hover:text-[#181D27]"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <Select
+          id="flexprice-usage-group-by"
+          name="flexprice-usage-group-by"
+          value={groupBy}
+          onChange={(event) => handleGroupByChange(event.target.value as FlexpriceUsageGroupByKey)}
+          renderValue={(value) => `Group by: ${getGroupByLabel(value as FlexpriceUsageGroupByKey)}`}
+          fullWidth={false}
+          sx={{
+            minWidth: "auto",
+            height: "40px !important",
+            marginTop: 0,
+            "& .MuiSelect-select": { fontSize: "14px", color: "#414651", fontWeight: "500" },
+          }}
+        >
+          {FLEXPRICE_USAGE_GROUP_BY_OPTIONS.map(({ key, label }) => (
+            <MenuItem key={key} value={key}>
+              {label}
+            </MenuItem>
+          ))}
+        </Select>
+      </Stack>
 
       {isPending ? (
         <LoadingSpinner />
@@ -304,7 +340,7 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
 
           <DataTable
             // DataTable keeps its page when rows change, so start each range on the first page
-            key={`${shownParams.startTime}-${shownParams.endTime}`}
+            key={`${shownParams.startTime}-${shownParams.endTime}-${shownParams.groupBy}`}
             columns={columns}
             rows={rows}
             HeaderComponent={BreakdownTableHeader}

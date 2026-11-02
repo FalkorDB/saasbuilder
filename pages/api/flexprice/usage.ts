@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
+import { FLEXPRICE_USAGE_GROUP_BY_KEYS } from "src/constants/flexpriceUsage";
 import {
   FlexpriceUsageWindowSize,
   getCustomerUserId,
@@ -32,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const { startTime, endTime, windowSize } = req.body || {};
+  const { startTime, endTime, windowSize, groupBy } = req.body || {};
   const start = parseTime(startTime);
   const end = parseTime(endTime);
   if (start === null || end === null || start >= end || end - start > MAX_RANGE_MS) {
@@ -41,6 +42,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!WINDOW_SIZES.includes(windowSize)) {
     return res.status(400).json({ message: "Invalid window size" });
   }
+  // Only known properties are allowed, since the key is sent to Flexprice as a group_by path
+  if (!FLEXPRICE_USAGE_GROUP_BY_KEYS.includes(groupBy)) {
+    return res.status(400).json({ message: "Invalid group by" });
+  }
 
   try {
     const userId = await getCustomerUserId(authToken);
@@ -48,6 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       startTime: new Date(start).toISOString(),
       endTime: new Date(end).toISOString(),
       windowSize,
+      groupBy,
     });
 
     res.setHeader("Cache-Control", "no-store");

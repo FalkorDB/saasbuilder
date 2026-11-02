@@ -5,6 +5,7 @@ import axios from "axios";
 
 import { forceLogout } from "src/api/forceLogout";
 import { refreshAuth } from "src/api/refreshAuth";
+import type { FlexpriceUsageGroupByKey } from "src/constants/flexpriceUsage";
 import type { FlexpriceUsage, FlexpriceUsageWindowSize } from "src/server/api/flexprice";
 import { getBillingRoute } from "src/utils/routes";
 
@@ -16,6 +17,7 @@ export type FlexpriceUsageParams = {
   startTime: string;
   endTime: string;
   windowSize: FlexpriceUsageWindowSize;
+  groupBy: FlexpriceUsageGroupByKey;
 };
 
 /**
@@ -84,7 +86,7 @@ async function fetchUsageWithAuthRecovery(params: FlexpriceUsageParams, signal: 
 }
 
 /**
- * Loads the customer's Flexprice usage cost, grouped by instance.
+ * Loads the customer's Flexprice usage cost, grouped by an event property.
  * The result includes the params it was loaded for, since a previous range
  * stays displayed while a newly selected one loads.
  */

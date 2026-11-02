@@ -1,3 +1,4 @@
+import type { FlexpriceUsageGroupByKey } from "src/constants/flexpriceUsage";
 import getSafeExternalURL from "src/utils/getSafeExternalURL";
 
 //These apis are supposed to be used on the nextjs server only
@@ -17,8 +18,8 @@ export type FlexpriceUsagePoint = {
 };
 
 export type FlexpriceUsageGroup = {
-  // null when the usage has no instance_id property
-  instanceId: string | null;
+  // The value of the grouped event property, null when the usage doesn't have it
+  value: string | null;
   totalCost: number;
   // Only set when the group is billed by a single flat per-unit price
   unitPrice: number | null;
@@ -124,22 +125,22 @@ type UsageAnalyticsItem = {
 };
 
 /**
- * Groups usage analytics items by their instance_id property.
- * Flexprice returns one item per feature and group, so an instance billed for
+ * Groups usage analytics items by the value of one event property.
+ * Flexprice returns one item per feature and group, so a group billed for
  * several features has several items whose costs and points are added together.
  */
-function groupUsageByInstance(items: UsageAnalyticsItem[]): FlexpriceUsageGroup[] {
+function groupUsageByProperty(items: UsageAnalyticsItem[], groupBy: FlexpriceUsageGroupByKey): FlexpriceUsageGroup[] {
   const groups = new Map<string | null, { group: FlexpriceUsageGroup; items: UsageAnalyticsItem[] }>();
 
   items.forEach((item) => {
-    const instanceId = item.properties?.instance_id || null;
-    if (!groups.has(instanceId)) {
-      groups.set(instanceId, {
-        group: { instanceId, totalCost: 0, unitPrice: null, unit: null, points: [] },
+    const value = item.properties?.[groupBy] || null;
+    if (!groups.has(value)) {
+      groups.set(value, {
+        group: { value, totalCost: 0, unitPrice: null, unit: null, points: [] },
         items: [],
       });
     }
-    const entry = groups.get(instanceId)!;
+    const entry = groups.get(value)!;
     entry.items.push(item);
     entry.group.totalCost += toNumber(item.total_cost);
   });
@@ -168,12 +169,17 @@ function groupUsageByInstance(items: UsageAnalyticsItem[]): FlexpriceUsageGroup[
 }
 
 /**
- * Fetches the customer's usage cost between two times, grouped by instance.
+ * Fetches the customer's usage cost between two times, grouped by an event property.
  * https://docs.flexprice.io/api-reference/events/get-usage-analytics
  */
 export async function getFlexpriceUsage(
   externalId: string,
-  { startTime, endTime, windowSize }: { startTime: string; endTime: string; windowSize: FlexpriceUsageWindowSize }
+  {
+    startTime,
+    endTime,
+    windowSize,
+    groupBy,
+  }: { startTime: string; endTime: string; windowSize: FlexpriceUsageWindowSize; groupBy: FlexpriceUsageGroupByKey }
 ): Promise<FlexpriceUsage> {
   const response = await fetchWithTimeout(`${getFlexpriceBaseURL()}/v1/events/analytics`, {
     method: "POST",
@@ -186,7 +192,7 @@ export async function getFlexpriceUsage(
       start_time: startTime,
       end_time: endTime,
       window_size: windowSize,
-      group_by: ["properties.instance_id"],
+      group_by: [`properties.${groupBy}`],
       expand: ["price"],
     }),
   });
@@ -210,6 +216,6 @@ export async function getFlexpriceUsage(
   return {
     currency: typeof analytics.currency === "string" ? analytics.currency : "",
     totalCost: toNumber(analytics.total_cost),
-    groups: groupUsageByInstance(analytics.items),
+    groups: groupUsageByProperty(analytics.items, groupBy),
   };
 }

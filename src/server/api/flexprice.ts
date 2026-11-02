@@ -86,7 +86,7 @@ function parseJSON(body: string) {
 }
 
 /**
- * The portal url is embedded in an iframe that allows scripts and same-origin access,
+ * The portal url carries a session token and is opened from the dashboard,
  * so it must be an https url that is never served from this application's origin.
  * When FLEXPRICE_PORTAL_ORIGIN is set, the url must also match it exactly.
  * Returns the reason when the url is rejected, so operators can fix the configuration.

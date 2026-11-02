@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 
 import { forceLogout } from "src/api/forceLogout";
@@ -52,37 +52,85 @@ const createSession = async (signal: AbortSignal) => {
 
 const isUnauthorized = (error: unknown) => axios.isAxiosError(error) && error.response?.status === 401;
 
-export function useFlexpricePortalSession(enabled = false) {
-  return useQuery({
-    queryKey: ["flexprice-portal-session"],
-    queryFn: async ({ signal }) => {
+const createSessionWithAuthRecovery = async (signal: AbortSignal) => {
+  try {
+    return await createSession(signal);
+  } catch (error) {
+    if (!isUnauthorized(error)) throw error;
+
+    // Follow the app's auth recovery: refresh the token and retry once, otherwise sign in again
+    if (await refreshAuth()) {
       try {
         return await createSession(signal);
+      } catch (retryError) {
+        if (!isUnauthorized(retryError)) throw retryError;
+      }
+    }
+    // The user left the Billing page while recovering; don't log them out from elsewhere
+    if (signal.aborted) throw error;
+
+    await forceLogout();
+    throw error;
+  }
+};
+
+/**
+ * Opens the Flexprice customer portal in a new tab.
+ * Flexprice doesn't allow the portal to be framed, and session urls carry a
+ * short-lived token, so a new session is created on every click.
+ */
+export function useOpenFlexpricePortal({ onError }: { onError: (message: string) => void }) {
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Abandon a pending session request when the user leaves the page
+  useEffect(() => () => abortControllerRef.current?.abort(), []);
+
+  const mutation = useMutation({
+    mutationFn: async ({ portalTab, signal }: { portalTab: Window; signal: AbortSignal }) => {
+      // Close the blank tab as soon as the user leaves, even while auth recovery (which can't be cancelled) is pending
+      const closePortalTab = () => portalTab.close();
+      // The listener doesn't fire for a signal aborted before the mutation started
+      if (signal.aborted) {
+        closePortalTab();
+        return;
+      }
+      signal.addEventListener("abort", closePortalTab, { once: true });
+
+      try {
+        const session = await createSessionWithAuthRecovery(signal);
+        if (signal.aborted) return;
+        // The portal must not be able to navigate the dashboard
+        portalTab.opener = null;
+        portalTab.location.href = session.url;
       } catch (error) {
-        if (!isUnauthorized(error)) throw error;
-
-        // Follow the app's auth recovery: refresh the token and retry once, otherwise sign in again
-        if (await refreshAuth()) {
-          try {
-            return await createSession(signal);
-          } catch (retryError) {
-            if (!isUnauthorized(retryError)) throw retryError;
-          }
-        }
-        // The user left the Billing page while recovering; don't log them out from elsewhere
-        if (signal.aborted) throw error;
-
-        await forceLogout();
+        portalTab.close();
         throw error;
+      } finally {
+        // Once the portal is open, leaving the page must not close it
+        signal.removeEventListener("abort", closePortalTab);
       }
     },
-    enabled,
-    // Session URLs carry a short-lived token, so never reuse one across page visits
-    // and avoid refetching (which would reload the embedded portal) while it is valid
-    gcTime: 0,
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-    // Every request creates a new portal session, so don't retry automatically
-    retry: false,
+    onError: (error, { signal }) => {
+      if (signal.aborted) return;
+
+      onError(
+        (axios.isAxiosError(error) && error.response?.data?.message) ||
+          "Failed to open the billing portal. Please retry"
+      );
+    },
   });
+
+  // Must be called from a click handler: the tab is opened synchronously so popup blockers allow it
+  const openPortal = () => {
+    const portalTab = window.open("", "_blank");
+    if (!portalTab) {
+      onError("Please allow popups to open the billing portal");
+      return;
+    }
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    mutation.mutate({ portalTab, signal: abortControllerRef.current.signal });
+  };
+
+  return { openPortal, isOpening: mutation.isPending };
 }

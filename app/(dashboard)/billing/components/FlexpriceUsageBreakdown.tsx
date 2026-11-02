@@ -73,9 +73,9 @@ function getUsageParams(preset: UsageRangePreset, groupBy: FlexpriceUsageGroupBy
 
 /**
  * Converts a range picked in the date picker into usage params.
- * The picker returns calendar dates as UTC, which are used as whole UTC days,
+ * The picker returns the picked calendar dates as UTC, which are used as whole UTC days,
  * from the start of the first day to the end of the last one, but no later than now.
- * Returns null when the range has no past time in it (e.g. it's all in the future).
+ * Returns null when the range starts after the user's local today.
  */
 function getCustomUsageParams(range: DateRange, groupBy: FlexpriceUsageGroupByKey): FlexpriceUsageParams | null {
   if (!range.startDate || !range.endDate) return null;
@@ -84,8 +84,14 @@ function getCustomUsageParams(range: DateRange, groupBy: FlexpriceUsageGroupByKe
   const start = dayjs.utc(range.startDate).startOf("day");
   const lastDay = dayjs.utc(range.endDate).startOf("day");
   const endOfLastDay = lastDay.add(1, "day");
-  const end = endOfLastDay.isAfter(now) ? now : endOfLastDay;
-  if (!start.isBefore(end)) return null;
+  let end = endOfLastDay.isAfter(now) ? now : endOfLastDay;
+  if (!start.isBefore(end)) {
+    // Ahead of UTC, the user's local today can be a UTC day that hasn't started yet.
+    // It's still a valid pick, so load that day (it has no usage yet) instead of rejecting it.
+    const isLocalTodayOrEarlier = dayjs.utc(range.startDate).format("YYYY-MM-DD") <= dayjs().format("YYYY-MM-DD");
+    if (!isLocalTodayOrEarlier) return null;
+    end = endOfLastDay;
+  }
 
   return {
     startTime: start.toISOString(),
@@ -279,7 +285,7 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
       snackbar.showError("Choose a date range that includes today or earlier");
       return;
     }
-    if (dayjs(customParams.endTime).diff(customParams.startTime, "day", true) > MAX_CUSTOM_RANGE_DAYS) {
+    if (dayjs.utc(customParams.endTime).diff(dayjs.utc(customParams.startTime), "day", true) > MAX_CUSTOM_RANGE_DAYS) {
       snackbar.showError("Choose a date range of up to a year");
       return;
     }

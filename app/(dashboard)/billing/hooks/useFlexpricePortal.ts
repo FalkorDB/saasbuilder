@@ -89,6 +89,11 @@ export function useOpenFlexpricePortal({ onError }: { onError: (message: string)
     mutationFn: async ({ portalTab, signal }: { portalTab: Window; signal: AbortSignal }) => {
       // Close the blank tab as soon as the user leaves, even while auth recovery (which can't be cancelled) is pending
       const closePortalTab = () => portalTab.close();
+      // The listener doesn't fire for a signal aborted before the mutation started
+      if (signal.aborted) {
+        closePortalTab();
+        return;
+      }
       signal.addEventListener("abort", closePortalTab, { once: true });
 
       try {

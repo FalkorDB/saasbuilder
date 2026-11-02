@@ -4,6 +4,7 @@ import { createColumnHelper } from "@tanstack/react-table";
 import axios from "axios";
 import clsx from "clsx";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import Button from "src/components/Button/Button";
@@ -13,7 +14,6 @@ import {
   DateTimePickerPopover,
   initialRangeState,
 } from "src/components/DateRangePicker/DateTimeRangePickerStatic";
-import { getLocalStartOfDayfromISODateString } from "src/components/DateRangePicker/utils";
 import MenuItem from "src/components/FormElementsv2/MenuItem/MenuItem";
 import Select from "src/components/FormElementsv2/Select/Select";
 import LoadingSpinner from "src/components/LoadingSpinner/LoadingSpinner";
@@ -43,8 +43,13 @@ const NO_VALUE_LABEL = "(none)";
 // A year (leap years included); the server allows a day more to absorb time zone shifts
 const MAX_CUSTOM_RANGE_DAYS = 366;
 
+dayjs.extend(utc);
+
+// Flexprice aggregates daily usage by UTC day (as do the rest of the billing pages and the date picker),
+// so ranges, labels and tooltips all use UTC to keep each day's spend on the right date
+
 function getUsageParams(preset: UsageRangePreset, groupBy: FlexpriceUsageGroupByKey): FlexpriceUsageParams {
-  const now = dayjs();
+  const now = dayjs.utc();
   const startOfToday = now.startOf("day");
   let start = startOfToday;
   let end = now;
@@ -68,19 +73,26 @@ function getUsageParams(preset: UsageRangePreset, groupBy: FlexpriceUsageGroupBy
 
 /**
  * Converts a range picked in the date picker into usage params.
- * The picker returns calendar dates (as UTC), which are used as whole local days,
- * from the start of the first day to the end of the last one, but no later than now.
- * Returns null when the range has no past time in it (e.g. it's all in the future).
+ * The picker returns the picked calendar dates as UTC, which are used as whole UTC days,
+ * from the start of the first day to the end of the last one, but no later than now
+ * (except when the user's local today is a UTC day that hasn't started yet: that whole day is used).
+ * Returns null when the range starts after the user's local today.
  */
 function getCustomUsageParams(range: DateRange, groupBy: FlexpriceUsageGroupByKey): FlexpriceUsageParams | null {
   if (!range.startDate || !range.endDate) return null;
 
-  const now = dayjs();
-  const start = dayjs(getLocalStartOfDayfromISODateString(range.startDate));
-  const lastDay = dayjs(getLocalStartOfDayfromISODateString(range.endDate));
+  const now = dayjs.utc();
+  const start = dayjs.utc(range.startDate).startOf("day");
+  const lastDay = dayjs.utc(range.endDate).startOf("day");
   const endOfLastDay = lastDay.add(1, "day");
-  const end = endOfLastDay.isAfter(now) ? now : endOfLastDay;
-  if (!start.isBefore(end)) return null;
+  let end = endOfLastDay.isAfter(now) ? now : endOfLastDay;
+  if (!start.isBefore(end)) {
+    // Ahead of UTC, the user's local today can be a UTC day that hasn't started yet.
+    // It's still a valid pick, so load that day (it has no usage yet) instead of rejecting it.
+    const isLocalTodayOrEarlier = dayjs.utc(range.startDate).format("YYYY-MM-DD") <= dayjs().format("YYYY-MM-DD");
+    if (!isLocalTodayOrEarlier) return null;
+    end = endOfLastDay;
+  }
 
   return {
     startTime: start.toISOString(),
@@ -274,7 +286,7 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
       snackbar.showError("Choose a date range that includes today or earlier");
       return;
     }
-    if (dayjs(customParams.endTime).diff(customParams.startTime, "day", true) > MAX_CUSTOM_RANGE_DAYS) {
+    if (dayjs.utc(customParams.endTime).diff(dayjs.utc(customParams.startTime), "day", true) > MAX_CUSTOM_RANGE_DAYS) {
       snackbar.showError("Choose a date range of up to a year");
       return;
     }
@@ -293,13 +305,13 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
   const xAxisFormat = shownParams.windowSize === "HOUR" ? "HH:mm" : "MMM D";
   // The range end is exclusive (e.g. midnight on the 1st for Last Month), so label the last day it covers
   // Custom ranges can reach into other years, so show the year when it isn't the current one
-  const rangeStartDate = dayjs(shownParams.startTime);
-  const rangeEndDate = dayjs(shownParams.endTime).subtract(1, "millisecond");
+  const rangeStartDate = dayjs.utc(shownParams.startTime);
+  const rangeEndDate = dayjs.utc(shownParams.endTime).subtract(1, "millisecond");
   const rangeFormat =
-    rangeStartDate.isSame(dayjs(), "year") && rangeEndDate.isSame(dayjs(), "year") ? "MMM D" : "MMM D, YYYY";
+    rangeStartDate.isSame(dayjs.utc(), "year") && rangeEndDate.isSame(dayjs.utc(), "year") ? "MMM D" : "MMM D, YYYY";
   const rangeStart = rangeStartDate.format(rangeFormat);
   const rangeEnd = rangeEndDate.format(rangeFormat);
-  const rangeLabel = rangeStart === rangeEnd ? rangeStart : `${rangeStart} – ${rangeEnd}`;
+  const rangeLabel = `${rangeStart === rangeEnd ? rangeStart : `${rangeStart} – ${rangeEnd}`} (UTC)`;
 
   return (
     <Stack gap="20px" pt="12px" pb="8px">
@@ -394,7 +406,7 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
                     dataKey="timestamp"
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) => dayjs(value).format(xAxisFormat)}
+                    tickFormatter={(value) => dayjs.utc(value).format(xAxisFormat)}
                     tick={{ fontSize: 12, fill: "#7E8299" }}
                   />
                   <YAxis
@@ -406,7 +418,7 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
                   />
                   <Tooltip
                     labelFormatter={(value) =>
-                      dayjs(value).format(`MMM D, YYYY${xAxisFormat === "HH:mm" ? " HH:mm" : ""}`)
+                      `${dayjs.utc(value).format(`MMM D, YYYY${xAxisFormat === "HH:mm" ? " HH:mm" : ""}`)} UTC`
                     }
                     formatter={(value: number) => formatCost(value, currency)}
                   />

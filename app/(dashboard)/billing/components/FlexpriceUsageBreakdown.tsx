@@ -74,7 +74,8 @@ function getUsageParams(preset: UsageRangePreset, groupBy: FlexpriceUsageGroupBy
 /**
  * Converts a range picked in the date picker into usage params.
  * The picker returns the picked calendar dates as UTC, which are used as whole UTC days,
- * from the start of the first day to the end of the last one, but no later than now.
+ * from the start of the first day to the end of the last one, but no later than now
+ * (except when the user's local today is a UTC day that hasn't started yet: that whole day is used).
  * Returns null when the range starts after the user's local today.
  */
 function getCustomUsageParams(range: DateRange, groupBy: FlexpriceUsageGroupByKey): FlexpriceUsageParams | null {

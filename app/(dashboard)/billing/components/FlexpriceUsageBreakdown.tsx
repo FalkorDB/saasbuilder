@@ -196,7 +196,10 @@ const FlexpriceUsageBreakdown = () => {
   };
 
   const xAxisFormat = params.windowSize === "HOUR" ? "HH:mm" : "MMM D";
-  const rangeLabel = `${dayjs(params.startTime).format("MMM D")} – ${dayjs(params.endTime).format("MMM D")}`;
+  // The range end is exclusive (e.g. midnight on the 1st for Last Month), so label the last day it covers
+  const rangeStart = dayjs(params.startTime).format("MMM D");
+  const rangeEnd = dayjs(params.endTime).subtract(1, "millisecond").format("MMM D");
+  const rangeLabel = rangeStart === rangeEnd ? rangeStart : `${rangeStart} – ${rangeEnd}`;
 
   return (
     <Stack gap="20px" pt="12px" pb="8px">
@@ -298,6 +301,7 @@ const FlexpriceUsageBreakdown = () => {
             HeaderComponent={BreakdownTableHeader}
             noRowsText="No usage in this period"
             hidePagination={rows.length < 11}
+            minHeight="auto"
           />
         </Stack>
       )}

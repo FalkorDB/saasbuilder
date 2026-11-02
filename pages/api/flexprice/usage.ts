@@ -10,8 +10,9 @@ import {
 import { getAuthToken } from "src/server/utils/authCookie";
 
 const WINDOW_SIZES: FlexpriceUsageWindowSize[] = ["HOUR", "DAY"];
-// Matches the longest range the Billing page asks for, with room for time zones
-const MAX_RANGE_MS = 32 * 24 * 60 * 60 * 1000;
+// Custom ranges can be up to a year (plus a day of room for time zones and leap years)
+const MAX_RANGE_DAYS = 367;
+const MAX_RANGE_MS = MAX_RANGE_DAYS * 24 * 60 * 60 * 1000;
 
 function parseTime(value: unknown) {
   const time = typeof value === "string" ? Date.parse(value) : NaN;
@@ -36,8 +37,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { startTime, endTime, windowSize, groupBy } = req.body || {};
   const start = parseTime(startTime);
   const end = parseTime(endTime);
-  if (start === null || end === null || start >= end || end - start > MAX_RANGE_MS) {
+  if (start === null || end === null || start >= end) {
     return res.status(400).json({ message: "Invalid time range" });
+  }
+  if (end - start > MAX_RANGE_MS) {
+    return res.status(400).json({ message: "Choose a time range of up to a year" });
   }
   if (!WINDOW_SIZES.includes(windowSize)) {
     return res.status(400).json({ message: "Invalid window size" });

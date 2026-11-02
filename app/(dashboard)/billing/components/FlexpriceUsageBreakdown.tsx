@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { SetStateAction, useMemo, useState } from "react";
 import { Stack } from "@mui/material";
 import { createColumnHelper } from "@tanstack/react-table";
 import axios from "axios";
@@ -8,19 +8,26 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 
 import Button from "src/components/Button/Button";
 import DataTable from "src/components/DataTable/DataTable";
+import {
+  DateRange,
+  DateTimePickerPopover,
+  initialRangeState,
+} from "src/components/DateRangePicker/DateTimeRangePickerStatic";
+import { getLocalStartOfDayfromISODateString } from "src/components/DateRangePicker/utils";
 import MenuItem from "src/components/FormElementsv2/MenuItem/MenuItem";
 import Select from "src/components/FormElementsv2/Select/Select";
 import LoadingSpinner from "src/components/LoadingSpinner/LoadingSpinner";
 import { Text } from "src/components/Typography/Typography";
 import { FLEXPRICE_USAGE_GROUP_BY_OPTIONS, FlexpriceUsageGroupByKey } from "src/constants/flexpriceUsage";
+import useSnackbar from "src/hooks/useSnackbar";
 import type { FlexpriceUsageGroup, FlexpriceUsageWindowSize } from "src/server/api/flexprice";
 import Card from "components/Card/Card";
 
 import { FlexpriceUsageParams, useFlexpriceUsage } from "../hooks/useFlexprice";
 
-type UsageRangePreset = "today" | "7d" | "30d" | "thisMonth" | "lastMonth";
+type UsageRangePreset = "today" | "7d" | "30d" | "thisMonth" | "lastMonth" | "custom";
 
-const usageRangePresets: { value: UsageRangePreset; label: string }[] = [
+const usageRangePresets: { value: Exclude<UsageRangePreset, "custom">; label: string }[] = [
   { value: "today", label: "Today" },
   { value: "7d", label: "7d" },
   { value: "30d", label: "30d" },
@@ -55,6 +62,31 @@ function getUsageParams(preset: UsageRangePreset, groupBy: FlexpriceUsageGroupBy
   }
 
   return { startTime: start.toISOString(), endTime: end.toISOString(), windowSize, groupBy };
+}
+
+/**
+ * Converts a range picked in the date picker into usage params.
+ * The picker returns calendar dates (as UTC), which are used as whole local days,
+ * from the start of the first day to the end of the last one, but no later than now.
+ * Returns null when the range has no past time in it (e.g. it's all in the future).
+ */
+function getCustomUsageParams(range: DateRange, groupBy: FlexpriceUsageGroupByKey): FlexpriceUsageParams | null {
+  if (!range.startDate || !range.endDate) return null;
+
+  const now = dayjs();
+  const start = dayjs(getLocalStartOfDayfromISODateString(range.startDate));
+  const lastDay = dayjs(getLocalStartOfDayfromISODateString(range.endDate));
+  const endOfLastDay = lastDay.add(1, "day");
+  const end = endOfLastDay.isAfter(now) ? now : endOfLastDay;
+  if (!start.isBefore(end)) return null;
+
+  return {
+    startTime: start.toISOString(),
+    endTime: end.toISOString(),
+    // A single day is shown hourly, like Today
+    windowSize: lastDay.isSame(start, "day") ? "HOUR" : "DAY",
+    groupBy,
+  };
 }
 
 // Unit prices can be fractions of a cent, so they keep up to 6 decimals instead of rounding to the currency's 2
@@ -147,6 +179,8 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
   // Computed when the preset changes, so the query key stays stable between renders
   const [groupBy, setGroupBy] = useState<FlexpriceUsageGroupByKey>("instance_id");
   const [params, setParams] = useState(() => getUsageParams("7d", "instance_id"));
+  const [customRange, setCustomRange] = useState<DateRange>(initialRangeState);
+  const snackbar = useSnackbar();
 
   const { data: usage, isPending, isFetching, error, refetch } = useFlexpriceUsage(params, isOpen);
   const currency = usage?.currency || "USD";
@@ -213,6 +247,21 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
     setParams(getUsageParams(value, groupBy));
   };
 
+  // Cancelling the picker passes back an empty range, which keeps the current selection
+  const handleCustomRangeChange = (action: SetStateAction<DateRange>) => {
+    if (typeof action === "function" || !action.startDate || !action.endDate) return;
+
+    const customParams = getCustomUsageParams(action, groupBy);
+    if (!customParams) {
+      snackbar.showError("Choose a date range that includes today or earlier");
+      return;
+    }
+
+    setCustomRange(action);
+    setPreset("custom");
+    setParams(customParams);
+  };
+
   const handleGroupByChange = (value: FlexpriceUsageGroupByKey) => {
     setGroupBy(value);
     // Keep the selected range as it is, only regroup it
@@ -221,8 +270,13 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
 
   const xAxisFormat = shownParams.windowSize === "HOUR" ? "HH:mm" : "MMM D";
   // The range end is exclusive (e.g. midnight on the 1st for Last Month), so label the last day it covers
-  const rangeStart = dayjs(shownParams.startTime).format("MMM D");
-  const rangeEnd = dayjs(shownParams.endTime).subtract(1, "millisecond").format("MMM D");
+  // Custom ranges can reach into other years, so show the year when it isn't the current one
+  const rangeStartDate = dayjs(shownParams.startTime);
+  const rangeEndDate = dayjs(shownParams.endTime).subtract(1, "millisecond");
+  const rangeFormat =
+    rangeStartDate.isSame(dayjs(), "year") && rangeEndDate.isSame(dayjs(), "year") ? "MMM D" : "MMM D, YYYY";
+  const rangeStart = rangeStartDate.format(rangeFormat);
+  const rangeEnd = rangeEndDate.format(rangeFormat);
   const rangeLabel = rangeStart === rangeEnd ? rangeStart : `${rangeStart} – ${rangeEnd}`;
 
   return (
@@ -243,6 +297,13 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
             </button>
           ))}
         </div>
+        <DateTimePickerPopover
+          dateRange={preset === "custom" ? customRange : initialRangeState}
+          setDateRange={handleCustomRangeChange}
+          initialDateRange={preset === "custom" ? customRange : undefined}
+          selectionType="date"
+          hideClearButton
+        />
         <Select
           id="flexprice-usage-group-by"
           name="flexprice-usage-group-by"

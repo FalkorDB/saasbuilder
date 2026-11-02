@@ -165,6 +165,9 @@ const RelativeRange = ({
           endDate: endDate.toISOString(),
         });
       }
+    } else if (hideClearButton) {
+      // Without a Clear button, applying with nothing selected keeps the current range
+      handleCancel();
     } else {
       setDateRange({ startDate: undefined, endDate: undefined });
     }

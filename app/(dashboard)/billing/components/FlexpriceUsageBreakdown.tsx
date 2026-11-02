@@ -40,7 +40,7 @@ const MAX_CHART_SERIES = 8;
 const seriesColors = ["#7F56D9", "#2E90FA", "#12B76A", "#F79009", "#F04438", "#0BA5EC", "#EE46BC", "#6172F3"];
 const otherSeriesColor = "#98A2B3";
 const NO_VALUE_LABEL = "(none)";
-// Matches the server's limit for a usage range
+// A year (leap years included); the server allows a day more to absorb time zone shifts
 const MAX_CUSTOM_RANGE_DAYS = 366;
 
 function getUsageParams(preset: UsageRangePreset, groupBy: FlexpriceUsageGroupByKey): FlexpriceUsageParams {

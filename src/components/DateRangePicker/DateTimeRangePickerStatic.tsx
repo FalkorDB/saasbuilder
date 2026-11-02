@@ -138,6 +138,7 @@ const defaultRelativeRangeOptions: RelativeRangeOption[] = [
 ];
 
 const RelativeRange = ({
+  dateRange,
   setDateRange,
   handleCancel,
   handleClear,
@@ -166,8 +167,9 @@ const RelativeRange = ({
         });
       }
     } else if (hideClearButton) {
-      // Without a Clear button, applying with nothing selected keeps the current range
-      handleCancel();
+      // Without a Clear button, applying with nothing selected keeps the current range.
+      // Cancel can't be used here, since it restores the initial range rather than the current one.
+      setDateRange(dateRange);
     } else {
       setDateRange({ startDate: undefined, endDate: undefined });
     }

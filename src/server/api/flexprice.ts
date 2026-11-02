@@ -1,7 +1,5 @@
 import getSafeExternalURL from "src/utils/getSafeExternalURL";
 
-import { getSaaSDomainURL } from "../utils/getSaaSDomainURL";
-
 //These apis are supposed to be used on the nextjs server only
 //The Flexprice API key must never be exposed to the browser
 
@@ -11,10 +9,27 @@ const REQUEST_TIMEOUT_MS = 10 * 1000;
 // Same fallback as src/api/client.ts, read directly to keep client code out of the server bundle
 const baseDomain = process.env.NEXT_PUBLIC_BACKEND_BASE_DOMAIN || "https://api.omnistrate.cloud";
 
-export type FlexpricePortalSession = {
-  token: string;
-  url: string;
-  expires_at: string;
+export type FlexpriceUsageWindowSize = "HOUR" | "DAY";
+
+export type FlexpriceUsagePoint = {
+  timestamp: string;
+  cost: number;
+};
+
+export type FlexpriceUsageGroup = {
+  // null when the usage has no instance_id property
+  instanceId: string | null;
+  totalCost: number;
+  // Only set when the group is billed by a single flat per-unit price
+  unitPrice: number | null;
+  unit: string | null;
+  points: FlexpriceUsagePoint[];
+};
+
+export type FlexpriceUsage = {
+  currency: string;
+  totalCost: number;
+  groups: FlexpriceUsageGroup[];
 };
 
 export class FlexpriceError extends Error {
@@ -36,28 +51,10 @@ function getFlexpriceBaseURL() {
   const baseURL = getSafeExternalURL(process.env.FLEXPRICE_API_BASE_URL || DEFAULT_FLEXPRICE_API_BASE_URL);
   if (!baseURL) {
     console.error("FLEXPRICE_API_BASE_URL must be a valid https url");
-    throw new FlexpriceError("Billing portal is misconfigured");
+    throw new FlexpriceError("Billing is misconfigured");
   }
 
   return baseURL.replace(/\/+$/, "");
-}
-
-// Portal urls carry the session token, so they must always be https (no development exception)
-function getHttpsOrigin(url?: string) {
-  try {
-    const parsedURL = url ? new URL(url.trim()) : null;
-    return parsedURL?.protocol === "https:" ? parsedURL.origin.toLowerCase() : "";
-  } catch {
-    return "";
-  }
-}
-
-function getOrigin(url?: string) {
-  try {
-    return url ? new URL(url).origin.toLowerCase() : "";
-  } catch {
-    return "";
-  }
 }
 
 /**
@@ -83,40 +80,6 @@ function parseJSON(body: string) {
   } catch {
     return null;
   }
-}
-
-/**
- * The portal url carries a session token and is opened from the dashboard,
- * so it must be an https url that is never served from this application's origin.
- * When FLEXPRICE_PORTAL_ORIGIN is set, the url must also match it exactly.
- * Returns the reason when the url is rejected, so operators can fix the configuration.
- */
-function validatePortalURL(url: string | undefined): { url: string } | { reason: string } {
-  const portalOrigin = getHttpsOrigin(url);
-  if (!portalOrigin) {
-    return { reason: "Flexprice returned a portal url that is not a valid https url" };
-  }
-
-  const appOrigin = getOrigin(getSaaSDomainURL());
-  if (!appOrigin) {
-    return { reason: "YOUR_SAAS_DOMAIN_URL (or YOUR_SAAS_DOMAIN_ALIAS) must be set to validate the portal url" };
-  }
-  if (portalOrigin === appOrigin) {
-    return { reason: "The Flexprice portal url must not be served from the application's origin" };
-  }
-
-  if (process.env.FLEXPRICE_PORTAL_ORIGIN) {
-    // An invalid configured origin rejects every session instead of falling back
-    const expectedOrigin = getHttpsOrigin(process.env.FLEXPRICE_PORTAL_ORIGIN);
-    if (!expectedOrigin) {
-      return { reason: "FLEXPRICE_PORTAL_ORIGIN must be a valid https origin" };
-    }
-    if (portalOrigin !== expectedOrigin) {
-      return { reason: `The Flexprice portal url origin ${portalOrigin} does not match FLEXPRICE_PORTAL_ORIGIN` };
-    }
-  }
-
-  return { url: new URL((url as string).trim()).toString() };
 }
 
 /**
@@ -146,43 +109,106 @@ export async function getCustomerUserId(authToken: string): Promise<string> {
   return user.id;
 }
 
+// Flexprice returns amounts as decimal strings
+function toNumber(value: unknown) {
+  const number = typeof value === "string" || typeof value === "number" ? Number(value) : NaN;
+  return Number.isFinite(number) ? number : 0;
+}
+
+type UsageAnalyticsItem = {
+  properties?: Record<string, string>;
+  total_cost?: string;
+  unit?: string;
+  price?: { billing_model?: string; amount?: string } | null;
+  points?: { timestamp?: string; cost?: string }[];
+};
+
 /**
- * Generates a short-lived (1 hour) Flexprice customer portal session.
- * https://docs.flexprice.io/docs/customers/customer-portal#generating-a-portal-session
+ * Groups usage analytics items by their instance_id property.
+ * Flexprice returns one item per feature and group, so an instance billed for
+ * several features has several items whose costs and points are added together.
  */
-export async function createFlexpricePortalSession(externalId: string): Promise<FlexpricePortalSession> {
-  const response = await fetchWithTimeout(
-    `${getFlexpriceBaseURL()}/v1/customers/portal/${encodeURIComponent(externalId)}`,
-    {
-      method: "GET",
-      headers: {
-        "x-api-key": process.env.FLEXPRICE_API_KEY as string,
-      },
+function groupUsageByInstance(items: UsageAnalyticsItem[]): FlexpriceUsageGroup[] {
+  const groups = new Map<string | null, { group: FlexpriceUsageGroup; items: UsageAnalyticsItem[] }>();
+
+  items.forEach((item) => {
+    const instanceId = item.properties?.instance_id || null;
+    if (!groups.has(instanceId)) {
+      groups.set(instanceId, {
+        group: { instanceId, totalCost: 0, unitPrice: null, unit: null, points: [] },
+        items: [],
+      });
     }
-  );
+    const entry = groups.get(instanceId)!;
+    entry.items.push(item);
+    entry.group.totalCost += toNumber(item.total_cost);
+  });
+
+  return Array.from(groups.values()).map(({ group, items }) => {
+    const costByTimestamp = new Map<string, number>();
+    items.forEach((item) => {
+      item.points?.forEach((point) => {
+        if (!point.timestamp) return;
+        costByTimestamp.set(point.timestamp, (costByTimestamp.get(point.timestamp) || 0) + toNumber(point.cost));
+      });
+    });
+
+    const [onlyItem] = items;
+    const hasFlatUnitPrice = items.length === 1 && onlyItem.price?.billing_model === "FLAT_FEE";
+
+    return {
+      ...group,
+      unitPrice: hasFlatUnitPrice ? toNumber(onlyItem.price?.amount) : null,
+      unit: hasFlatUnitPrice ? onlyItem.unit || null : null,
+      points: Array.from(costByTimestamp, ([timestamp, cost]) => ({ timestamp, cost })).sort((pointA, pointB) =>
+        Date.parse(pointA.timestamp) < Date.parse(pointB.timestamp) ? -1 : 1
+      ),
+    };
+  });
+}
+
+/**
+ * Fetches the customer's usage cost between two times, grouped by instance.
+ * https://docs.flexprice.io/api-reference/events/get-usage-analytics
+ */
+export async function getFlexpriceUsage(
+  externalId: string,
+  { startTime, endTime, windowSize }: { startTime: string; endTime: string; windowSize: FlexpriceUsageWindowSize }
+): Promise<FlexpriceUsage> {
+  const response = await fetchWithTimeout(`${getFlexpriceBaseURL()}/v1/events/analytics`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.FLEXPRICE_API_KEY as string,
+    },
+    body: JSON.stringify({
+      external_customer_id: externalId,
+      start_time: startTime,
+      end_time: endTime,
+      window_size: windowSize,
+      group_by: ["properties.instance_id"],
+      expand: ["price"],
+    }),
+  });
 
   if (!response.ok) {
-    console.error("Flexprice portal session error", response.status, response.body);
+    console.error("Flexprice usage analytics error", response.status, response.body);
 
     if (response.status === 404) {
       throw new FlexpriceError("Billing account not found", 404);
     }
-    throw new FlexpriceError("Failed to create billing portal session");
+    throw new FlexpriceError("Failed to load usage");
   }
 
-  const session = parseJSON(response.body) as FlexpricePortalSession | null;
-  const result = validatePortalURL(session?.url);
-  if ("reason" in result) {
-    console.error(`Rejected Flexprice portal session: ${result.reason}`);
-    throw new FlexpriceError("Failed to create billing portal session");
+  const analytics = parseJSON(response.body);
+  if (!analytics) {
+    console.error("Flexprice usage analytics returned an invalid response");
+    throw new FlexpriceError("Failed to load usage");
   }
 
-  // The client schedules the session refresh from expires_at, so it must be a valid future time
-  const expiresAt = Date.parse(session?.expires_at ?? "");
-  if (Number.isNaN(expiresAt) || expiresAt <= Date.now()) {
-    console.error("Rejected Flexprice portal session: expires_at is missing, invalid or in the past");
-    throw new FlexpriceError("Failed to create billing portal session");
-  }
-
-  return { ...(session as FlexpricePortalSession), url: result.url };
+  return {
+    currency: typeof analytics.currency === "string" ? analytics.currency : "",
+    totalCost: toNumber(analytics.total_cost),
+    groups: groupUsageByInstance(Array.isArray(analytics.items) ? analytics.items : []),
+  };
 }

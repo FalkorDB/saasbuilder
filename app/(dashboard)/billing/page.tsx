@@ -7,7 +7,6 @@ import { Box, Stack } from "@mui/material";
 import { useSelector } from "react-redux";
 
 import StatusChip from "src/components/StatusChip/StatusChip";
-import useSnackbar from "src/hooks/useSnackbar";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { selectUserrootData } from "src/slices/userDataSlice";
 import getSafeExternalURL from "src/utils/getSafeExternalURL";
@@ -23,13 +22,14 @@ import PageTitle from "../components/Layout/PageTitle";
 
 import BillingProviderTabs from "./components/BillingProviderTabs";
 import ConsumptionUsage from "./components/ConsumptionUsage";
+import FlexpriceUsageBreakdown from "./components/FlexpriceUsageBreakdown";
 import InvoicesTable from "./components/InvoicesTable";
 import StripeDefaultPaymentMethodSummary from "./components/StripeDefaultPaymentMethodSummary";
 import useBillingDetails from "./hooks/useBillingDetails";
 import useBillingStatus from "./hooks/useBillingStatus";
 import useConsumptionInvoices from "./hooks/useConsumptionInvoices";
 import useConsumptionUsage from "./hooks/useConsumptionUsage";
-import { useFlexpricePortalStatus, useOpenFlexpricePortal } from "./hooks/useFlexpricePortal";
+import { useFlexpriceStatus } from "./hooks/useFlexprice";
 import getBillingDetailsErrorMessage from "./utils/getBillingDetailsErrorMessage";
 
 const BillingPage = () => {
@@ -42,16 +42,12 @@ const BillingPage = () => {
   const previousPaymentConfiguredRef = useRef<boolean | undefined>(undefined);
 
   const billingStatusQuery = useBillingStatus();
-  const flexpricePortalStatusQuery = useFlexpricePortalStatus();
-  const snackbar = useSnackbar();
-  const { openPortal: openFlexpricePortal, isOpening: isOpeningFlexpricePortal } = useOpenFlexpricePortal({
-    onError: (message) => snackbar.showError(message),
-  });
+  const flexpriceStatusQuery = useFlexpriceStatus();
 
-  // Flexprice only replaces the usage breakdown, which opens its customer portal in a new tab
-  const isFlexpriceEnabled = Boolean(flexpricePortalStatusQuery.data?.enabled);
-  // Wait for the Flexprice status, so the usage breakdown button knows what to open
-  const isBillingDataEnabled = flexpricePortalStatusQuery.isSuccess;
+  // Flexprice only replaces the usage breakdown, with usage loaded from Flexprice
+  const isFlexpriceEnabled = Boolean(flexpriceStatusQuery.data?.enabled);
+  // Wait for the Flexprice status, so the usage section knows which breakdown to show
+  const isBillingDataEnabled = flexpriceStatusQuery.isSuccess;
   const isBillingEnabled = Boolean(billingStatusQuery.data?.enabled) && isBillingDataEnabled;
 
   const {
@@ -124,9 +120,9 @@ const BillingPage = () => {
     }
   }, [isCustomPaymentPortalEnabled]);
 
-  if (flexpricePortalStatusQuery.isPending) return <LoadingSpinner />;
+  if (flexpriceStatusQuery.isPending) return <LoadingSpinner />;
 
-  if (flexpricePortalStatusQuery.isError) {
+  if (flexpriceStatusQuery.isError) {
     return (
       <div>
         <AccountManagementHeader userName={selectUser?.name} userEmail={selectUser?.email} />
@@ -141,8 +137,8 @@ const BillingPage = () => {
             </DisplayText>
             <Button
               variant="contained"
-              onClick={() => flexpricePortalStatusQuery.refetch()}
-              disabled={flexpricePortalStatusQuery.isFetching}
+              onClick={() => flexpriceStatusQuery.refetch()}
+              disabled={flexpriceStatusQuery.isFetching}
             >
               Retry
             </Button>
@@ -164,8 +160,7 @@ const BillingPage = () => {
   const consumptionUsage = (
     <ConsumptionUsage
       consumptionUsageData={consumptionUsageData}
-      onOpenUsageBreakdown={isFlexpriceEnabled ? openFlexpricePortal : undefined}
-      isOpeningUsageBreakdown={isOpeningFlexpricePortal}
+      usageBreakdown={isFlexpriceEnabled ? <FlexpriceUsageBreakdown /> : undefined}
     />
   );
 
@@ -181,7 +176,7 @@ const BillingPage = () => {
           <LoadingSpinner />
         ) : error ? (
           <>
-            {/* The Flexprice portal doesn't depend on billing details, so keep its button reachable */}
+            {/* The Flexprice usage breakdown doesn't depend on billing details, so keep it reachable */}
             {isFlexpriceEnabled && consumptionUsage}
             <Stack p={3} pt={isFlexpriceEnabled ? "48px" : "200px"} alignItems="center" justifyContent="center">
               <DisplayText

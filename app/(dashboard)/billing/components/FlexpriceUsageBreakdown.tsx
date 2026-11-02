@@ -310,6 +310,7 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
               key={value}
               type="button"
               onClick={() => handlePresetChange(value)}
+              aria-pressed={preset === value}
               className={clsx(
                 "rounded-md px-3 py-1.5 text-sm font-medium",
                 preset === value ? "bg-[#F5F5F5] text-[#181D27]" : "text-[#535862] hover:text-[#181D27]"
@@ -325,6 +326,8 @@ const FlexpriceUsageBreakdown = ({ isOpen }: FlexpriceUsageBreakdownProps) => {
           initialDateRange={preset === "custom" ? customRange : undefined}
           selectionType="date"
           hideClearButton
+          // The presets cover relative ranges; the picker's own count days differently
+          hideRelativeRange
         />
         <Select
           id="flexprice-usage-group-by"

@@ -482,12 +482,20 @@ type DateRangePickerStaticProps = {
   hideBackArrow?: boolean;
   selectionType?: "date" | "date-time";
   hideClearButton?: boolean;
+  // Only offer absolute dates, e.g. when the page already has its own relative presets
+  hideRelativeRange?: boolean;
 };
 
 export const DateTimeRangePickerStatic = (props: DateRangePickerStaticProps) => {
-  const { handleCancel, dateRange, hideBackArrow = false, selectionType = "date-time" } = props;
+  const {
+    handleCancel,
+    dateRange,
+    hideBackArrow = false,
+    selectionType = "date-time",
+    hideRelativeRange = false,
+  } = props;
 
-  const [tab, setTab] = useState<TabType>(dateRange?.startDate ? "absolute" : "relative");
+  const [tab, setTab] = useState<TabType>(dateRange?.startDate || hideRelativeRange ? "absolute" : "relative");
 
   const handleTabChange = (value: TabType) => {
     setTab(value);
@@ -495,80 +503,84 @@ export const DateTimeRangePickerStatic = (props: DateRangePickerStaticProps) => 
 
   return (
     <>
-      <Stack
-        direction="row"
-        padding="16px"
-        justifyContent="flex-start"
-        alignItems="center"
-        gap="12px"
-        borderBottom={`1px solid ${themeConfig.colors.gray200}`}
-      >
-        {!hideBackArrow && (
-          <StyledIconCard sx={{ cursor: "pointer" }} onClick={handleCancel}>
-            <ChevronLeft
-              sx={{
-                color: themeConfig.colors.green600,
-                fontSize: "20px",
-              }}
-            />
-          </StyledIconCard>
-        )}
-
+      {(!hideBackArrow || !hideRelativeRange) && (
         <Stack
           direction="row"
-          sx={{
-            fontSize: "14px",
-            lineHeight: "20px",
-            fontWeight: 600,
-            color: themeConfig.colors.gray700,
-          }}
+          padding="16px"
+          justifyContent="flex-start"
+          alignItems="center"
+          gap="12px"
+          borderBottom={`1px solid ${themeConfig.colors.gray200}`}
         >
-          <Box
-            sx={{
-              cursor: "pointer",
-              paddingX: "14px",
-              paddingY: "8px",
-              borderRight: "none",
-              borderTopLeftRadius: "8px",
-              borderBottomLeftRadius: "8px",
-              ...(tab === "relative"
-                ? {
-                    background: themeConfig.colors.green50,
-                    color: themeConfig.colors.green700,
-                    border: `1px solid ${themeConfig.colors.green300}`,
-                  }
-                : {
-                    border: `1px solid ${themeConfig.colors.gray300}`,
-                  }),
-            }}
-            onClick={() => handleTabChange("relative")}
-          >
-            Relative Range
-          </Box>
-          <Box
-            sx={{
-              cursor: "pointer",
-              paddingX: "14px",
-              paddingY: "8px",
-              borderLeft: "none",
-              borderTopRightRadius: "8px",
-              borderBottomRightRadius: "8px",
-              ...(tab === "absolute"
-                ? {
-                    background: themeConfig.colors.green50,
-                    color: themeConfig.colors.green700,
-                    border: `1px solid ${themeConfig.colors.green300}`,
-                  }
-                : {
-                    border: `1px solid ${themeConfig.colors.gray300}`,
-                  }),
-            }}
-            onClick={() => handleTabChange("absolute")}
-          >
-            Absolute Range
-          </Box>
+          {!hideBackArrow && (
+            <StyledIconCard sx={{ cursor: "pointer" }} onClick={handleCancel}>
+              <ChevronLeft
+                sx={{
+                  color: themeConfig.colors.green600,
+                  fontSize: "20px",
+                }}
+              />
+            </StyledIconCard>
+          )}
+
+          {!hideRelativeRange && (
+            <Stack
+              direction="row"
+              sx={{
+                fontSize: "14px",
+                lineHeight: "20px",
+                fontWeight: 600,
+                color: themeConfig.colors.gray700,
+              }}
+            >
+              <Box
+                sx={{
+                  cursor: "pointer",
+                  paddingX: "14px",
+                  paddingY: "8px",
+                  borderRight: "none",
+                  borderTopLeftRadius: "8px",
+                  borderBottomLeftRadius: "8px",
+                  ...(tab === "relative"
+                    ? {
+                        background: themeConfig.colors.green50,
+                        color: themeConfig.colors.green700,
+                        border: `1px solid ${themeConfig.colors.green300}`,
+                      }
+                    : {
+                        border: `1px solid ${themeConfig.colors.gray300}`,
+                      }),
+                }}
+                onClick={() => handleTabChange("relative")}
+              >
+                Relative Range
+              </Box>
+              <Box
+                sx={{
+                  cursor: "pointer",
+                  paddingX: "14px",
+                  paddingY: "8px",
+                  borderLeft: "none",
+                  borderTopRightRadius: "8px",
+                  borderBottomRightRadius: "8px",
+                  ...(tab === "absolute"
+                    ? {
+                        background: themeConfig.colors.green50,
+                        color: themeConfig.colors.green700,
+                        border: `1px solid ${themeConfig.colors.green300}`,
+                      }
+                    : {
+                        border: `1px solid ${themeConfig.colors.gray300}`,
+                      }),
+                }}
+                onClick={() => handleTabChange("absolute")}
+              >
+                Absolute Range
+              </Box>
+            </Stack>
+          )}
         </Stack>
-      </Stack>
+      )}
 
       {tab === "relative" && (
         <RelativeRange
@@ -609,11 +621,19 @@ type DateTimePickerPopoverProps = {
   setDateRange: SetState<DateRange>;
   selectionType?: "date" | "date-time";
   hideClearButton?: boolean;
+  hideRelativeRange?: boolean;
   initialDateRange?: DateRange;
 };
 
 export const DateTimePickerPopover = (props: DateTimePickerPopoverProps) => {
-  const { dateRange, setDateRange, hideClearButton = false, selectionType = "date-time", initialDateRange } = props;
+  const {
+    dateRange,
+    setDateRange,
+    hideClearButton = false,
+    hideRelativeRange = false,
+    selectionType = "date-time",
+    initialDateRange,
+  } = props;
 
   const [anchorElem, setAnchorElem] = useState<HTMLElement | null>(null);
 
@@ -705,6 +725,7 @@ export const DateTimePickerPopover = (props: DateTimePickerPopoverProps) => {
             handleCancel={handleCancel}
             hideBackArrow={true}
             hideClearButton={hideClearButton}
+            hideRelativeRange={hideRelativeRange}
             selectionType={selectionType}
           />
         </Box>

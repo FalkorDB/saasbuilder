@@ -87,14 +87,22 @@ export function useOpenFlexpricePortal({ onError }: { onError: (message: string)
 
   const mutation = useMutation({
     mutationFn: async ({ portalTab, signal }: { portalTab: Window; signal: AbortSignal }) => {
+      // Close the blank tab as soon as the user leaves, even while auth recovery (which can't be cancelled) is pending
+      const closePortalTab = () => portalTab.close();
+      signal.addEventListener("abort", closePortalTab, { once: true });
+
       try {
         const session = await createSessionWithAuthRecovery(signal);
+        if (signal.aborted) return;
         // The portal must not be able to navigate the dashboard
         portalTab.opener = null;
         portalTab.location.href = session.url;
       } catch (error) {
         portalTab.close();
         throw error;
+      } finally {
+        // Once the portal is open, leaving the page must not close it
+        signal.removeEventListener("abort", closePortalTab);
       }
     },
     onError: (error, { signal }) => {

@@ -2,9 +2,12 @@ import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import { clarity } from "react-microsoft-clarity";
 import { loadReoScript } from 'reodotdev'
+import { getHubSpotScriptSrc } from "src/hubspotConfig";
+
+const HUBSPOT_COOKIES = ["__hstc", "__hssc", "__hssrc", "hubspotutk"];
 
 export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
-  version: 1,
+  version: 2,
   consentGiven: false,
   categories: [
     {
@@ -44,6 +47,13 @@ export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
           handleEnable: "addClarity",
           handleDisable: "removeClarity",
         },
+        {
+          type: "script",
+          name: "hubspot",
+          cookies: HUBSPOT_COOKIES,
+          handleEnable: "addHubSpot",
+          handleDisable: "removeHubSpot",
+        },
       ],
       hide: false,
       editable: true,
@@ -57,6 +67,8 @@ const handlerMap = {
   removeGoogleAnalyticsScriptsAndCookies,
   addClarity,
   removeClarity,
+  addHubSpot,
+  removeHubSpot,
 };
 
 const googleConsentDenied = {
@@ -162,7 +174,10 @@ const removeScript = (id) => {
 const removeCookies = (cookieNames) => {
   cookieNames?.forEach((name) => {
     const allCookies = document.cookie.split("; ");
-    const domains = [location.hostname];
+    const labels = location.hostname.split(".");
+    // Also clear cookies set on parent domains (e.g. ".example.com"), where third-party trackers usually put them.
+    const parentDomains = labels.length > 2 ? labels.slice(1, -1).map((_, i) => `.${labels.slice(i + 1).join(".")}`) : [];
+    const domains = [location.hostname, ...parentDomains];
     const paths = ["/"];
     const deleteCookie = (cookieName) => {
       domains.forEach((domain) =>
@@ -233,6 +248,113 @@ function removeClarity() {
     if (clarity && typeof clarity.clear === "function") {
       clarity.clear();
     }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+const HUBSPOT_SCRIPT_ID = "hs-script-loader";
+let hubSpotReady = false;
+let hubSpotEnabled = false;
+
+const CREDENTIAL_ROUTE_REGEX = /^\/(change-password|reset-password|idp-auth|sign-in-with-idp)$/i;
+const CREDENTIAL_QUERY_KEYS = [
+  "email",
+  "token",
+  "code",
+  "state",
+  "invitation",
+  "invite",
+  "otp",
+  "password",
+  "access_token",
+  "id_token",
+];
+
+// Returns the path to report to HubSpot, or null when the page must not be tracked.
+const getHubSpotPagePath = (pathname) => {
+  const path = typeof pathname === "string" && pathname ? pathname : window.location.pathname;
+  const normalizedPath = path.replace(/\/+$/, "") || "/";
+  const credentialQuery = [...new URLSearchParams(window.location.search).keys()].some((key) =>
+    CREDENTIAL_QUERY_KEYS.includes(key.toLowerCase())
+  );
+  if (CREDENTIAL_ROUTE_REGEX.test(normalizedPath) || credentialQuery) return null;
+  return path.startsWith("/") && !path.startsWith("//") ? path : null;
+};
+
+function loadHubSpot(pagePath) {
+  try {
+    const src = getHubSpotScriptSrc(process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID, process.env.NEXT_PUBLIC_HUBSPOT_REGION);
+    if (!src || !pagePath) return;
+    hubSpotEnabled = true;
+
+    // Consent is managed by our own banner, so suppress HubSpot's built-in banner
+    window.disableHubSpotCookieBanner = true;
+    window._hsp = window._hsp || [];
+    window._hsq = window._hsq || [];
+
+    const existing = document.getElementById(HUBSPOT_SCRIPT_ID);
+    if (existing) {
+      // The script stays in the page after opt-out (it cannot be unloaded), so re-enabling must reuse it
+      // instead of injecting a second copy.
+      window._hsq.push(["doNotTrack", { track: true }]);
+      window._hsq.push(["setPath", pagePath]);
+      if (hubSpotReady) window._hsq.push(["trackPageView"]);
+      return;
+    }
+
+    window._hsq.push(["doNotTrack", { track: true }]);
+    window._hsq.push(["setPath", pagePath]);
+
+    const script = document.createElement("script");
+    script.id = HUBSPOT_SCRIPT_ID;
+    script.type = "text/javascript";
+    script.async = true;
+    script.defer = true;
+    script.src = src;
+    script.onerror = () => {
+      hubSpotReady = false;
+      hubSpotEnabled = false; // allow the next eligible navigation / consent change to retry loading
+      script.remove();
+      console.error("Failed to load HubSpot tracking script.");
+    };
+    script.onload = () => {
+      if (document.getElementById(HUBSPOT_SCRIPT_ID) === script) hubSpotReady = true;
+    };
+    document.head.appendChild(script);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function addHubSpot() {
+  // Handlers re-run on every consent change; only act on the disabled -> enabled transition.
+  if (hubSpotEnabled) return;
+  loadHubSpot(getHubSpotPagePath());
+}
+
+export function trackHubSpotPageView(pathname) {
+  if (!hubSpotEnabled) {
+    loadHubSpot(getHubSpotPagePath(pathname));
+    return;
+  }
+
+  const pagePath = getHubSpotPagePath(pathname);
+  if (!pagePath || !window._hsq) return;
+
+  window._hsq.push(["setPath", pagePath]);
+  // Before onload the loader fires its own pageview for the current path, so only track once ready.
+  if (hubSpotReady) window._hsq.push(["trackPageView"]);
+}
+
+function removeHubSpot() {
+  try {
+    hubSpotEnabled = false;
+    // Tracking is stopped via the HubSpot API and cookies are cleared; the already-executed script stays
+    // in the page (removing the tag would not stop it, and re-adding it would duplicate it).
+    window._hsq?.push(["doNotTrack"]);
+    window._hsp?.push(["revokeCookieConsent"]);
+    removeCookies(HUBSPOT_COOKIES);
   } catch (error) {
     console.error(error);
   }

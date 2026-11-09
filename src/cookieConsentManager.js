@@ -334,7 +334,19 @@ function loadHubSpot(pagePath) {
       console.error("Failed to load HubSpot tracking script.");
     };
     script.onload = () => {
-      if (document.getElementById(HUBSPOT_SCRIPT_ID) === script) hubSpotReady = true;
+      // This load event is only HubSpot's bootstrap; it then injects the analytics script. Until that runs,
+      // window._hsq is still our plain array, afterwards HubSpot replaces it with its own queue. Wait for that
+      // (bounded, fail-open) so explicit pageviews aren't queued in front of the loader's own initial pageview.
+      const startedAt = Date.now();
+      const markReadyWhenAnalyticsStarts = () => {
+        if (document.getElementById(HUBSPOT_SCRIPT_ID) !== script) return;
+        if (!Array.isArray(window._hsq) || Date.now() - startedAt > 5000) {
+          hubSpotReady = true;
+          return;
+        }
+        setTimeout(markReadyWhenAnalyticsStarts, 100);
+      };
+      markReadyWhenAnalyticsStarts();
     };
     document.head.appendChild(script);
   } catch (error) {

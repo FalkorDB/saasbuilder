@@ -71,7 +71,11 @@ export default function CookieConsentProvider({ children, googleAnalyticsTagID }
             const newAnalytics = getCookieConsentInitialObject(googleAnalyticsTagID).categories.find(
               (c) => c.category === "analytics"
             );
-            if (newAnalytics) parsedConsent.categories.push(newAnalytics);
+            if (newAnalytics) {
+              parsedConsent.categories.push(newAnalytics);
+              // A category the user never saw (it was removed while nothing was configured) needs a fresh opt-in.
+              parsedConsent.consentGiven = false;
+            }
           } else if (gaService && gaService.gtag !== googleAnalyticsTagID) {
             gaService.gtag = googleAnalyticsTagID; // update id only; handlers unchanged
           }

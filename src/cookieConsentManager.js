@@ -274,18 +274,33 @@ const CREDENTIAL_QUERY_KEYS = [
 // Returns the path to report to HubSpot, or null when the page must not be tracked.
 const getHubSpotPagePath = (pathname) => {
   const path = typeof pathname === "string" && pathname ? pathname : window.location.pathname;
-  const normalizedPath = path.replace(/\/+$/, "") || "/";
-  const credentialQuery = [...new URLSearchParams(window.location.search).keys()].some((key) =>
-    CREDENTIAL_QUERY_KEYS.includes(key.toLowerCase())
-  );
-  if (CREDENTIAL_ROUTE_REGEX.test(normalizedPath) || credentialQuery) return null;
+  if (isCredentialUrl({ pathname: path, searchParams: new URLSearchParams(window.location.search) })) return null;
   return path.startsWith("/") && !path.startsWith("//") ? path : null;
 };
+
+function isCredentialUrl(url) {
+  const normalizedPath = url.pathname.replace(/\/+$/, "") || "/";
+  return (
+    CREDENTIAL_ROUTE_REGEX.test(normalizedPath) ||
+    [...url.searchParams.keys()].some((key) => CREDENTIAL_QUERY_KEYS.includes(key.toLowerCase()))
+  );
+}
+
+function referrerHasCredentials() {
+  try {
+    return Boolean(document.referrer) && isCredentialUrl(new URL(document.referrer));
+  } catch {
+    return false;
+  }
+}
 
 function loadHubSpot(pagePath) {
   try {
     const src = getHubSpotScriptSrc(process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID, process.env.NEXT_PUBLIC_HUBSPOT_REGION);
     if (!src || !pagePath) return;
+    // The loader reads document.referrer, which keeps the full URL for same-origin navigations (e.g. after the
+    // SSO redirect from /idp-auth?code=...). Don't start tracking while the referrer carries credentials.
+    if (!document.getElementById(HUBSPOT_SCRIPT_ID) && referrerHasCredentials()) return;
     hubSpotEnabled = true;
 
     // Consent is managed by our own banner, so suppress HubSpot's built-in banner
@@ -340,7 +355,14 @@ export function trackHubSpotPageView(pathname) {
   }
 
   const pagePath = getHubSpotPagePath(pathname);
-  if (!pagePath || !window._hsq) return;
+  if (!pagePath) {
+    // Excluded (credential) page: suspend tracking, including a loader that is still initializing.
+    // The next eligible navigation re-enables it through loadHubSpot().
+    window._hsq?.push(["doNotTrack"]);
+    hubSpotEnabled = false;
+    return;
+  }
+  if (!window._hsq) return;
 
   window._hsq.push(["setPath", pagePath]);
   // Before onload the loader fires its own pageview for the current path, so only track once ready.

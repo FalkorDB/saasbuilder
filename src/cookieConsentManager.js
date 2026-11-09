@@ -4,7 +4,7 @@ import { clarity } from "react-microsoft-clarity";
 import { loadReoScript } from 'reodotdev'
 
 export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
-  version: 1,
+  version: 2,
   consentGiven: false,
   categories: [
     {
@@ -44,6 +44,13 @@ export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
           handleEnable: "addClarity",
           handleDisable: "removeClarity",
         },
+        {
+          type: "script",
+          name: "hubspot",
+          cookies: ["__hstc", "__hssc", "__hssrc", "hubspotutk"],
+          handleEnable: "addHubSpot",
+          handleDisable: "removeHubSpot",
+        },
       ],
       hide: false,
       editable: true,
@@ -57,6 +64,8 @@ const handlerMap = {
   removeGoogleAnalyticsScriptsAndCookies,
   addClarity,
   removeClarity,
+  addHubSpot,
+  removeHubSpot,
 };
 
 const googleConsentDenied = {
@@ -232,6 +241,64 @@ function removeClarity() {
   try {
     if (clarity && typeof clarity.clear === "function") {
       clarity.clear();
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+const HUBSPOT_SCRIPT_ID = "hs-script-loader";
+
+export const getHubSpotScriptSrc = (portalId, region) => {
+  const id = String(portalId ?? "").trim();
+  if (!/^\d+$/.test(id)) return null;
+
+  const normalizedRegion = String(region ?? "").trim().toLowerCase();
+  if (normalizedRegion && !/^[a-z0-9]+$/.test(normalizedRegion)) return null;
+
+  const host = !normalizedRegion || normalizedRegion === "na1" ? "js.hs-scripts.com" : `js-${normalizedRegion}.hs-scripts.com`;
+  return `https://${host}/${id}.js`;
+};
+
+function addHubSpot() {
+  try {
+    const src = getHubSpotScriptSrc(process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID, process.env.NEXT_PUBLIC_HUBSPOT_REGION);
+    if (!src) return;
+
+    // Consent is managed by our own banner, so suppress HubSpot's built-in banner
+    window.disableHubSpotCookieBanner = true;
+    window._hsp = window._hsp || [];
+    window._hsq = window._hsq || [];
+    window._hsq.push(["doNotTrack", { track: true }]);
+
+    if (document.getElementById(HUBSPOT_SCRIPT_ID)) return;
+
+    const script = document.createElement("script");
+    script.id = HUBSPOT_SCRIPT_ID;
+    script.type = "text/javascript";
+    script.async = true;
+    script.defer = true;
+    script.src = src;
+    script.onerror = () => {
+      console.error("Failed to load HubSpot tracking script.");
+    };
+    document.head.appendChild(script);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function removeHubSpot() {
+  try {
+    if (window._hsq) {
+      window._hsq.push(["doNotTrack"]);
+    }
+    if (window._hsp) {
+      window._hsp.push(["revokeCookieConsent"]);
+    }
+    removeScript(HUBSPOT_SCRIPT_ID);
+    if (this.cookies && Array.isArray(this.cookies)) {
+      removeCookies(this.cookies);
     }
   } catch (error) {
     console.error(error);

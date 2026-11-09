@@ -45,8 +45,16 @@ export default function CookieConsentProvider({ children, googleAnalyticsTagID }
 
         if ((parsedConsent?.version ?? 0) < defaultCookieConsentObj.version) {
           const consentGiven = parsedConsent.consentGiven;
-          parsedConsent = defaultCookieConsentObj
-          parsedConsent.consentGiven = consentGiven
+          const previousCategories = parsedConsent.categories ?? [];
+          parsedConsent = {
+            ...defaultCookieConsentObj,
+            consentGiven,
+            // Preserve the user's per-category choices while picking up new/updated services
+            categories: defaultCookieConsentObj.categories.map((cat) => {
+              const previous = previousCategories.find((c) => c.category === cat.category);
+              return previous && cat.editable ? { ...cat, enabled: previous.enabled } : cat;
+            }),
+          };
         }
         // Sync presence/absence or change of GA measurement ID.
         const analyticsCategoryIndex = parsedConsent.categories.findIndex((c) => c.category === "analytics");

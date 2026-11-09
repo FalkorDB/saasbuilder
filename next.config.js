@@ -35,6 +35,22 @@ const reoOrigins = process.env.NEXT_PUBLIC_REO_CLIENT_ID
   ? ["https://static.reo.dev", "https://api.reo.dev"]
   : [];
 
+const hubspotOrigins = (() => {
+  if (!/^\d+$/.test((process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID || "").trim())) return [];
+  const region = (process.env.NEXT_PUBLIC_HUBSPOT_REGION || "").trim().toLowerCase();
+  if (region && !/^[a-z0-9]+$/.test(region)) return [];
+  const suffix = !region || region === "na1" ? "" : `-${region}`;
+  return [
+    `https://js${suffix}.hs-scripts.com`,
+    `https://js${suffix}.hs-analytics.net`,
+    `https://js${suffix}.hs-banner.com`,
+    `https://js${suffix}.hscollectedforms.net`,
+    `https://js${suffix}.hsadspixel.net`,
+    `https://track${suffix}.hubspot.com`,
+    `https://forms${suffix}.hscollectedforms.net`,
+  ];
+})();
+
 const additionalScriptSources = (process.env.CSP_SRC || "").trim();
 const isAnalyticsEnabled = Boolean(process.env.GOOGLE_ANALYTICS_TAG_ID);
 
@@ -44,6 +60,7 @@ const buildCsp = ({ reportOnly = false } = {}) => {
     ...(isAnalyticsEnabled ? ["'unsafe-inline'", "'unsafe-eval'"] : []),
     ...analyticsOrigins,
     ...reoOrigins,
+    ...hubspotOrigins,
     additionalScriptSources,
   ]);
 
@@ -51,6 +68,7 @@ const buildCsp = ({ reportOnly = false } = {}) => {
     "'self'",
     ...analyticsOrigins,
     ...reoOrigins,
+    ...hubspotOrigins,
     ...runtimeOrigins,
     "https:",
     "wss:",
@@ -63,6 +81,7 @@ const buildCsp = ({ reportOnly = false } = {}) => {
     ...analyticsOrigins,
     ...imageOrigins,
     ...reoOrigins,
+    ...hubspotOrigins,
     ...runtimeOrigins,
   ]);
 

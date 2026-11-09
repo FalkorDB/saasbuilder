@@ -113,7 +113,10 @@ test.describe("Signin Page", () => {
       const hubspotConfigured = /^\d+$/.test(process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID ?? "");
 
       page.on("request", (request) => {
-        if (new URL(request.url()).hostname.endsWith("hs-scripts.com")) hubspotRequests.push(request.url());
+        const hostname = new URL(request.url()).hostname;
+        if (hostname === "js.hs-scripts.com" || /^js-[a-z0-9]+\.hs-scripts\.com$/i.test(hostname)) {
+          hubspotRequests.push(request.url());
+        }
       });
       await page.route(/https:\/\/js(?:-[a-z0-9]+)?\.hs-scripts\.com\/\d+\.js/, (route) =>
         route.fulfill({ contentType: "application/javascript", body: "" })

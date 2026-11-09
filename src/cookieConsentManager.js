@@ -369,6 +369,18 @@ export function trackHubSpotPageView(pathname) {
   if (hubSpotReady) window._hsq.push(["trackPageView"]);
 }
 
+// Query-only navigations (same pathname): suspend tracking if the URL now carries credentials, and resume it
+// once it no longer does. No extra pageview is sent.
+export function syncHubSpotQueryChange(pathname) {
+  const pagePath = getHubSpotPagePath(pathname);
+  if (!pagePath) {
+    window._hsq?.push(["doNotTrack"]);
+    hubSpotEnabled = false;
+  } else if (!hubSpotEnabled) {
+    loadHubSpot(pagePath);
+  }
+}
+
 function removeHubSpot() {
   try {
     hubSpotEnabled = false;

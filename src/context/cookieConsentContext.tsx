@@ -1,8 +1,8 @@
-import { createContext, ReactNode, useContext, useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { createContext, ReactNode, Suspense, useContext, useEffect, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import CookieConsentModal from "src/components/CookieConsent/CookieConsentModal";
-import { getCookieConsentInitialObject, handleConsentChanges, trackHubSpotPageView } from "src/cookieConsentManager";
+import { getCookieConsentInitialObject, handleConsentChanges, syncHubSpotQueryChange, trackHubSpotPageView } from "src/cookieConsentManager";
 import { getHubSpotScriptSrc } from "src/hubspotConfig";
 import { CategoryWithoutServices, CookieConsent } from "src/types/cookieConsent";
 
@@ -28,6 +28,16 @@ type CookieConsentProviderProps = {
   googleAnalyticsTagID: string | undefined;
 };
 
+// Isolated in its own component (wrapped in Suspense) so reading search params doesn't opt the whole app tree
+// out of static rendering.
+function SearchParamsWatcher({ onChange }: { onChange: (search: string) => void }) {
+  const search = useSearchParams()?.toString() ?? "";
+  useEffect(() => {
+    onChange(search);
+  }, [search, onChange]);
+  return null;
+}
+
 export default function CookieConsentProvider({ children, googleAnalyticsTagID }: CookieConsentProviderProps) {
   const pathname = usePathname();
   const defaultCookieConsentObj = getCookieConsentInitialObject(googleAnalyticsTagID) as CookieConsent;
@@ -36,6 +46,8 @@ export default function CookieConsentProvider({ children, googleAnalyticsTagID }
   );
   const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
   const previousPathname = useRef<string | null>(null);
+  const previousSearch = useRef<string | null>(null);
+  const [search, setSearch] = useState<string | null>(null);
 
   const [isInitialLoad, setIsIntialLoad] = useState(true);
 
@@ -111,17 +123,20 @@ export default function CookieConsentProvider({ children, googleAnalyticsTagID }
     // usePathname() can be null (Pages Router fallback / pre-hydration); wait for a real value.
     if (!pathname) return;
 
-    if (previousPathname.current === null) {
-      previousPathname.current = pathname;
-      return;
-    }
-
-    if (previousPathname.current === pathname) return;
+    const prevPath = previousPathname.current;
+    const prevSearch = previousSearch.current;
     previousPathname.current = pathname;
+    if (search !== null) previousSearch.current = search;
+
+    // The first values only establish the baseline: the loader's own initial pageview covers them.
+    if (prevPath === null) return;
 
     const analyticsEnabled = consentState.categories.find((category) => category.category === "analytics")?.enabled;
-    if (analyticsEnabled) trackHubSpotPageView(pathname);
-  }, [consentState.categories, pathname]);
+    if (!analyticsEnabled) return;
+
+    if (prevPath !== pathname) trackHubSpotPageView(pathname);
+    else if (search !== null && prevSearch !== null && prevSearch !== search) syncHubSpotQueryChange(pathname);
+  }, [consentState.categories, pathname, search]);
 
   const updateConsent = (updatedCategories: CategoryWithoutServices[]) => {
     const newCategories = consentState.categories.map((cat) => {
@@ -144,6 +159,9 @@ export default function CookieConsentProvider({ children, googleAnalyticsTagID }
         setIsConsentModalOpen,
       }}
     >
+      <Suspense fallback={null}>
+        <SearchParamsWatcher onChange={setSearch} />
+      </Suspense>
       {children}
       <CookieConsentModal />
     </CookieConsentContext.Provider>

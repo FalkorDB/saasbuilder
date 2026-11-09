@@ -166,12 +166,12 @@ test.describe("Signin Page", () => {
         const analyticsCategory = migratedConsent.categories.find((category) => category.category === "analytics");
         // The analytics category gained a new service (HubSpot), so an earlier opt-in must not carry over
         expect(migratedConsent.consentGiven).toBe(false);
-        if (analyticsConfigured) {
-          expect(analyticsCategory?.enabled).toBe(false);
-          expect(analyticsCategory?.services.map((service) => service.name)).toContain("hubspot");
-        } else {
-          // No analytics service configured: the category is removed entirely
-          expect(analyticsCategory).toBeUndefined();
+        // The app decides from its build-time env, which may differ from this runner's env: only require the
+        // category when this runner is configured, and validate its shape whenever the app produced it.
+        if (analyticsConfigured) expect(analyticsCategory).toBeDefined();
+        if (analyticsCategory) {
+          expect(analyticsCategory.enabled).toBe(false);
+          expect(analyticsCategory.services.map((service) => service.name)).toContain("hubspot");
         }
 
         // Nothing is tracked until the user opts in again

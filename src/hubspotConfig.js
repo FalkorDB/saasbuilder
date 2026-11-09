@@ -1,14 +1,21 @@
 // Shared by next.config.js (CSP) and src/cookieConsentManager.js (script loading).
 // Plain CommonJS so it can be required from next.config.js.
 
+const warnInvalid = (name, value) => {
+  console.warn(`HubSpot tracking disabled: invalid ${name} "${value}".`);
+  return null;
+};
+
 const getHubSpotConfig = (portalId, region) => {
   const id = String(portalId ?? "").trim();
-  if (!/^\d+$/.test(id)) return null;
+  if (!id) return null; // not configured
+  if (!/^\d+$/.test(id)) return warnInvalid("NEXT_PUBLIC_HUBSPOT_PORTAL_ID", id);
 
   const normalizedRegion = String(region ?? "")
     .trim()
     .toLowerCase();
-  if (normalizedRegion && !/^[a-z0-9]+$/.test(normalizedRegion)) return null;
+  if (normalizedRegion && !/^[a-z0-9]+$/.test(normalizedRegion))
+    return warnInvalid("NEXT_PUBLIC_HUBSPOT_REGION", normalizedRegion);
 
   return { id, suffix: !normalizedRegion || normalizedRegion === "na1" ? "" : `-${normalizedRegion}` };
 };
@@ -30,6 +37,7 @@ const getHubSpotCspOrigins = (portalId, region) => {
     `https://js${suffix}.hsadspixel.net`,
     `https://js${suffix}.hsleadflows.net`,
     `https://js${suffix}.usemessages.com`,
+    `https://api${suffix}.usemessages.com`,
     `https://track${suffix}.hubspot.com`,
     `https://forms${suffix}.hscollectedforms.net`,
   ];

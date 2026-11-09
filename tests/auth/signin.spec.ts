@@ -4,6 +4,7 @@ import { PageURLs } from "page-objects/pages";
 import { SigninPage } from "page-objects/signin-page";
 import { GlobalStateManager } from "test-utils/global-state-manager";
 import { ProviderAPIClient } from "test-utils/provider-api-client";
+import { getHubSpotScriptSrc } from "../../src/hubspotConfig";
 
 test.describe("Signin Page", () => {
   let signinPage: SigninPage;
@@ -106,6 +107,79 @@ test.describe("Signin Page", () => {
     await page.getByRole("button", { name: "Reject All" }).click();
     await expect(page.getByTestId(dataTestIds.cookieConsentBanner)).not.toBeVisible();
   });
+
+  for (const analyticsEnabled of [true, false]) {
+    test(`Migrating version-1 consent (analytics ${analyticsEnabled ? "enabled" : "disabled"}) requires fresh analytics opt-in`, async ({ page }) => {
+      const hubspotRequests: string[] = [];
+      // The analytics category only exists when GA and/or HubSpot is configured (same rules as the app)
+      const analyticsConfigured =
+        Boolean(process.env.GOOGLE_ANALYTICS_TAG_ID) ||
+        Boolean(getHubSpotScriptSrc(process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID, process.env.NEXT_PUBLIC_HUBSPOT_REGION));
+
+      page.on("request", (request) => {
+        const hostname = new URL(request.url()).hostname;
+        if (hostname === "js.hs-scripts.com" || /^js-[a-z0-9]+\.hs-scripts\.com$/i.test(hostname)) {
+          hubspotRequests.push(request.url());
+        }
+      });
+      await page.route(/^https:\/\/js(?:-[a-z0-9]+)?\.hs-scripts\.com\/\d+\.js(?:\?.*)?$/, (route) =>
+        route.fulfill({ contentType: "application/javascript", body: "" })
+      );
+      await page.evaluate((enabled) => {
+        localStorage.setItem(
+          "cookieConsent",
+          JSON.stringify({
+            version: 1,
+            consentGiven: true,
+            categories: [
+              { category: "necessary", services: [], hide: false, editable: false, enabled: true },
+              {
+                category: "analytics",
+                services: [{ type: "script", name: "googletagmanager", cookies: [] }],
+                hide: false,
+                editable: true,
+                enabled,
+              },
+            ],
+          })
+        );
+      }, analyticsEnabled);
+
+      for (let reload = 0; reload < 2; reload += 1) {
+        await page.reload();
+        await page.waitForFunction(() => {
+          const consent = JSON.parse(localStorage.getItem("cookieConsent") ?? "null");
+          return consent?.version === 2;
+        });
+
+        const migratedConsent = await page.evaluate(
+          () =>
+            JSON.parse(localStorage.getItem("cookieConsent") ?? "null") as {
+              consentGiven: boolean;
+              categories: Array<{
+                category: string;
+                enabled: boolean;
+                services: Array<{ name: string }>;
+              }>;
+            }
+        );
+        const analyticsCategory = migratedConsent.categories.find((category) => category.category === "analytics");
+        // The analytics category gained a new service (HubSpot), so an earlier opt-in must not carry over
+        expect(migratedConsent.consentGiven).toBe(false);
+        // The app decides from its build-time env, which may differ from this runner's env: only require the
+        // category when this runner is configured, and validate its shape whenever the app produced it.
+        if (analyticsConfigured) expect(analyticsCategory).toBeDefined();
+        if (analyticsCategory) {
+          expect(analyticsCategory.enabled).toBe(false);
+          expect(analyticsCategory.services.map((service) => service.name)).toContain("hubspot");
+        }
+
+        // Nothing is tracked until the user opts in again
+        await expect(page.locator("#hs-script-loader")).toHaveCount(0);
+        expect(hubspotRequests).toHaveLength(0);
+      }
+    });
+  }
 
   // check that the identity providers buttons are visible based on the email domain
   test("Identity Provider Buttons", async ({ page }) => {

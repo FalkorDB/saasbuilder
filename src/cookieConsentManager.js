@@ -2,9 +2,12 @@ import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import { clarity } from "react-microsoft-clarity";
 import { loadReoScript } from 'reodotdev'
+import { getHubSpotScriptSrc } from "src/hubspotConfig";
+
+const HUBSPOT_COOKIES = ["__hstc", "__hssc", "__hssrc", "hubspotutk"];
 
 export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
-  version: 1,
+  version: 2,
   consentGiven: false,
   categories: [
     {
@@ -44,6 +47,13 @@ export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
           handleEnable: "addClarity",
           handleDisable: "removeClarity",
         },
+        {
+          type: "script",
+          name: "hubspot",
+          cookies: HUBSPOT_COOKIES,
+          handleEnable: "addHubSpot",
+          handleDisable: "removeHubSpot",
+        },
       ],
       hide: false,
       editable: true,
@@ -57,6 +67,8 @@ const handlerMap = {
   removeGoogleAnalyticsScriptsAndCookies,
   addClarity,
   removeClarity,
+  addHubSpot,
+  removeHubSpot,
 };
 
 const googleConsentDenied = {
@@ -162,7 +174,10 @@ const removeScript = (id) => {
 const removeCookies = (cookieNames) => {
   cookieNames?.forEach((name) => {
     const allCookies = document.cookie.split("; ");
-    const domains = [location.hostname];
+    const labels = location.hostname.split(".");
+    // Also clear cookies set on parent domains (e.g. ".example.com"), where third-party trackers usually put them.
+    const parentDomains = labels.length > 2 ? labels.slice(1, -1).map((_, i) => `.${labels.slice(i + 1).join(".")}`) : [];
+    const domains = [location.hostname, ...parentDomains];
     const paths = ["/"];
     const deleteCookie = (cookieName) => {
       domains.forEach((domain) =>
@@ -233,6 +248,168 @@ function removeClarity() {
     if (clarity && typeof clarity.clear === "function") {
       clarity.clear();
     }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+const HUBSPOT_SCRIPT_ID = "hs-script-loader";
+let hubSpotBootstrapLoaded = false;
+
+// Actual SDK readiness, evaluated at call time: the bootstrap script has loaded AND HubSpot's analytics script
+// has replaced our plain-array window._hsq with its own queue. Before that, the loader sends the initial
+// pageview itself, so explicit pageviews would be duplicates.
+const isHubSpotSdkReady = () => hubSpotBootstrapLoaded && Boolean(window._hsq) && !Array.isArray(window._hsq);
+let hubSpotEnabled = false;
+
+const CREDENTIAL_ROUTE_REGEX = /^\/(change-password|reset-password|idp-auth|sign-in-with-idp)$/i;
+const CREDENTIAL_QUERY_KEYS = [
+  "email",
+  "token",
+  "code",
+  "state",
+  "invitation",
+  "invite",
+  "otp",
+  "password",
+  "access_token",
+  "id_token",
+];
+
+// Returns the path to report to HubSpot, or null when the page must not be tracked.
+const getHubSpotPagePath = (pathname) => {
+  const path = typeof pathname === "string" && pathname ? pathname : window.location.pathname;
+  if (isCredentialUrl({ pathname: path, searchParams: new URLSearchParams(window.location.search) })) return null;
+  return path.startsWith("/") && !path.startsWith("//") ? path : null;
+};
+
+const CREDENTIAL_ROUTE_ANYWHERE_REGEX = /\/(change-password|reset-password|idp-auth|sign-in-with-idp)(?=[/?#&]|$)/i;
+const CREDENTIAL_QUERY_ANYWHERE_REGEX = new RegExp(`[?&;#](${CREDENTIAL_QUERY_KEYS.join("|")})=`, "i");
+
+// Redirect destinations (e.g. /signin?destination=%2Finstances%3Ftoken%3D...) embed other URLs, possibly encoded
+// several times. Instead of parsing a bounded number of levels, fully decode the path + query and look for
+// credential routes/keys anywhere in it. If it cannot be fully decoded, fail closed.
+function isCredentialUrl(url) {
+  let candidate = `${url.pathname}?${url.searchParams.toString()}`;
+  for (let i = 0; i < 10; i += 1) {
+    let decoded;
+    try {
+      decoded = decodeURIComponent(candidate.replace(/\+/g, " "));
+    } catch {
+      return true; // malformed encoding: don't risk it
+    }
+    if (decoded === candidate) {
+      const normalized = candidate.replace(/\/+(?=\?|$)/, "");
+      return CREDENTIAL_ROUTE_ANYWHERE_REGEX.test(normalized) || CREDENTIAL_QUERY_ANYWHERE_REGEX.test(normalized);
+    }
+    candidate = decoded;
+  }
+  return true; // still changing after many decodes: fail closed
+}
+
+function referrerHasCredentials() {
+  try {
+    return Boolean(document.referrer) && isCredentialUrl(new URL(document.referrer));
+  } catch {
+    return false;
+  }
+}
+
+function loadHubSpot(pagePath) {
+  try {
+    const src = getHubSpotScriptSrc(process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID, process.env.NEXT_PUBLIC_HUBSPOT_REGION);
+    if (!src || !pagePath) return;
+    // The loader reads document.referrer, which keeps the full URL for same-origin navigations (e.g. after the
+    // SSO redirect from /idp-auth?code=...). Don't start tracking while the referrer carries credentials.
+    if (!document.getElementById(HUBSPOT_SCRIPT_ID) && referrerHasCredentials()) return;
+    hubSpotEnabled = true;
+
+    // Consent is managed by our own banner, so suppress HubSpot's built-in banner
+    window.disableHubSpotCookieBanner = true;
+    window._hsp = window._hsp || [];
+    window._hsq = window._hsq || [];
+
+    const existing = document.getElementById(HUBSPOT_SCRIPT_ID);
+    if (existing) {
+      // The script stays in the page after opt-out (it cannot be unloaded), so re-enabling must reuse it
+      // instead of injecting a second copy.
+      window._hsq.push(["doNotTrack", { track: true }]);
+      window._hsq.push(["setPath", pagePath]);
+      if (isHubSpotSdkReady()) window._hsq.push(["trackPageView"]);
+      return;
+    }
+
+    window._hsq.push(["doNotTrack", { track: true }]);
+    window._hsq.push(["setPath", pagePath]);
+
+    const script = document.createElement("script");
+    script.id = HUBSPOT_SCRIPT_ID;
+    script.type = "text/javascript";
+    script.async = true;
+    script.defer = true;
+    script.src = src;
+    script.onerror = () => {
+      hubSpotBootstrapLoaded = false;
+      hubSpotEnabled = false; // allow the next eligible navigation / consent change to retry loading
+      script.remove();
+      console.error("Failed to load HubSpot tracking script.");
+    };
+    script.onload = () => {
+      if (document.getElementById(HUBSPOT_SCRIPT_ID) === script) hubSpotBootstrapLoaded = true;
+    };
+    document.head.appendChild(script);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function addHubSpot() {
+  // Handlers re-run on every consent change; only act on the disabled -> enabled transition.
+  if (hubSpotEnabled) return;
+  loadHubSpot(getHubSpotPagePath());
+}
+
+export function trackHubSpotPageView(pathname) {
+  if (!hubSpotEnabled) {
+    loadHubSpot(getHubSpotPagePath(pathname));
+    return;
+  }
+
+  const pagePath = getHubSpotPagePath(pathname);
+  if (!pagePath) {
+    // Excluded (credential) page: suspend tracking, including a loader that is still initializing.
+    // The next eligible navigation re-enables it through loadHubSpot().
+    window._hsq?.push(["doNotTrack"]);
+    hubSpotEnabled = false;
+    return;
+  }
+  if (!window._hsq) return;
+
+  window._hsq.push(["setPath", pagePath]);
+  // Before onload the loader fires its own pageview for the current path, so only track once ready.
+  if (isHubSpotSdkReady()) window._hsq.push(["trackPageView"]);
+}
+
+// Query-only navigations (same pathname): suspend tracking if the URL now carries credentials, and resume it
+// once it no longer does. No extra pageview is sent.
+export function syncHubSpotQueryChange(pathname) {
+  const pagePath = getHubSpotPagePath(pathname);
+  if (!pagePath) {
+    window._hsq?.push(["doNotTrack"]);
+    hubSpotEnabled = false;
+  } else if (!hubSpotEnabled) {
+    loadHubSpot(pagePath);
+  }
+}
+
+function removeHubSpot() {
+  try {
+    hubSpotEnabled = false;
+    // Tracking is stopped via the HubSpot API and cookies are cleared; the already-executed script stays
+    // in the page (removing the tag would not stop it, and re-adding it would duplicate it).
+    window._hsq?.push(["doNotTrack"]);
+    window._hsp?.push(["revokeCookieConsent"]);
+    removeCookies(HUBSPOT_COOKIES);
   } catch (error) {
     console.error(error);
   }

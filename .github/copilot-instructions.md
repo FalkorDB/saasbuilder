@@ -648,7 +648,7 @@ Because this is a white-label portal where **provider-supplied content** (organi
 
 #### Third-party scripts, SDKs, and CSP
 
-- **Current third-party surface**: Google Analytics (`googletagmanager.com`), Google OAuth (`accounts.google.com`), Google reCAPTCHA (`google.com/recaptcha`). No PostHog, HubSpot, Intercom, or CRM SDKs are loaded by default — providers may add their own when they fork.
+- **Current third-party surface**: Google Analytics (`googletagmanager.com`), Google OAuth (`accounts.google.com`), Google reCAPTCHA (`google.com/recaptcha`). The HubSpot tracking code (`hs-scripts.com`) is opt-in: it is only loaded when `NEXT_PUBLIC_HUBSPOT_PORTAL_ID` is set and the user consents to analytics cookies. No PostHog, Intercom, or CRM SDKs are loaded by default — providers may add their own when they fork.
 - **Any new `<script>` tag, `next/script` usage, or npm package making outbound network calls must be flagged** with: CSP impact, cookie-consent gating, data-exfiltration surface, and whether it should be opt-in for forks rather than enabled by default.
 - **CSP in `next.config.js`** is currently permissive in places (`connect-src *`, `frame-src *`, and `script-src` already includes `'unsafe-eval'` and `'unsafe-inline'`). Flag any change that further relaxes CSP, prefer PRs that tighten these directives, and avoid expanding the use of `'unsafe-eval'` / `'unsafe-inline'`; where feasible, prefer tightening or removing them. New external script/connect/frame origins should be explicitly listed, not wildcarded.
 

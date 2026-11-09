@@ -1,4 +1,5 @@
 const withYaml = require("next-plugin-yaml");
+const { getHubSpotCspOrigins } = require("./src/hubspotConfig");
 
 const toOrigin = (value) => {
   if (!value) return "";
@@ -35,6 +36,11 @@ const reoOrigins = process.env.NEXT_PUBLIC_REO_CLIENT_ID
   ? ["https://static.reo.dev", "https://api.reo.dev"]
   : [];
 
+const hubspotOrigins = getHubSpotCspOrigins(
+  process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID,
+  process.env.NEXT_PUBLIC_HUBSPOT_REGION
+);
+
 const additionalScriptSources = (process.env.CSP_SRC || "").trim();
 const isAnalyticsEnabled = Boolean(process.env.GOOGLE_ANALYTICS_TAG_ID);
 
@@ -44,6 +50,7 @@ const buildCsp = ({ reportOnly = false } = {}) => {
     ...(isAnalyticsEnabled ? ["'unsafe-inline'", "'unsafe-eval'"] : []),
     ...analyticsOrigins,
     ...reoOrigins,
+    ...hubspotOrigins,
     additionalScriptSources,
   ]);
 
@@ -51,6 +58,7 @@ const buildCsp = ({ reportOnly = false } = {}) => {
     "'self'",
     ...analyticsOrigins,
     ...reoOrigins,
+    ...hubspotOrigins,
     ...runtimeOrigins,
     "https:",
     "wss:",
@@ -63,6 +71,7 @@ const buildCsp = ({ reportOnly = false } = {}) => {
     ...analyticsOrigins,
     ...imageOrigins,
     ...reoOrigins,
+    ...hubspotOrigins,
     ...runtimeOrigins,
   ]);
 

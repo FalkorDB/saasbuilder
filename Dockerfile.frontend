@@ -63,6 +63,7 @@ COPY --from=build     --chown=nextjs:nodejs /app/server.js ./server.js
 COPY --from=build     --chown=nextjs:nodejs /app/next.config.js ./next.config.js
 COPY --from=build     --chown=nextjs:nodejs /app/src/server ./src/server
 COPY --from=build     --chown=nextjs:nodejs /app/src/axios.js ./src/axios.js
+COPY --from=build     --chown=nextjs:nodejs /app/src/hubspotConfig.js ./src/hubspotConfig.js
 COPY --from=build     --chown=nextjs:nodejs /app/package.json ./package.json
 
 USER nextjs

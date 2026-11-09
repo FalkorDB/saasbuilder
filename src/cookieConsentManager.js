@@ -278,12 +278,24 @@ const getHubSpotPagePath = (pathname) => {
   return path.startsWith("/") && !path.startsWith("//") ? path : null;
 };
 
-function isCredentialUrl(url) {
+function isCredentialUrl(url, depth = 0) {
   const normalizedPath = url.pathname.replace(/\/+$/, "") || "/";
-  return (
-    CREDENTIAL_ROUTE_REGEX.test(normalizedPath) ||
-    [...url.searchParams.keys()].some((key) => CREDENTIAL_QUERY_KEYS.includes(key.toLowerCase()))
-  );
+  if (CREDENTIAL_ROUTE_REGEX.test(normalizedPath)) return true;
+
+  for (const [key, value] of url.searchParams) {
+    if (CREDENTIAL_QUERY_KEYS.includes(key.toLowerCase())) return true;
+
+    // Redirect destinations (e.g. /signin?destination=%2Finstances%3Ftoken%3D...) embed another URL whose
+    // credentials would otherwise slip through. Inspect any value that looks like a URL or path.
+    if (depth < 3 && /^(\/|https?:\/\/)/i.test(value)) {
+      try {
+        if (isCredentialUrl(new URL(value, window.location.origin), depth + 1)) return true;
+      } catch {
+        // not a parsable URL; ignore
+      }
+    }
+  }
+  return false;
 }
 
 function referrerHasCredentials() {

@@ -3,6 +3,7 @@ import { usePathname } from "next/navigation";
 
 import CookieConsentModal from "src/components/CookieConsent/CookieConsentModal";
 import { getCookieConsentInitialObject, handleConsentChanges, trackHubSpotPageView } from "src/cookieConsentManager";
+import { getHubSpotScriptSrc } from "src/hubspotConfig";
 import { CategoryWithoutServices, CookieConsent } from "src/types/cookieConsent";
 
 type CookieConsentContextType = {
@@ -47,16 +48,11 @@ export default function CookieConsentProvider({ children, googleAnalyticsTagID }
       if (parsedConsent) {
 
         if ((parsedConsent?.version ?? 0) < defaultCookieConsentObj.version) {
-          const consentGiven = parsedConsent.consentGiven;
-          const previousCategories = parsedConsent.categories ?? [];
+          // Non-editable categories keep their defaults. The analytics category now covers an additional
+          // service (HubSpot) that the user never agreed to, so its opt-in is reset and the banner is shown again.
           parsedConsent = {
             ...defaultCookieConsentObj,
-            consentGiven,
-            // Preserve the user's per-category choices while picking up new/updated services
-            categories: defaultCookieConsentObj.categories.map((cat) => {
-              const previous = previousCategories.find((c) => c.category === cat.category);
-              return previous && cat.editable ? { ...cat, enabled: previous.enabled } : cat;
-            }),
+            consentGiven: false,
           };
         }
         // Sync presence/absence or change of GA measurement ID.
@@ -64,19 +60,23 @@ export default function CookieConsentProvider({ children, googleAnalyticsTagID }
         const analyticsCategory = analyticsCategoryIndex >= 0 ? parsedConsent.categories[analyticsCategoryIndex] : null;
         const gaService = analyticsCategory?.services?.find((s) => s.name === "googletagmanager");
 
-        if (googleAnalyticsTagID) {
-          // GA ID provided now.
-          if (!gaService) {
+        const hubspotConfigured = Boolean(
+          getHubSpotScriptSrc(process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID, process.env.NEXT_PUBLIC_HUBSPOT_REGION)
+        );
+
+        if (googleAnalyticsTagID || hubspotConfigured) {
+          // An analytics service (GA and/or HubSpot) is configured now.
+          if (!analyticsCategory) {
             // Add analytics category fresh.
             const newAnalytics = getCookieConsentInitialObject(googleAnalyticsTagID).categories.find(
               (c) => c.category === "analytics"
             );
             if (newAnalytics) parsedConsent.categories.push(newAnalytics);
-          } else if (gaService.gtag !== googleAnalyticsTagID) {
+          } else if (gaService && gaService.gtag !== googleAnalyticsTagID) {
             gaService.gtag = googleAnalyticsTagID; // update id only; handlers unchanged
           }
-        } else if (gaService) {
-          // GA ID removed from environment; remove analytics category entirely.
+        } else if (analyticsCategory) {
+          // No analytics service configured anymore; remove analytics category entirely.
           parsedConsent.categories = parsedConsent.categories.filter((c) => c.category !== "analytics");
         }
 
@@ -104,6 +104,9 @@ export default function CookieConsentProvider({ children, googleAnalyticsTagID }
   }, [consentState]);
 
   useEffect(() => {
+    // usePathname() can be null (Pages Router fallback / pre-hydration); wait for a real value.
+    if (!pathname) return;
+
     if (previousPathname.current === null) {
       previousPathname.current = pathname;
       return;

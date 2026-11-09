@@ -108,9 +108,8 @@ test.describe("Signin Page", () => {
   });
 
   for (const analyticsEnabled of [true, false]) {
-    test(`Migrates version-1 consent with analytics ${analyticsEnabled ? "enabled" : "disabled"}`, async ({ page }) => {
+    test(`Migrating version-1 consent (analytics ${analyticsEnabled ? "enabled" : "disabled"}) requires fresh analytics opt-in`, async ({ page }) => {
       const hubspotRequests: string[] = [];
-      const hubspotConfigured = /^\d+$/.test(process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID ?? "");
 
       page.on("request", (request) => {
         const hostname = new URL(request.url()).hostname;
@@ -151,6 +150,7 @@ test.describe("Signin Page", () => {
         const migratedConsent = await page.evaluate(
           () =>
             JSON.parse(localStorage.getItem("cookieConsent") ?? "null") as {
+              consentGiven: boolean;
               categories: Array<{
                 category: string;
                 enabled: boolean;
@@ -159,12 +159,14 @@ test.describe("Signin Page", () => {
             }
         );
         const analyticsCategory = migratedConsent.categories.find((category) => category.category === "analytics");
-        expect(analyticsCategory?.enabled).toBe(analyticsEnabled);
+        // The analytics category gained a new service (HubSpot), so an earlier opt-in must not carry over
+        expect(analyticsCategory?.enabled).toBe(false);
+        expect(migratedConsent.consentGiven).toBe(false);
         expect(analyticsCategory?.services.map((service) => service.name)).toContain("hubspot");
 
-        const shouldLoadHubspot = analyticsEnabled && hubspotConfigured;
-        await expect(page.locator("#hs-script-loader")).toHaveCount(shouldLoadHubspot ? 1 : 0);
-        await expect.poll(() => hubspotRequests.length > 0).toBe(shouldLoadHubspot);
+        // Nothing is tracked until the user opts in again
+        await expect(page.locator("#hs-script-loader")).toHaveCount(0);
+        expect(hubspotRequests).toHaveLength(0);
       }
     });
   }

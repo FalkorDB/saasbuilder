@@ -278,24 +278,28 @@ const getHubSpotPagePath = (pathname) => {
   return path.startsWith("/") && !path.startsWith("//") ? path : null;
 };
 
-function isCredentialUrl(url, depth = 0) {
-  const normalizedPath = url.pathname.replace(/\/+$/, "") || "/";
-  if (CREDENTIAL_ROUTE_REGEX.test(normalizedPath)) return true;
+const CREDENTIAL_ROUTE_ANYWHERE_REGEX = /\/(change-password|reset-password|idp-auth|sign-in-with-idp)(?=[/?#&]|$)/i;
+const CREDENTIAL_QUERY_ANYWHERE_REGEX = new RegExp(`[?&;#](${CREDENTIAL_QUERY_KEYS.join("|")})=`, "i");
 
-  for (const [key, value] of url.searchParams) {
-    if (CREDENTIAL_QUERY_KEYS.includes(key.toLowerCase())) return true;
-
-    // Redirect destinations (e.g. /signin?destination=%2Finstances%3Ftoken%3D...) embed another URL whose
-    // credentials would otherwise slip through. Inspect any value that looks like a URL or path.
-    if (depth < 3 && /^(\/|https?:\/\/)/i.test(value)) {
-      try {
-        if (isCredentialUrl(new URL(value, window.location.origin), depth + 1)) return true;
-      } catch {
-        // not a parsable URL; ignore
-      }
+// Redirect destinations (e.g. /signin?destination=%2Finstances%3Ftoken%3D...) embed other URLs, possibly encoded
+// several times. Instead of parsing a bounded number of levels, fully decode the path + query and look for
+// credential routes/keys anywhere in it. If it cannot be fully decoded, fail closed.
+function isCredentialUrl(url) {
+  let candidate = `${url.pathname}?${url.searchParams.toString()}`;
+  for (let i = 0; i < 10; i += 1) {
+    let decoded;
+    try {
+      decoded = decodeURIComponent(candidate.replace(/\+/g, " "));
+    } catch {
+      return true; // malformed encoding: don't risk it
     }
+    if (decoded === candidate) {
+      const normalized = candidate.replace(/\/+(?=\?|$)/, "");
+      return CREDENTIAL_ROUTE_ANYWHERE_REGEX.test(normalized) || CREDENTIAL_QUERY_ANYWHERE_REGEX.test(normalized);
+    }
+    candidate = decoded;
   }
-  return false;
+  return true; // still changing after many decodes: fail closed
 }
 
 function referrerHasCredentials() {

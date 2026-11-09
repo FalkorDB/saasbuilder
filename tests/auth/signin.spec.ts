@@ -107,6 +107,65 @@ test.describe("Signin Page", () => {
     await expect(page.getByTestId(dataTestIds.cookieConsentBanner)).not.toBeVisible();
   });
 
+  for (const analyticsEnabled of [true, false]) {
+    test(`Migrates version-1 consent with analytics ${analyticsEnabled ? "enabled" : "disabled"}`, async ({ page }) => {
+      const hubspotRequests: string[] = [];
+      const hubspotConfigured = /^\d+$/.test(process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID ?? "");
+
+      page.on("request", (request) => {
+        if (new URL(request.url()).hostname.endsWith("hs-scripts.com")) hubspotRequests.push(request.url());
+      });
+      await page.route(/https:\/\/js(?:-[a-z0-9]+)?\.hs-scripts\.com\/\d+\.js/, (route) =>
+        route.fulfill({ contentType: "application/javascript", body: "" })
+      );
+      await page.evaluate((enabled) => {
+        localStorage.setItem(
+          "cookieConsent",
+          JSON.stringify({
+            version: 1,
+            consentGiven: true,
+            categories: [
+              { category: "necessary", services: [], hide: false, editable: false, enabled: true },
+              {
+                category: "analytics",
+                services: [{ type: "script", name: "googletagmanager", cookies: [] }],
+                hide: false,
+                editable: true,
+                enabled,
+              },
+            ],
+          })
+        );
+      }, analyticsEnabled);
+
+      for (let reload = 0; reload < 2; reload += 1) {
+        await page.reload();
+        await page.waitForFunction(() => {
+          const consent = JSON.parse(localStorage.getItem("cookieConsent") ?? "null");
+          return consent?.version === 2;
+        });
+
+        const migratedConsent = await page.evaluate(
+          () =>
+            JSON.parse(localStorage.getItem("cookieConsent") ?? "null") as {
+              categories: Array<{
+                category: string;
+                enabled: boolean;
+                services: Array<{ name: string }>;
+              }>;
+            }
+        );
+        const analyticsCategory = migratedConsent.categories.find((category) => category.category === "analytics");
+        expect(analyticsCategory?.enabled).toBe(analyticsEnabled);
+        expect(analyticsCategory?.services.map((service) => service.name)).toContain("hubspot");
+
+        const shouldLoadHubspot = analyticsEnabled && hubspotConfigured;
+        await expect(page.locator("#hs-script-loader")).toHaveCount(shouldLoadHubspot ? 1 : 0);
+        await expect.poll(() => hubspotRequests.length > 0).toBe(shouldLoadHubspot);
+      }
+    });
+  }
+
   // check that the identity providers buttons are visible based on the email domain
   test("Identity Provider Buttons", async ({ page }) => {
     const apiClient = new ProviderAPIClient();

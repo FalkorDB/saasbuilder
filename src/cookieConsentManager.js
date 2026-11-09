@@ -248,6 +248,7 @@ function removeClarity() {
 }
 
 const HUBSPOT_SCRIPT_ID = "hs-script-loader";
+let hubSpotReady = false;
 
 export const getHubSpotScriptSrc = (portalId, region) => {
   const id = String(portalId ?? "").trim();
@@ -262,9 +263,9 @@ export const getHubSpotScriptSrc = (portalId, region) => {
 
 const getHubSpotPagePath = (pathname = window.location.pathname) => {
   const normalizedPath = pathname.replace(/\/+$/, "") || "/";
-  const credentialRoute = /^\/(change-password|reset-password)$/.test(normalizedPath);
+  const credentialRoute = /^\/(change-password|reset-password|idp-auth)$/i.test(normalizedPath);
   const credentialQuery = [...new URLSearchParams(window.location.search).keys()].some((key) =>
-    ["email", "token"].includes(key.toLowerCase())
+    ["email", "token", "code", "state"].includes(key.toLowerCase())
   );
   if (credentialRoute || credentialQuery) return null;
   return pathname.startsWith("/") && !pathname.startsWith("//") ? pathname : null;
@@ -294,7 +295,12 @@ function addHubSpot(pathname) {
     script.defer = true;
     script.src = src;
     script.onerror = () => {
+      hubSpotReady = false;
+      script.remove();
       console.error("Failed to load HubSpot tracking script.");
+    };
+    script.onload = () => {
+      if (document.getElementById(HUBSPOT_SCRIPT_ID) === script) hubSpotReady = true;
     };
     document.head.appendChild(script);
   } catch (error) {
@@ -313,11 +319,12 @@ export function trackHubSpotPageView(pathname) {
 
   window._hsq = window._hsq || [];
   window._hsq.push(["setPath", pagePath]);
-  window._hsq.push(["trackPageView"]);
+  if (hubSpotReady) window._hsq.push(["trackPageView"]);
 }
 
 function removeHubSpot() {
   try {
+    hubSpotReady = false;
     if (window._hsq) {
       window._hsq.push(["doNotTrack"]);
     }

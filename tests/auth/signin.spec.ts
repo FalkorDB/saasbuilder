@@ -4,6 +4,7 @@ import { PageURLs } from "page-objects/pages";
 import { SigninPage } from "page-objects/signin-page";
 import { GlobalStateManager } from "test-utils/global-state-manager";
 import { ProviderAPIClient } from "test-utils/provider-api-client";
+import { getHubSpotScriptSrc } from "../../src/hubspotConfig";
 
 test.describe("Signin Page", () => {
   let signinPage: SigninPage;
@@ -110,6 +111,10 @@ test.describe("Signin Page", () => {
   for (const analyticsEnabled of [true, false]) {
     test(`Migrating version-1 consent (analytics ${analyticsEnabled ? "enabled" : "disabled"}) requires fresh analytics opt-in`, async ({ page }) => {
       const hubspotRequests: string[] = [];
+      // The analytics category only exists when GA and/or HubSpot is configured (same rules as the app)
+      const analyticsConfigured =
+        Boolean(process.env.GOOGLE_ANALYTICS_TAG_ID) ||
+        Boolean(getHubSpotScriptSrc(process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID, process.env.NEXT_PUBLIC_HUBSPOT_REGION));
 
       page.on("request", (request) => {
         const hostname = new URL(request.url()).hostname;
@@ -117,7 +122,7 @@ test.describe("Signin Page", () => {
           hubspotRequests.push(request.url());
         }
       });
-      await page.route(/https:\/\/js(?:-[a-z0-9]+)?\.hs-scripts\.com\/\d+\.js/, (route) =>
+      await page.route(/^https:\/\/js(?:-[a-z0-9]+)?\.hs-scripts\.com\/\d+\.js(?:\?.*)?$/, (route) =>
         route.fulfill({ contentType: "application/javascript", body: "" })
       );
       await page.evaluate((enabled) => {
@@ -160,9 +165,14 @@ test.describe("Signin Page", () => {
         );
         const analyticsCategory = migratedConsent.categories.find((category) => category.category === "analytics");
         // The analytics category gained a new service (HubSpot), so an earlier opt-in must not carry over
-        expect(analyticsCategory?.enabled).toBe(false);
         expect(migratedConsent.consentGiven).toBe(false);
-        expect(analyticsCategory?.services.map((service) => service.name)).toContain("hubspot");
+        if (analyticsConfigured) {
+          expect(analyticsCategory?.enabled).toBe(false);
+          expect(analyticsCategory?.services.map((service) => service.name)).toContain("hubspot");
+        } else {
+          // No analytics service configured: the category is removed entirely
+          expect(analyticsCategory).toBeUndefined();
+        }
 
         // Nothing is tracked until the user opts in again
         await expect(page.locator("#hs-script-loader")).toHaveCount(0);

@@ -357,8 +357,6 @@ function loadHubSpot(pagePath) {
     script.onload = () => {
       if (document.getElementById(HUBSPOT_SCRIPT_ID) === script) hubSpotBootstrapLoaded = true;
     };
-      markReadyWhenAnalyticsStarts();
-    };
     document.head.appendChild(script);
   } catch (error) {
     console.error(error);

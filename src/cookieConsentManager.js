@@ -314,6 +314,7 @@ function loadHubSpot(pagePath) {
     script.src = src;
     script.onerror = () => {
       hubSpotReady = false;
+      hubSpotEnabled = false; // allow the next eligible navigation / consent change to retry loading
       script.remove();
       console.error("Failed to load HubSpot tracking script.");
     };

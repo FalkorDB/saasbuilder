@@ -254,7 +254,12 @@ function removeClarity() {
 }
 
 const HUBSPOT_SCRIPT_ID = "hs-script-loader";
-let hubSpotReady = false;
+let hubSpotBootstrapLoaded = false;
+
+// Actual SDK readiness, evaluated at call time: the bootstrap script has loaded AND HubSpot's analytics script
+// has replaced our plain-array window._hsq with its own queue. Before that, the loader sends the initial
+// pageview itself, so explicit pageviews would be duplicates.
+const isHubSpotSdkReady = () => hubSpotBootstrapLoaded && Boolean(window._hsq) && !Array.isArray(window._hsq);
 let hubSpotEnabled = false;
 
 const CREDENTIAL_ROUTE_REGEX = /^\/(change-password|reset-password|idp-auth|sign-in-with-idp)$/i;
@@ -330,7 +335,7 @@ function loadHubSpot(pagePath) {
       // instead of injecting a second copy.
       window._hsq.push(["doNotTrack", { track: true }]);
       window._hsq.push(["setPath", pagePath]);
-      if (hubSpotReady) window._hsq.push(["trackPageView"]);
+      if (isHubSpotSdkReady()) window._hsq.push(["trackPageView"]);
       return;
     }
 
@@ -344,24 +349,14 @@ function loadHubSpot(pagePath) {
     script.defer = true;
     script.src = src;
     script.onerror = () => {
-      hubSpotReady = false;
+      hubSpotBootstrapLoaded = false;
       hubSpotEnabled = false; // allow the next eligible navigation / consent change to retry loading
       script.remove();
       console.error("Failed to load HubSpot tracking script.");
     };
     script.onload = () => {
-      // This load event is only HubSpot's bootstrap; it then injects the analytics script. Until that runs,
-      // window._hsq is still our plain array, afterwards HubSpot replaces it with its own queue. Wait for that
-      // (bounded, fail-open) so explicit pageviews aren't queued in front of the loader's own initial pageview.
-      const startedAt = Date.now();
-      const markReadyWhenAnalyticsStarts = () => {
-        if (document.getElementById(HUBSPOT_SCRIPT_ID) !== script) return;
-        if (!Array.isArray(window._hsq) || Date.now() - startedAt > 5000) {
-          hubSpotReady = true;
-          return;
-        }
-        setTimeout(markReadyWhenAnalyticsStarts, 100);
-      };
+      if (document.getElementById(HUBSPOT_SCRIPT_ID) === script) hubSpotBootstrapLoaded = true;
+    };
       markReadyWhenAnalyticsStarts();
     };
     document.head.appendChild(script);
@@ -394,7 +389,7 @@ export function trackHubSpotPageView(pathname) {
 
   window._hsq.push(["setPath", pagePath]);
   // Before onload the loader fires its own pageview for the current path, so only track once ready.
-  if (hubSpotReady) window._hsq.push(["trackPageView"]);
+  if (isHubSpotSdkReady()) window._hsq.push(["trackPageView"]);
 }
 
 // Query-only navigations (same pathname): suspend tracking if the URL now carries credentials, and resume it

@@ -260,16 +260,30 @@ export const getHubSpotScriptSrc = (portalId, region) => {
   return `https://${host}/${id}.js`;
 };
 
-function addHubSpot() {
+const getHubSpotPagePath = (pathname = window.location.pathname) => {
+  const normalizedPath = pathname.replace(/\/+$/, "") || "/";
+  const credentialRoute = /^\/(change-password|reset-password)$/.test(normalizedPath);
+  const credentialQuery = [...new URLSearchParams(window.location.search).keys()].some((key) =>
+    ["email", "token"].includes(key.toLowerCase())
+  );
+  if (credentialRoute || credentialQuery) return null;
+  return pathname.startsWith("/") && !pathname.startsWith("//") ? pathname : null;
+};
+
+function addHubSpot(pathname) {
   try {
     const src = getHubSpotScriptSrc(process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID, process.env.NEXT_PUBLIC_HUBSPOT_REGION);
     if (!src) return;
+
+    const pagePath = getHubSpotPagePath(pathname);
+    if (!pagePath) return;
 
     // Consent is managed by our own banner, so suppress HubSpot's built-in banner
     window.disableHubSpotCookieBanner = true;
     window._hsp = window._hsp || [];
     window._hsq = window._hsq || [];
     window._hsq.push(["doNotTrack", { track: true }]);
+    window._hsq.push(["setPath", pagePath]);
 
     if (document.getElementById(HUBSPOT_SCRIPT_ID)) return;
 
@@ -286,6 +300,20 @@ function addHubSpot() {
   } catch (error) {
     console.error(error);
   }
+}
+
+export function trackHubSpotPageView(pathname) {
+  const pagePath = getHubSpotPagePath(pathname);
+  if (!pagePath) return;
+
+  if (!document.getElementById(HUBSPOT_SCRIPT_ID)) {
+    addHubSpot(pagePath);
+    return;
+  }
+
+  window._hsq = window._hsq || [];
+  window._hsq.push(["setPath", pagePath]);
+  window._hsq.push(["trackPageView"]);
 }
 
 function removeHubSpot() {

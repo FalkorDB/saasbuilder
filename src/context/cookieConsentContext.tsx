@@ -1,7 +1,8 @@
-import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { createContext, ReactNode, useContext, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import CookieConsentModal from "src/components/CookieConsent/CookieConsentModal";
-import { getCookieConsentInitialObject, handleConsentChanges } from "src/cookieConsentManager";
+import { getCookieConsentInitialObject, handleConsentChanges, trackHubSpotPageView } from "src/cookieConsentManager";
 import { CategoryWithoutServices, CookieConsent } from "src/types/cookieConsent";
 
 type CookieConsentContextType = {
@@ -27,11 +28,13 @@ type CookieConsentProviderProps = {
 };
 
 export default function CookieConsentProvider({ children, googleAnalyticsTagID }: CookieConsentProviderProps) {
+  const pathname = usePathname();
   const defaultCookieConsentObj = getCookieConsentInitialObject(googleAnalyticsTagID) as CookieConsent;
   const [consentState, setConsentState] = useState(
     defaultCookieConsentObj
   );
   const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
+  const previousPathname = useRef<string | null>(null);
 
   const [isInitialLoad, setIsIntialLoad] = useState(true);
 
@@ -99,6 +102,19 @@ export default function CookieConsentProvider({ children, googleAnalyticsTagID }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consentState]);
+
+  useEffect(() => {
+    if (previousPathname.current === null) {
+      previousPathname.current = pathname;
+      return;
+    }
+
+    if (previousPathname.current === pathname) return;
+    previousPathname.current = pathname;
+
+    const analyticsEnabled = consentState.categories.find((category) => category.category === "analytics")?.enabled;
+    if (analyticsEnabled) trackHubSpotPageView(pathname);
+  }, [consentState.categories, pathname]);
 
   const updateConsent = (updatedCategories: CategoryWithoutServices[]) => {
     const newCategories = consentState.categories.map((cat) => {

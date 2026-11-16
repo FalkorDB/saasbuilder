@@ -144,6 +144,7 @@ const InstanceDetailsPage = ({
         isActive: resourceInstanceData?.active,
         isResourceBYOA,
         resourceType,
+        resourceName,
         // @ts-ignore
         isBackup: resourceInstanceData?.backupStatus?.backupPeriodInHours,
         isCustomDNS: checkCustomDNSEndpoint(
@@ -152,7 +153,7 @@ const InstanceDetailsPage = ({
         serviceModelType: offering?.serviceModelType,
         enterpriseModuleEnabled: resourceInstanceData?.resultParameters?.enableEnterpriseModule ?? false,
       }),
-    [resourceInstanceData, resourceType, offering]
+    [resourceInstanceData, resourceType, resourceName, offering]
   );
 
   const disabledTabs = useMemo(

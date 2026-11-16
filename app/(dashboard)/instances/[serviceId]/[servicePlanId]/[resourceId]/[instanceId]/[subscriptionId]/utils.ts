@@ -4,6 +4,9 @@ const LDAP_MIN_TIER_VERSION_FREE = process.env.LDAP_MIN_TIER_VERSION_FREE || "80
 const LDAP_MIN_TIER_VERSION_STARTUP = process.env.LDAP_MIN_TIER_VERSION_STARTUP || "58.0";
 const LDAP_MIN_TIER_VERSION_PRO = process.env.LDAP_MIN_TIER_VERSION_PRO || "88.0";
 
+// User Access (LDAP) is not supported yet on sentinel-based deployments.
+const LDAP_UNSUPPORTED_RESOURCES = ["Single-Zone", "Multi-Zone"];
+
 type GetTabsParams = {
   isMetricsEnabled: boolean | undefined;
   isLogsEnabled: boolean | undefined;
@@ -12,6 +15,7 @@ type GetTabsParams = {
   productTierName: string | undefined;
   tierVersion: string | undefined;
   resourceType: string | undefined;
+  resourceName: string | undefined;
   isBackup: number | undefined;
   isCustomDNS: boolean;
   serviceModelType: string | undefined;
@@ -24,6 +28,7 @@ export const getTabs = ({
   isActive,
   isResourceBYOA,
   resourceType,
+  resourceName,
   isBackup,
   isCustomDNS,
   serviceModelType,
@@ -48,6 +53,9 @@ export const getTabs = ({
   }
   if (productTierName === "FalkorDB Enterprise" && enterpriseModuleEnabled) {
     tabs["userAccess"] = "User Access";
+  }
+  if (resourceName && LDAP_UNSUPPORTED_RESOURCES.includes(resourceName)) {
+    delete tabs.userAccess;
   }
 
   if (isMetricsEnabled && !isResourceBYOA) tabs["metrics"] = "Metrics";

@@ -1,5 +1,6 @@
 import extractQueryParam from "src/constants/extractQueryParam";
 import { IdentityProvider } from "src/types/identityProvider";
+import { safeDecodeURIComponent } from "src/utils/safeDecodeURIComponent";
 
 type InvitationInfo = {
   invitedEmail?: string;
@@ -16,15 +17,6 @@ type HandleIDPButtonClickParams = {
   onRedirect: (url: string) => void;
   onSetLoginMethod?: (method: { methodType: string; idpName: string }) => void;
 };
-
-/** decodeURIComponent that returns the raw value instead of throwing on malformed input (e.g. `%25`). */
-export function safeDecodeURIComponent(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
 
 export function buildInvitationInfo(params: {
   email?: string | null;

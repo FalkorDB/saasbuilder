@@ -41,7 +41,7 @@ test("getValidDestination keeps a known route, still encoded", () => {
 test("getValidDestination drops absent, malformed, unknown and open-redirect values", () => {
   assert.equal(getValidDestination(null), undefined);
   assert.equal(getValidDestination(""), undefined);
-  assert.equal(getValidDestination("%25"), undefined);
+  assert.equal(getValidDestination("%E0"), undefined);
   assert.equal(getValidDestination("%E0%A4%A"), undefined);
   assert.equal(getValidDestination("/not-a-page"), undefined);
   assert.equal(getValidDestination("//evil.example"), undefined);

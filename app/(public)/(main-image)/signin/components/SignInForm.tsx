@@ -16,7 +16,6 @@ import useSnackbar from "src/hooks/useSnackbar";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
 import { IdentityProvider } from "src/types/identityProvider";
 import { getReCaptchaToken } from "src/utils/getReCaptchaToken";
-import checkRouteValidity from "src/utils/route/checkRouteValidity";
 import { getInstancesRoute } from "src/utils/routes";
 
 import { buildInvitationInfo, handleIDPButtonClick } from "../../shared/idp-utils";
@@ -81,7 +80,8 @@ const SignInForm: FC<SignInFormProps> = ({
     hasStartedIdpRef.current = true;
 
     try {
-      // A malformed or unknown destination (e.g. `destination=%25`) falls back to the default page.
+      // A malformed or unknown destination falls back to the default page (e.g. `?destination=%25`,
+      // which useSearchParams has already decoded to `%`).
       const validDestination = getValidDestination(destination);
 
       // Already signed in (the refresh-token case the middleware lets through):
@@ -132,15 +132,11 @@ const SignInForm: FC<SignInFormProps> = ({
       console.warn("Failed to set SSO state:", error);
     }
 
-    const decodedDestination = decodeURIComponent(destination || "");
-
-    // Redirect to the Destination URL
+    // Redirect to the destination; a malformed or unknown one (e.g. `?destination=%25`, already
+    // decoded to `%`) falls back to the default page instead of throwing after a successful sign-in.
     // Use full page navigation to ensure middleware reads fresh auth cookies.
-    if (destination && checkRouteValidity(decodedDestination)) {
-      window.location.href = decodedDestination;
-    } else {
-      window.location.href = getInstancesRoute();
-    }
+    const validDestination = getValidDestination(destination);
+    window.location.href = validDestination ? decodeURIComponent(validDestination) : getInstancesRoute();
   }
 
   const passwordSignInMutation = useMutation({

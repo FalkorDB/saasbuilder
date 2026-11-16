@@ -144,6 +144,7 @@ const InstanceDetailsPage = ({
         isActive: resourceInstanceData?.active,
         isResourceBYOA,
         resourceType,
+        resourceName,
         // @ts-ignore
         isBackup: resourceInstanceData?.backupStatus?.backupPeriodInHours,
         isCustomDNS: checkCustomDNSEndpoint(
@@ -152,13 +153,22 @@ const InstanceDetailsPage = ({
         serviceModelType: offering?.serviceModelType,
         enterpriseModuleEnabled: resourceInstanceData?.resultParameters?.enableEnterpriseModule ?? false,
       }),
-    [resourceInstanceData, resourceType, offering]
+    [resourceInstanceData, resourceType, resourceName, offering]
   );
 
   const disabledTabs = useMemo(
     () => (resourceInstanceData?.status === "DISCONNECTED" ? ["backups"] : []),
     [resourceInstanceData]
   );
+
+  // Fall back to Instance Details when the selected tab (e.g. from ?view=) isn't
+  // available for this instance. Wait for the instance so tabs are final.
+  useEffect(() => {
+    if (!resourceInstanceData || !offering) return;
+    if (!Object.values(tabs).includes(currentTab)) {
+      setCurrentTab("Instance Details");
+    }
+  }, [tabs, currentTab, resourceInstanceData, offering]);
 
   if (!isFetchingServiceOfferings && !isFetchingSubscriptions && (!subscription || !offering)) {
     return (

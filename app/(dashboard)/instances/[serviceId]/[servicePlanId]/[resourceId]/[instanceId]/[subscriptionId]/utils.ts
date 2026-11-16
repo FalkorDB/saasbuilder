@@ -4,6 +4,22 @@ const LDAP_MIN_TIER_VERSION_FREE = process.env.LDAP_MIN_TIER_VERSION_FREE || "80
 const LDAP_MIN_TIER_VERSION_STARTUP = process.env.LDAP_MIN_TIER_VERSION_STARTUP || "58.0";
 const LDAP_MIN_TIER_VERSION_PRO = process.env.LDAP_MIN_TIER_VERSION_PRO || "88.0";
 
+// User Access (LDAP) is not supported yet on sentinel-based deployments.
+const LDAP_UNSUPPORTED_RESOURCES = ["Single-Zone", "Multi-Zone"];
+
+// Compares dotted numeric versions ("101.0" vs "88.0") segment by segment.
+// Plain string comparison is lexicographic and gets multi-digit majors wrong.
+export const isVersionAtLeast = (version: string, min: string) => {
+  const a = version.split(".").map(Number);
+  const b = min.split(".").map(Number);
+  if ([...a, ...b].some(Number.isNaN)) return false;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const diff = (a[i] ?? 0) - (b[i] ?? 0);
+    if (diff !== 0) return diff > 0;
+  }
+  return true;
+};
+
 type GetTabsParams = {
   isMetricsEnabled: boolean | undefined;
   isLogsEnabled: boolean | undefined;
@@ -12,6 +28,7 @@ type GetTabsParams = {
   productTierName: string | undefined;
   tierVersion: string | undefined;
   resourceType: string | undefined;
+  resourceName: string | undefined;
   isBackup: number | undefined;
   isCustomDNS: boolean;
   serviceModelType: string | undefined;
@@ -24,6 +41,7 @@ export const getTabs = ({
   isActive,
   isResourceBYOA,
   resourceType,
+  resourceName,
   isBackup,
   isCustomDNS,
   serviceModelType,
@@ -39,15 +57,18 @@ export const getTabs = ({
 
   if (tierVersion) {
     if (
-      (productTierName === "FalkorDB Free" && tierVersion >= LDAP_MIN_TIER_VERSION_FREE) ||
-      (productTierName === "FalkorDB Startup" && tierVersion >= LDAP_MIN_TIER_VERSION_STARTUP) ||
-      (productTierName === "FalkorDB Pro" && tierVersion >= LDAP_MIN_TIER_VERSION_PRO)
+      (productTierName === "FalkorDB Free" && isVersionAtLeast(tierVersion, LDAP_MIN_TIER_VERSION_FREE)) ||
+      (productTierName === "FalkorDB Startup" && isVersionAtLeast(tierVersion, LDAP_MIN_TIER_VERSION_STARTUP)) ||
+      (productTierName === "FalkorDB Pro" && isVersionAtLeast(tierVersion, LDAP_MIN_TIER_VERSION_PRO))
     ) {
       tabs["userAccess"] = "User Access";
     }
   }
   if (productTierName === "FalkorDB Enterprise" && enterpriseModuleEnabled) {
     tabs["userAccess"] = "User Access";
+  }
+  if (resourceName && LDAP_UNSUPPORTED_RESOURCES.includes(resourceName)) {
+    delete tabs.userAccess;
   }
 
   if (isMetricsEnabled && !isResourceBYOA) tabs["metrics"] = "Metrics";

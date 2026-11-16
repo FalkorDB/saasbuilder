@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { getTabs } from "./utils";
+import { getTabs, isVersionAtLeast } from "./utils";
 
 const base = {
   isMetricsEnabled: false,
@@ -42,4 +42,19 @@ for (const tier of qualifying) {
 test("does not add User Access below the tier's minimum version", () => {
   const tabs = getTabs({ ...base, productTierName: "FalkorDB Pro", tierVersion: "87.0", resourceName: "Standalone" });
   assert.equal(tabs.userAccess, undefined);
+});
+
+test("adds User Access when the tier version has more digits than the minimum", () => {
+  const tabs = getTabs({ ...base, productTierName: "FalkorDB Pro", tierVersion: "101.0", resourceName: "Standalone" });
+  assert.equal(tabs.userAccess, "User Access");
+});
+
+test("isVersionAtLeast compares numerically, not lexicographically", () => {
+  assert.equal(isVersionAtLeast("101.0", "88.0"), true);
+  assert.equal(isVersionAtLeast("9.0", "88.0"), false);
+  assert.equal(isVersionAtLeast("88.0", "88.0"), true);
+  assert.equal(isVersionAtLeast("88.10", "88.9"), true);
+  assert.equal(isVersionAtLeast("88", "88.0"), true);
+  assert.equal(isVersionAtLeast("87.99", "88.0"), false);
+  assert.equal(isVersionAtLeast("abc", "88.0"), false);
 });

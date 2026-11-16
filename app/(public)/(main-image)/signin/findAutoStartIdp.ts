@@ -40,3 +40,13 @@ export function getValidDestination(destination?: string | null): string | undef
     return undefined;
   }
 }
+
+/** True only for an absolute http(s) URL, so automatic navigation can never run e.g. a `javascript:` URL. */
+export function isHttpUrl(url: string): boolean {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === "https:" || protocol === "http:";
+  } catch {
+    return false;
+  }
+}

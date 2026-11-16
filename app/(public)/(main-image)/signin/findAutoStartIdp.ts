@@ -29,7 +29,7 @@ export function findAutoStartIdp({
 
 /**
  * Returns the `destination` query value (still URI-encoded, as `/idp-auth` expects)
- * when it decodes to a known route; undefined for absent, malformed (e.g. `%25`)
+ * when it decodes to a known route; undefined for absent, malformed (e.g. `%E0`)
  * or unknown values, so callers fall back to the default page.
  */
 export function getValidDestination(destination?: string | null): string | undefined {

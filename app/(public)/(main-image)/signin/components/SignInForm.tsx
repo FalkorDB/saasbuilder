@@ -81,7 +81,7 @@ const SignInForm: FC<SignInFormProps> = ({
     hasStartedIdpRef.current = true;
 
     try {
-      // A malformed or unknown destination (e.g. `destination=%25`) falls back to the default page.
+      // A malformed or unknown destination (e.g. `destination=%E0`) falls back to the default page.
       const validDestination = getValidDestination(destination);
 
       // Already signed in (the refresh-token case the middleware lets through):

@@ -17,6 +17,15 @@ type HandleIDPButtonClickParams = {
   onSetLoginMethod?: (method: { methodType: string; idpName: string }) => void;
 };
 
+/** decodeURIComponent that returns the raw value instead of throwing on malformed input (e.g. `%25`). */
+export function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export function buildInvitationInfo(params: {
   email?: string | null;
   org?: string | null;
@@ -26,13 +35,13 @@ export function buildInvitationInfo(params: {
   const info: InvitationInfo = {};
 
   if (email) {
-    info.invitedEmail = decodeURIComponent(email).trim();
+    info.invitedEmail = safeDecodeURIComponent(email).trim();
   }
   if (org) {
-    info.legalCompanyName = decodeURIComponent(org).trim();
+    info.legalCompanyName = safeDecodeURIComponent(org).trim();
   }
   if (orgUrl) {
-    info.companyUrl = decodeURIComponent(orgUrl).trim();
+    info.companyUrl = safeDecodeURIComponent(orgUrl).trim();
   }
 
   return info;
@@ -68,7 +77,7 @@ export function handleIDPButtonClick(params: HandleIDPButtonClickParams) {
     localAuthState.nonce = stateFromURL || state;
   }
   if (affiliateCode) {
-    localAuthState.affiliateCode = decodeURIComponent(affiliateCode).trim();
+    localAuthState.affiliateCode = safeDecodeURIComponent(affiliateCode).trim();
   }
 
   const encodedLocalAuthState = Buffer.from(JSON.stringify(localAuthState), "utf8").toString("base64");

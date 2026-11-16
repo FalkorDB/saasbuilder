@@ -27,3 +27,32 @@ test("returns undefined for absent, malformed, unknown and open-redirect values"
   assert.equal(resolveDestination("%2F%2Fevil.example"), undefined);
   assert.equal(resolveDestination("https://evil.example/instances"), undefined);
 });
+
+test("rejects paths the browser would normalize to another page (dot segments)", () => {
+  assert.equal(resolveDestination("/instances/../../../api/provider-details"), undefined);
+  assert.equal(resolveDestination("%2Finstances%2F..%2F..%2F..%2Fapi%2Fprovider-details"), undefined);
+  assert.equal(resolveDestination("/instances/svc/plan/res/../sub"), undefined);
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst/.."), undefined);
+  assert.equal(resolveDestination("/instances/./plan/res/inst/sub"), undefined);
+  // the URL parser also treats `%2e` as a dot
+  assert.equal(resolveDestination("/instances/%2e%2e/%2e%2e/%2e%2e/api/provider-details"), undefined);
+  assert.equal(resolveDestination("/instances/.%2E/.%2e/x/y/z"), undefined);
+});
+
+test("keeps IDs the URL parser would percent-encode (spaces, Unicode)", () => {
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst a/sub"), "/instances/svc/plan/res/inst a/sub");
+  assert.equal(resolveDestination("/instances/svc/plan/res/instå/sub"), "/instances/svc/plan/res/instå/sub");
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst.v2/sub"), "/instances/svc/plan/res/inst.v2/sub");
+});
+
+test("rejects control characters and trailing spaces the URL parser would strip", () => {
+  // tabs/newlines inside a segment are deleted by the parser, turning `.\t.` into `..`
+  assert.equal(resolveDestination("/instances/.\t./.\t./.\t./api/provider-details"), undefined);
+  assert.equal(resolveDestination("%2Finstances%2F.%09.%2F.%09.%2F.%09.%2Fapi%2Fprovider-details"), undefined);
+  assert.equal(resolveDestination("/instances/.\n./.\r./..\t/api/provider-details"), undefined);
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst/sub\u0000"), undefined);
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst/sub\u007f"), undefined);
+  // trailing spaces/controls are trimmed, which could expose a final `..`
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst/.. "), undefined);
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst/..\u001f"), undefined);
+});

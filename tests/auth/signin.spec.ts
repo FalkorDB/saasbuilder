@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { jwtDecode } from "jwt-decode";
 import { test, expect } from "test-fixtures/har-test";
 import { getIdentityProviderButtonLabel } from "app/(public)/(main-image)/signin/utils";
 import { PageURLs } from "page-objects/pages";
@@ -295,6 +296,16 @@ async function stubIdentityProvider(page: Page, origin: string): Promise<string[
   return requested;
 }
 
+function isLiveJwt(token?: string): boolean {
+  if (!token) return false;
+  try {
+    const exp = jwtDecode<{ exp?: number }>(token)?.exp;
+    return typeof exp === "number" && exp > Date.now() / 1000 + 60;
+  } catch {
+    return false;
+  }
+}
+
 /** Cookies of a session the middleware lets through to /signin: no access token, a refresh token and the indicator. */
 async function addRefreshableSessionCookies(page: Page, baseURL: string) {
   await page.context().addCookies([
@@ -333,6 +344,10 @@ test.describe("Signin ?idp= auto-start", () => {
   test("skips the identity provider when the session can be refreshed", async ({ page, baseURL }) => {
     const { idp, origin } = provider!;
     const userToken = GlobalStateManager.getToken("user");
+    // Without a live token (e.g. a replay-mode fixture) the middleware would let /instances through on
+    // the dummy refresh cookie alone, so the URL check below would prove nothing. With a live token it
+    // validates the session against /user and sends an invalid one back to /signin.
+    test.skip(!isLiveJwt(userToken), "No unexpired user token available to stand in for the refreshed session");
 
     await addRefreshableSessionCookies(page, baseURL!);
     // Mock must set the httpOnly cookie (like the real server does)

@@ -117,16 +117,16 @@ export async function proxy(request) {
   }
 
   if (path.startsWith("/signin") || path.startsWith("/redirect")) {
-    // searchParams decodes once; decode once more like the client (getValidDestination),
-    // so e.g. `destination=%252Fbilling` resolves to /billing on both sides.
-    let destination = safeDecodeURIComponent(request.nextUrl.searchParams.get("destination") || "");
+    const isValidDestination = (value) =>
+      Boolean(value) && value.startsWith("/") && !value.startsWith("//") && checkRouteValidity(value);
 
-    if (
-      !destination ||
-      destination.startsWith("//") ||
-      !destination.startsWith("/") ||
-      !checkRouteValidity(destination)
-    ) {
+    // searchParams decodes once. Use that value when it's valid; otherwise decode once more like
+    // the client (getValidDestination), so e.g. `destination=%252Fbilling` resolves to /billing.
+    // Validating first keeps an already-valid value from being decoded (and altered) again.
+    const onceDecoded = request.nextUrl.searchParams.get("destination") || "";
+    let destination = isValidDestination(onceDecoded) ? onceDecoded : safeDecodeURIComponent(onceDecoded);
+
+    if (!isValidDestination(destination)) {
       destination = "/instances";
     }
 

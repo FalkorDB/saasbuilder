@@ -369,6 +369,42 @@ test.describe("Signin ?idp= auto-start", () => {
     expect(requested.length).toBeGreaterThan(0);
   });
 
+  test("starts the identity provider when the session refresh never responds", async ({ page, baseURL }) => {
+    const { idp, origin } = provider!;
+
+    await addRefreshableSessionCookies(page, baseURL!);
+    // Leave the refresh pending (never fulfilled) so only the auto-start timeout can move on
+    let refreshRequests = 0;
+    await page.route("**/api/refresh-token", () => {
+      refreshRequests++;
+      return new Promise<void>(() => {});
+    });
+    const requested = await stubIdentityProvider(page, origin);
+
+    await page.goto(`${PageURLs.signin}?idp=${encodeURIComponent(idp.name)}`);
+
+    await page.waitForURL((url) => url.origin === origin, { timeout: 15000 });
+    expect(refreshRequests).toBeGreaterThan(0);
+    expect(requested.length).toBeGreaterThan(0);
+  });
+
+  test("prefers an invitation's email over the remembered one as login_hint", async ({ page }) => {
+    const { idp, origin } = provider!;
+    const invitedEmail = "invited.user@example.com";
+
+    await new SigninPage(page).navigate();
+    await page.evaluate((email) => localStorage.setItem("lastLoginEmail", email), REMEMBERED_EMAIL);
+
+    const requested = await stubIdentityProvider(page, origin);
+    await page.goto(
+      `${PageURLs.signin}?idp=${encodeURIComponent(idp.name)}&email=${encodeURIComponent(invitedEmail)}&org=${encodeURIComponent("Acme Inc")}`
+    );
+
+    await page.waitForURL((url) => url.origin === origin, { timeout: 10000 });
+    expect(requested.length).toBeGreaterThan(0);
+    expect(new URL(page.url()).searchParams.get("login_hint")).toBe(invitedEmail);
+  });
+
   test("shows the sign-in form for an unknown identity provider", async ({ page }) => {
     const signinPage = new SigninPage(page);
     const requested = await stubIdentityProvider(page, provider!.origin);

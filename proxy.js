@@ -9,7 +9,7 @@ import {
   clearRefreshCookieEdge,
 } from "src/server/utils/authCookieEdge";
 import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
-import checkRouteValidity from "src/utils/route/checkRouteValidity";
+import { resolveDestination } from "src/utils/route/resolveDestination";
 
 const environmentType = getEnvironmentType();
 
@@ -116,16 +116,8 @@ export async function proxy(request) {
   }
 
   if (path.startsWith("/signin") || path.startsWith("/redirect")) {
-    let destination = request.nextUrl.searchParams.get("destination");
-
-    if (
-      !destination ||
-      destination.startsWith("//") ||
-      !destination.startsWith("/") ||
-      !checkRouteValidity(destination)
-    ) {
-      destination = "/instances";
-    }
+    // Same resolution as the sign-in page, so a link leads to the same page with or without a session
+    const destination = resolveDestination(request.nextUrl.searchParams.get("destination")) ?? "/instances";
 
     const response = NextResponse.redirect(new URL(destination, request.url));
     response.headers.set("x-middleware-cache", "no-cache");

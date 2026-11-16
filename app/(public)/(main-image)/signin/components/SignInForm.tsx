@@ -80,7 +80,8 @@ const SignInForm: FC<SignInFormProps> = ({
     hasStartedIdpRef.current = true;
 
     try {
-      // A malformed or unknown destination (e.g. `destination=%E0`) falls back to the default page.
+      // A malformed or unknown destination falls back to the default page (e.g. `?destination=%25`,
+      // which useSearchParams has already decoded to `%`).
       const validDestination = getValidDestination(destination);
 
       // Already signed in (the refresh-token case the middleware lets through):
@@ -131,8 +132,8 @@ const SignInForm: FC<SignInFormProps> = ({
       console.warn("Failed to set SSO state:", error);
     }
 
-    // Redirect to the destination; a malformed or unknown one (e.g. `destination=%E0`)
-    // falls back to the default page instead of throwing after a successful sign-in.
+    // Redirect to the destination; a malformed or unknown one (e.g. `?destination=%25`, already
+    // decoded to `%`) falls back to the default page instead of throwing after a successful sign-in.
     // Use full page navigation to ensure middleware reads fresh auth cookies.
     const validDestination = getValidDestination(destination);
     window.location.href = validDestination ? decodeURIComponent(validDestination) : getInstancesRoute();

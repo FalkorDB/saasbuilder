@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useRef, useState } from "react";
+import { FC, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next-nprogress-bar";
@@ -70,11 +70,9 @@ const SignInForm: FC<SignInFormProps> = ({
 
   // `/signin?idp=<name>` starts that identity provider's sign-in immediately,
   // through the same path as clicking its button (the nonce is still created here).
-  const autoStartIdp = useMemo(
-    () => findAutoStartIdp({ identityProviders, idpParam, redirectReason: redirect_reason }),
-    // Resolve once on mount: later URL rewrites must not start (or cancel) a redirect.
-    /*eslint-disable-next-line react-hooks/exhaustive-deps*/
-    []
+  // Resolved once on mount: later URL rewrites must not start (or cancel) a redirect.
+  const [autoStartIdp, setAutoStartIdp] = useState(() =>
+    findAutoStartIdp({ identityProviders, idpParam, redirectReason: redirect_reason })
   );
   const hasStartedIdpRef = useRef(false);
 
@@ -82,30 +80,43 @@ const SignInForm: FC<SignInFormProps> = ({
     if (!autoStartIdp || hasStartedIdpRef.current) return;
     hasStartedIdpRef.current = true;
 
-    const decodedDestination = decodeURIComponent(destination || "");
-    const safeDestination =
-      destination && checkRouteValidity(decodedDestination) ? decodedDestination : getInstancesRoute();
+    try {
+      // Only pass on a destination that decodes to a known route; a malformed one
+      // (e.g. `destination=%25`) falls back to the default page.
+      let validDestination: string | undefined;
+      try {
+        const decodedDestination = decodeURIComponent(destination || "");
+        if (destination && checkRouteValidity(decodedDestination)) validDestination = destination;
+      } catch {
+        validDestination = undefined;
+      }
 
-    // Already signed in (the refresh-token case the middleware lets through):
-    // go to the destination instead of round-tripping through the IdP.
-    if (Cookies.get(AUTH_INDICATOR_COOKIE)) {
-      window.location.replace(safeDestination);
-      return;
+      // Already signed in (the refresh-token case the middleware lets through):
+      // go to the destination instead of round-tripping through the IdP.
+      if (Cookies.get(AUTH_INDICATOR_COOKIE)) {
+        window.location.replace(validDestination ? decodeURIComponent(validDestination) : getInstancesRoute());
+        return;
+      }
+
+      handleIDPButtonClick({
+        idp: autoStartIdp,
+        userEmail: email || "",
+        destination: validDestination,
+        invitationInfo: buildInvitationInfo({
+          email: searchParams?.get("email"),
+          org: searchParams?.get("org"),
+          orgUrl: searchParams?.get("orgUrl"),
+        }),
+        affiliateCode: searchParams?.get("affiliateCode"),
+        // replace, so Back from the IdP doesn't land on `/signin?idp=` and bounce again
+        onRedirect: (url) => window.location.replace(url),
+        onSetLoginMethod: (method) => setLoginMethod(method),
+      });
+    } catch (error) {
+      // e.g. a malformed invitation/affiliate param: show the normal sign-in form instead
+      console.warn("Failed to auto-start identity provider sign-in:", error);
+      setAutoStartIdp(undefined);
     }
-
-    handleIDPButtonClick({
-      idp: autoStartIdp,
-      userEmail: email || "",
-      destination,
-      invitationInfo: buildInvitationInfo({
-        email: searchParams?.get("email"),
-        org: searchParams?.get("org"),
-        orgUrl: searchParams?.get("orgUrl"),
-      }),
-      affiliateCode: searchParams?.get("affiliateCode"),
-      onRedirect: (url) => window.location.assign(url),
-      onSetLoginMethod: (method) => setLoginMethod(method),
-    });
     /*eslint-disable-next-line react-hooks/exhaustive-deps*/
   }, [autoStartIdp]);
 

@@ -1,4 +1,5 @@
 import type { IdentityProvider } from "src/types/identityProvider";
+import checkRouteValidity from "src/utils/route/checkRouteValidity";
 
 type FindAutoStartIdpParams = {
   identityProviders: IdentityProvider[];
@@ -24,4 +25,18 @@ export function findAutoStartIdp({
   if (!requested) return undefined;
 
   return identityProviders.find((idp) => idp.name?.trim().toLowerCase() === requested);
+}
+
+/**
+ * Returns the `destination` query value (still URI-encoded, as `/idp-auth` expects)
+ * when it decodes to a known route; undefined for absent, malformed (e.g. `%25`)
+ * or unknown values, so callers fall back to the default page.
+ */
+export function getValidDestination(destination?: string | null): string | undefined {
+  if (!destination) return undefined;
+  try {
+    return checkRouteValidity(decodeURIComponent(destination)) ? destination : undefined;
+  } catch {
+    return undefined;
+  }
 }

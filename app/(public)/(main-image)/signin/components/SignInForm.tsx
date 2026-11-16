@@ -21,7 +21,7 @@ import { getInstancesRoute } from "src/utils/routes";
 
 import { buildInvitationInfo, handleIDPButtonClick } from "../../shared/idp-utils";
 import { createSigninValidationSchema } from "../constants";
-import { findAutoStartIdp } from "../findAutoStartIdp";
+import { findAutoStartIdp, getValidDestination } from "../findAutoStartIdp";
 import { useLastLoginDetails } from "../hooks/useLastLoginDetails";
 
 import EmailStep from "./EmailStep";
@@ -81,15 +81,8 @@ const SignInForm: FC<SignInFormProps> = ({
     hasStartedIdpRef.current = true;
 
     try {
-      // Only pass on a destination that decodes to a known route; a malformed one
-      // (e.g. `destination=%25`) falls back to the default page.
-      let validDestination: string | undefined;
-      try {
-        const decodedDestination = decodeURIComponent(destination || "");
-        if (destination && checkRouteValidity(decodedDestination)) validDestination = destination;
-      } catch {
-        validDestination = undefined;
-      }
+      // A malformed or unknown destination (e.g. `destination=%25`) falls back to the default page.
+      const validDestination = getValidDestination(destination);
 
       // Already signed in (the refresh-token case the middleware lets through):
       // go to the destination instead of round-tripping through the IdP.
@@ -113,7 +106,7 @@ const SignInForm: FC<SignInFormProps> = ({
         onSetLoginMethod: (method) => setLoginMethod(method),
       });
     } catch (error) {
-      // e.g. a malformed invitation/affiliate param: show the normal sign-in form instead
+      // Unexpected failure: show the normal sign-in form instead of a stuck "Redirecting…"
       console.warn("Failed to auto-start identity provider sign-in:", error);
       setAutoStartIdp(undefined);
     }

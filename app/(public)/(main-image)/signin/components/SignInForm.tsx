@@ -34,6 +34,17 @@ type SignInFormProps = {
   googleReCaptchaSiteKey: string;
 };
 
+// Bound the session refresh so a stalled endpoint can't leave the user on "Redirecting…";
+// on timeout, auto-start continues with the IdP (same limit as the middleware's /user check).
+const REFRESH_TIMEOUT_MS = 5000;
+
+function refreshAuthWithTimeout(): Promise<boolean> {
+  return Promise.race([
+    refreshAuth(),
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), REFRESH_TIMEOUT_MS)),
+  ]);
+}
+
 // useLastLoginDetails only loads the remembered email in an effect, so it is still ""
 // when auto-start runs on mount; read it directly so the IdP gets a login_hint.
 function getStoredLoginEmail(): string {
@@ -98,7 +109,7 @@ const SignInForm: FC<SignInFormProps> = ({
       // Possibly already signed in (the refresh-token case the middleware lets through):
       // if the session can be refreshed, go to the destination instead of round-tripping
       // through the IdP; if not (e.g. a stale indicator cookie), continue with the IdP.
-      if (Cookies.get(AUTH_INDICATOR_COOKIE) && (await refreshAuth())) {
+      if (Cookies.get(AUTH_INDICATOR_COOKIE) && (await refreshAuthWithTimeout())) {
         // Yield once so the refreshed cookies are in place before navigating (as src/api/client.ts does).
         await Promise.resolve();
         window.location.replace(validDestination ? decodeURIComponent(validDestination) : getInstancesRoute());
@@ -111,15 +122,18 @@ const SignInForm: FC<SignInFormProps> = ({
         throw new Error("Identity provider authorization URL is not http(s)");
       }
 
+      const invitationInfo = buildInvitationInfo({
+        email: searchParams?.get("email"),
+        org: searchParams?.get("org"),
+        orgUrl: searchParams?.get("orgUrl"),
+      });
+
       handleIDPButtonClick({
         idp,
-        userEmail: getStoredLoginEmail(),
+        // An invitation link's email takes precedence, so the IdP picks the invited account
+        userEmail: invitationInfo.invitedEmail || getStoredLoginEmail(),
         destination: validDestination,
-        invitationInfo: buildInvitationInfo({
-          email: searchParams?.get("email"),
-          org: searchParams?.get("org"),
-          orgUrl: searchParams?.get("orgUrl"),
-        }),
+        invitationInfo,
         affiliateCode: searchParams?.get("affiliateCode"),
         // replace, so Back from the IdP doesn't land on `/signin?idp=` and bounce again
         onRedirect: (url) => window.location.replace(url),

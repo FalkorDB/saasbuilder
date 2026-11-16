@@ -10,6 +10,7 @@ import {
 } from "src/server/utils/authCookieEdge";
 import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
 import checkRouteValidity from "src/utils/route/checkRouteValidity";
+import { safeDecodeURIComponent } from "src/utils/safeDecodeURIComponent";
 
 const environmentType = getEnvironmentType();
 
@@ -116,7 +117,9 @@ export async function proxy(request) {
   }
 
   if (path.startsWith("/signin") || path.startsWith("/redirect")) {
-    let destination = request.nextUrl.searchParams.get("destination");
+    // searchParams decodes once; decode once more like the client (getValidDestination),
+    // so e.g. `destination=%252Fbilling` resolves to /billing on both sides.
+    let destination = safeDecodeURIComponent(request.nextUrl.searchParams.get("destination") || "");
 
     if (
       !destination ||

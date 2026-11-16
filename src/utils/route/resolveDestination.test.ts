@@ -27,3 +27,14 @@ test("returns undefined for absent, malformed, unknown and open-redirect values"
   assert.equal(resolveDestination("%2F%2Fevil.example"), undefined);
   assert.equal(resolveDestination("https://evil.example/instances"), undefined);
 });
+
+test("rejects paths the browser would normalize to another page (dot segments)", () => {
+  assert.equal(resolveDestination("/instances/../../../api/provider-details"), undefined);
+  assert.equal(resolveDestination("%2Finstances%2F..%2F..%2F..%2Fapi%2Fprovider-details"), undefined);
+  assert.equal(resolveDestination("/instances/svc/plan/res/../sub"), undefined);
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst/.."), undefined);
+  assert.equal(resolveDestination("/instances/./plan/res/inst/sub"), undefined);
+  // the URL parser also treats `%2e` as a dot
+  assert.equal(resolveDestination("/instances/%2e%2e/%2e%2e/%2e%2e/api/provider-details"), undefined);
+  assert.equal(resolveDestination("/instances/.%2E/.%2e/x/y/z"), undefined);
+});

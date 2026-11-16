@@ -18,5 +18,22 @@ export function resolveDestination(value?: string | null): string | undefined {
     return undefined;
   }
 
-  return decoded.startsWith("/") && checkRouteValidity(decoded) ? decoded : undefined;
+  if (!decoded.startsWith("/") || !checkRouteValidity(decoded)) return undefined;
+
+  // Browsers normalize the path after this check: dot segments (`..`, `.`, and their `%2e` forms)
+  // would turn e.g. `/instances/../../../api/provider-details` into `/api/provider-details`. Accept
+  // only a path the URL parser leaves exactly as validated.
+  return isNormalizedPath(decoded) ? decoded : undefined;
+}
+
+const PLACEHOLDER_ORIGIN = "https://destination.invalid";
+
+function isNormalizedPath(path: string): boolean {
+  try {
+    const url = new URL(path, PLACEHOLDER_ORIGIN);
+    const end = path.search(/[?#]/);
+    return url.origin === PLACEHOLDER_ORIGIN && url.pathname === (end === -1 ? path : path.slice(0, end));
+  } catch {
+    return false;
+  }
 }

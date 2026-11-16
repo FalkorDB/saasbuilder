@@ -161,6 +161,15 @@ const InstanceDetailsPage = ({
     [resourceInstanceData]
   );
 
+  // Fall back to Instance Details when the selected tab (e.g. from ?view=) isn't
+  // available for this instance. Wait for the instance so tabs are final.
+  useEffect(() => {
+    if (!resourceInstanceData || !offering) return;
+    if (!Object.values(tabs).includes(currentTab)) {
+      setCurrentTab("Instance Details");
+    }
+  }, [tabs, currentTab, resourceInstanceData, offering]);
+
   if (!isFetchingServiceOfferings && !isFetchingSubscriptions && (!subscription || !offering)) {
     return (
       <PageContainer>

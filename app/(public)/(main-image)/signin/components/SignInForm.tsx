@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef, useState } from "react";
+import { FC, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next-nprogress-bar";
@@ -8,6 +8,7 @@ import { useFormik } from "formik";
 import Cookies from "js-cookie";
 import ReCAPTCHA from "react-google-recaptcha";
 
+import { AUTH_INDICATOR_COOKIE } from "src/api/authIndicatorCookie";
 import { customerUserSignin } from "src/api/customer-user";
 import { Text } from "src/components/Typography/Typography";
 import useEnvironmentType from "src/hooks/useEnvironmentType";
@@ -18,7 +19,9 @@ import { getReCaptchaToken } from "src/utils/getReCaptchaToken";
 import checkRouteValidity from "src/utils/route/checkRouteValidity";
 import { getInstancesRoute } from "src/utils/routes";
 
+import { buildInvitationInfo, handleIDPButtonClick } from "../../shared/idp-utils";
 import { createSigninValidationSchema } from "../constants";
+import { findAutoStartIdp } from "../findAutoStartIdp";
 import { useLastLoginDetails } from "../hooks/useLastLoginDetails";
 
 import EmailStep from "./EmailStep";
@@ -47,6 +50,7 @@ const SignInForm: FC<SignInFormProps> = ({
   const searchParams = useSearchParams();
   const redirect_reason = searchParams?.get("redirect_reason");
   const destination = searchParams?.get("destination");
+  const idpParam = searchParams?.get("idp");
   const snackbar = useSnackbar();
 
   const { orgName } = useProviderOrgDetails();
@@ -63,6 +67,47 @@ const SignInForm: FC<SignInFormProps> = ({
     onSubmit: handleFormSubmit,
     validationSchema: createSigninValidationSchema,
   });
+
+  // `/signin?idp=<name>` starts that identity provider's sign-in immediately,
+  // through the same path as clicking its button (the nonce is still created here).
+  const autoStartIdp = useMemo(
+    () => findAutoStartIdp({ identityProviders, idpParam, redirectReason: redirect_reason }),
+    // Resolve once on mount: later URL rewrites must not start (or cancel) a redirect.
+    /*eslint-disable-next-line react-hooks/exhaustive-deps*/
+    []
+  );
+  const hasStartedIdpRef = useRef(false);
+
+  useEffect(() => {
+    if (!autoStartIdp || hasStartedIdpRef.current) return;
+    hasStartedIdpRef.current = true;
+
+    const decodedDestination = decodeURIComponent(destination || "");
+    const safeDestination =
+      destination && checkRouteValidity(decodedDestination) ? decodedDestination : getInstancesRoute();
+
+    // Already signed in (the refresh-token case the middleware lets through):
+    // go to the destination instead of round-tripping through the IdP.
+    if (Cookies.get(AUTH_INDICATOR_COOKIE)) {
+      window.location.replace(safeDestination);
+      return;
+    }
+
+    handleIDPButtonClick({
+      idp: autoStartIdp,
+      userEmail: email || "",
+      destination,
+      invitationInfo: buildInvitationInfo({
+        email: searchParams?.get("email"),
+        org: searchParams?.get("org"),
+        orgUrl: searchParams?.get("orgUrl"),
+      }),
+      affiliateCode: searchParams?.get("affiliateCode"),
+      onRedirect: (url) => window.location.assign(url),
+      onSetLoginMethod: (method) => setLoginMethod(method),
+    });
+    /*eslint-disable-next-line react-hooks/exhaustive-deps*/
+  }, [autoStartIdp]);
 
   useEffect(() => {
     if (redirect_reason === "idp_auth_error") {
@@ -141,6 +186,19 @@ const SignInForm: FC<SignInFormProps> = ({
     if (token) data["reCaptchaToken"] = token;
 
     passwordSignInMutation.mutate(data);
+  }
+
+  if (autoStartIdp) {
+    return (
+      <Text
+        size="medium"
+        weight="semibold"
+        sx={{ color: "#414651", textAlign: "center", marginTop: "48px" }}
+        data-testid="idp-auto-start-message"
+      >
+        Redirecting to sign in…
+      </Text>
+    );
   }
 
   return (

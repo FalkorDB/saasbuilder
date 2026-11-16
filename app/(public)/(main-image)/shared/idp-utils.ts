@@ -48,7 +48,9 @@ export function handleIDPButtonClick(params: HandleIDPButtonClickParams) {
   if (!stateFromURL && state) {
     redirectURL += (redirectURL.includes("?") ? "&" : "?") + `state=${state}`;
   }
-  redirectURL += (redirectURL.includes("?") ? "&" : "?") + `login_hint=${encodeURIComponent(userEmail)}`;
+  if (userEmail?.trim()) {
+    redirectURL += (redirectURL.includes("?") ? "&" : "?") + `login_hint=${encodeURIComponent(userEmail.trim())}`;
+  }
 
   const localAuthState: {
     destination: string | undefined | null;

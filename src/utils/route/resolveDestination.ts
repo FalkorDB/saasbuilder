@@ -21,19 +21,15 @@ export function resolveDestination(value?: string | null): string | undefined {
   if (!decoded.startsWith("/") || !checkRouteValidity(decoded)) return undefined;
 
   // Browsers normalize the path after this check: dot segments (`..`, `.`, and their `%2e` forms)
-  // would turn e.g. `/instances/../../../api/provider-details` into `/api/provider-details`. Accept
-  // only a path the URL parser leaves exactly as validated.
-  return isNormalizedPath(decoded) ? decoded : undefined;
+  // would turn e.g. `/instances/../../../api/provider-details` into `/api/provider-details`.
+  return hasDotSegment(decoded) ? undefined : decoded;
 }
 
-const PLACEHOLDER_ORIGIN = "https://destination.invalid";
+// The segments the URL standard treats as `.` or `..` (ASCII case-insensitive)
+const DOT_SEGMENTS = new Set([".", "%2e", "..", ".%2e", "%2e.", "%2e%2e"]);
 
-function isNormalizedPath(path: string): boolean {
-  try {
-    const url = new URL(path, PLACEHOLDER_ORIGIN);
-    const end = path.search(/[?#]/);
-    return url.origin === PLACEHOLDER_ORIGIN && url.pathname === (end === -1 ? path : path.slice(0, end));
-  } catch {
-    return false;
-  }
+function hasDotSegment(path: string): boolean {
+  const end = path.search(/[?#]/);
+  const pathOnly = end === -1 ? path : path.slice(0, end);
+  return pathOnly.split("/").some((segment) => DOT_SEGMENTS.has(segment.toLowerCase()));
 }

@@ -38,3 +38,9 @@ test("rejects paths the browser would normalize to another page (dot segments)",
   assert.equal(resolveDestination("/instances/%2e%2e/%2e%2e/%2e%2e/api/provider-details"), undefined);
   assert.equal(resolveDestination("/instances/.%2E/.%2e/x/y/z"), undefined);
 });
+
+test("keeps IDs the URL parser would percent-encode (spaces, Unicode)", () => {
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst a/sub"), "/instances/svc/plan/res/inst a/sub");
+  assert.equal(resolveDestination("/instances/svc/plan/res/instå/sub"), "/instances/svc/plan/res/instå/sub");
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst.v2/sub"), "/instances/svc/plan/res/inst.v2/sub");
+});

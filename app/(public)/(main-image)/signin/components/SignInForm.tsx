@@ -10,6 +10,7 @@ import ReCAPTCHA from "react-google-recaptcha";
 
 import { AUTH_INDICATOR_COOKIE } from "src/api/authIndicatorCookie";
 import { customerUserSignin } from "src/api/customer-user";
+import { refreshAuth } from "src/api/refreshAuth";
 import { Text } from "src/components/Typography/Typography";
 import useEnvironmentType from "src/hooks/useEnvironmentType";
 import useSnackbar from "src/hooks/useSnackbar";
@@ -20,7 +21,7 @@ import { getInstancesRoute } from "src/utils/routes";
 
 import { buildInvitationInfo, handleIDPButtonClick } from "../../shared/idp-utils";
 import { createSigninValidationSchema } from "../constants";
-import { findAutoStartIdp, getValidDestination } from "../findAutoStartIdp";
+import { findAutoStartIdp, getValidDestination, isHttpUrl } from "../findAutoStartIdp";
 import { useLastLoginDetails } from "../hooks/useLastLoginDetails";
 
 import EmailStep from "./EmailStep";
@@ -89,20 +90,21 @@ const SignInForm: FC<SignInFormProps> = ({
     if (!autoStartIdp || hasStartedIdpRef.current) return;
     hasStartedIdpRef.current = true;
 
-    try {
+    async function autoStart(idp: IdentityProvider) {
       // A malformed or unknown destination falls back to the default page (e.g. `?destination=%25`,
       // which useSearchParams has already decoded to `%`).
       const validDestination = getValidDestination(destination);
 
-      // Already signed in (the refresh-token case the middleware lets through):
-      // go to the destination instead of round-tripping through the IdP.
-      if (Cookies.get(AUTH_INDICATOR_COOKIE)) {
+      // Possibly already signed in (the refresh-token case the middleware lets through):
+      // if the session can be refreshed, go to the destination instead of round-tripping
+      // through the IdP; if not (e.g. a stale indicator cookie), continue with the IdP.
+      if (Cookies.get(AUTH_INDICATOR_COOKIE) && (await refreshAuth())) {
         window.location.replace(validDestination ? decodeURIComponent(validDestination) : getInstancesRoute());
         return;
       }
 
       handleIDPButtonClick({
-        idp: autoStartIdp,
+        idp,
         userEmail: getStoredLoginEmail(),
         destination: validDestination,
         invitationInfo: buildInvitationInfo({
@@ -111,15 +113,21 @@ const SignInForm: FC<SignInFormProps> = ({
           orgUrl: searchParams?.get("orgUrl"),
         }),
         affiliateCode: searchParams?.get("affiliateCode"),
-        // replace, so Back from the IdP doesn't land on `/signin?idp=` and bounce again
-        onRedirect: (url) => window.location.replace(url),
+        // Navigate without a click only to an http(s) endpoint (never e.g. `javascript:`);
+        // replace, so Back from the IdP doesn't land on `/signin?idp=` and bounce again.
+        onRedirect: (url) => {
+          if (!isHttpUrl(url)) throw new Error("Identity provider authorization URL is not http(s)");
+          window.location.replace(url);
+        },
         onSetLoginMethod: (method) => setLoginMethod(method),
       });
-    } catch (error) {
+    }
+
+    autoStart(autoStartIdp).catch((error) => {
       // Unexpected failure: show the normal sign-in form instead of a stuck "Redirecting…"
       console.warn("Failed to auto-start identity provider sign-in:", error);
       setAutoStartIdp(undefined);
-    }
+    });
     /*eslint-disable-next-line react-hooks/exhaustive-deps*/
   }, [autoStartIdp]);
 

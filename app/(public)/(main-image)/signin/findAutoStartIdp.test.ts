@@ -5,7 +5,7 @@ import type { IdentityProvider } from "src/types/identityProvider";
 
 import { buildInvitationInfo } from "../shared/idp-utils";
 
-import { findAutoStartIdp, getValidDestination } from "./findAutoStartIdp";
+import { findAutoStartIdp, getValidDestination, isHttpUrl } from "./findAutoStartIdp";
 
 const idp = (name: string) =>
   ({ name, identityProviderName: "OIDC", renderedAuthorizationEndpoint: "https://idp" }) as IdentityProvider;
@@ -53,4 +53,14 @@ test("buildInvitationInfo tolerates malformed encoding instead of throwing", () 
     legalCompanyName: "Acme Inc",
     companyUrl: "%E0%A4%A",
   });
+});
+
+test("isHttpUrl accepts only absolute http(s) URLs", () => {
+  assert.equal(isHttpUrl("https://auth.example.com/oauth/authorize?state=x"), true);
+  assert.equal(isHttpUrl("http://localhost:8080/authorize"), true);
+  assert.equal(isHttpUrl("javascript:alert(1)"), false);
+  assert.equal(isHttpUrl(" JavaScript:alert(1)"), false);
+  assert.equal(isHttpUrl("data:text/html,hi"), false);
+  assert.equal(isHttpUrl("/relative/path"), false);
+  assert.equal(isHttpUrl(""), false);
 });

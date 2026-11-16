@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { jwtDecode } from "jwt-decode";
 
 import { baseURL } from "src/axios";
-import { PAGE_TITLE_MAP } from "src/constants/pageTitleMap";
 import { COOKIE_NAME, REFRESH_COOKIE_NAME } from "src/server/utils/authCookieConstants";
 import {
   clearAuthCookieEdge,
@@ -10,6 +9,7 @@ import {
   clearRefreshCookieEdge,
 } from "src/server/utils/authCookieEdge";
 import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
+import checkRouteValidity from "src/utils/route/checkRouteValidity";
 
 const environmentType = getEnvironmentType();
 
@@ -118,7 +118,12 @@ export async function proxy(request) {
   if (path.startsWith("/signin") || path.startsWith("/redirect")) {
     let destination = request.nextUrl.searchParams.get("destination");
 
-    if (!destination || destination.startsWith("//") || !destination.startsWith("/") || !PAGE_TITLE_MAP[destination]) {
+    if (
+      !destination ||
+      destination.startsWith("//") ||
+      !destination.startsWith("/") ||
+      !checkRouteValidity(destination)
+    ) {
       destination = "/instances";
     }
 

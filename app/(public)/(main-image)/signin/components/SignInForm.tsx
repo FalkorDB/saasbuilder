@@ -33,6 +33,16 @@ type SignInFormProps = {
   googleReCaptchaSiteKey: string;
 };
 
+// useLastLoginDetails only loads the remembered email in an effect, so it is still ""
+// when auto-start runs on mount; read it directly so the IdP gets a login_hint.
+function getStoredLoginEmail(): string {
+  try {
+    return localStorage.getItem("lastLoginEmail") || "";
+  } catch {
+    return "";
+  }
+}
+
 const SignInForm: FC<SignInFormProps> = ({
   identityProviders,
   isPasswordLoginEnabled,
@@ -93,7 +103,7 @@ const SignInForm: FC<SignInFormProps> = ({
 
       handleIDPButtonClick({
         idp: autoStartIdp,
-        userEmail: email || "",
+        userEmail: getStoredLoginEmail(),
         destination: validDestination,
         invitationInfo: buildInvitationInfo({
           email: searchParams?.get("email"),

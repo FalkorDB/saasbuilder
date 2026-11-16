@@ -8,17 +8,21 @@ import { useFormik } from "formik";
 import Cookies from "js-cookie";
 import ReCAPTCHA from "react-google-recaptcha";
 
+import { AUTH_INDICATOR_COOKIE } from "src/api/authIndicatorCookie";
 import { customerUserSignin } from "src/api/customer-user";
+import { refreshAuth } from "src/api/refreshAuth";
 import { Text } from "src/components/Typography/Typography";
 import useEnvironmentType from "src/hooks/useEnvironmentType";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
 import { IdentityProvider } from "src/types/identityProvider";
 import { getReCaptchaToken } from "src/utils/getReCaptchaToken";
-import checkRouteValidity from "src/utils/route/checkRouteValidity";
+import { resolveDestination } from "src/utils/route/resolveDestination";
 import { getInstancesRoute } from "src/utils/routes";
 
+import { buildInvitationInfo, handleIDPButtonClick } from "../../shared/idp-utils";
 import { createSigninValidationSchema } from "../constants";
+import { findAutoStartIdp, getValidDestination, isHttpUrl } from "../findAutoStartIdp";
 import { useLastLoginDetails } from "../hooks/useLastLoginDetails";
 
 import EmailStep from "./EmailStep";
@@ -30,6 +34,27 @@ type SignInFormProps = {
   isReCaptchaSetup: boolean;
   googleReCaptchaSiteKey: string;
 };
+
+// Bound the session refresh so a stalled endpoint can't leave the user on "Redirecting…";
+// on timeout, auto-start continues with the IdP (same limit as the middleware's /user check).
+const REFRESH_TIMEOUT_MS = 5000;
+
+function refreshAuthWithTimeout(): Promise<boolean> {
+  return Promise.race([
+    refreshAuth(),
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), REFRESH_TIMEOUT_MS)),
+  ]);
+}
+
+// useLastLoginDetails only loads the remembered email in an effect, so it is still ""
+// when auto-start runs on mount; read it directly so the IdP gets a login_hint.
+function getStoredLoginEmail(): string {
+  try {
+    return localStorage.getItem("lastLoginEmail") || "";
+  } catch {
+    return "";
+  }
+}
 
 const SignInForm: FC<SignInFormProps> = ({
   identityProviders,
@@ -47,6 +72,7 @@ const SignInForm: FC<SignInFormProps> = ({
   const searchParams = useSearchParams();
   const redirect_reason = searchParams?.get("redirect_reason");
   const destination = searchParams?.get("destination");
+  const idpParam = searchParams?.get("idp");
   const snackbar = useSnackbar();
 
   const { orgName } = useProviderOrgDetails();
@@ -63,6 +89,66 @@ const SignInForm: FC<SignInFormProps> = ({
     onSubmit: handleFormSubmit,
     validationSchema: createSigninValidationSchema,
   });
+
+  // `/signin?idp=<name>` starts that identity provider's sign-in immediately,
+  // through the same path as clicking its button (the nonce is still created here).
+  // Resolved once on mount: later URL rewrites must not start (or cancel) a redirect.
+  const [autoStartIdp, setAutoStartIdp] = useState(() =>
+    findAutoStartIdp({ identityProviders, idpParam, redirectReason: redirect_reason })
+  );
+  const hasStartedIdpRef = useRef(false);
+
+  useEffect(() => {
+    if (!autoStartIdp || hasStartedIdpRef.current) return;
+    hasStartedIdpRef.current = true;
+
+    async function autoStart(idp: IdentityProvider) {
+      // A malformed or unknown destination falls back to the default page (e.g. `?destination=%25`,
+      // which useSearchParams has already decoded to `%`).
+      const validDestination = getValidDestination(destination);
+
+      // Possibly already signed in (the refresh-token case the middleware lets through):
+      // if the session can be refreshed, go to the destination instead of round-tripping
+      // through the IdP; if not (e.g. a stale indicator cookie), continue with the IdP.
+      if (Cookies.get(AUTH_INDICATOR_COOKIE) && (await refreshAuthWithTimeout())) {
+        // Yield once so the refreshed cookies are in place before navigating (as src/api/client.ts does).
+        await Promise.resolve();
+        window.location.replace(resolveDestination(destination) ?? getInstancesRoute());
+        return;
+      }
+
+      // Navigate without a click only to an http(s) endpoint (never e.g. `javascript:`). Checked
+      // before handleIDPButtonClick, which saves the auth state and last-used login method.
+      if (!isHttpUrl(idp.renderedAuthorizationEndpoint)) {
+        throw new Error("Identity provider authorization URL is not http(s)");
+      }
+
+      const invitationInfo = buildInvitationInfo({
+        email: searchParams?.get("email"),
+        org: searchParams?.get("org"),
+        orgUrl: searchParams?.get("orgUrl"),
+      });
+
+      handleIDPButtonClick({
+        idp,
+        // An invitation link's email takes precedence, so the IdP picks the invited account
+        userEmail: invitationInfo.invitedEmail || getStoredLoginEmail(),
+        destination: validDestination,
+        invitationInfo,
+        affiliateCode: searchParams?.get("affiliateCode"),
+        // replace, so Back from the IdP doesn't land on `/signin?idp=` and bounce again
+        onRedirect: (url) => window.location.replace(url),
+        onSetLoginMethod: (method) => setLoginMethod(method),
+      });
+    }
+
+    autoStart(autoStartIdp).catch((error) => {
+      // Unexpected failure: show the normal sign-in form instead of a stuck "Redirecting…"
+      console.warn("Failed to auto-start identity provider sign-in:", error);
+      setAutoStartIdp(undefined);
+    });
+    /*eslint-disable-next-line react-hooks/exhaustive-deps*/
+  }, [autoStartIdp]);
 
   useEffect(() => {
     if (redirect_reason === "idp_auth_error") {
@@ -83,15 +169,10 @@ const SignInForm: FC<SignInFormProps> = ({
       console.warn("Failed to set SSO state:", error);
     }
 
-    const decodedDestination = decodeURIComponent(destination || "");
-
-    // Redirect to the Destination URL
+    // Redirect to the destination; a malformed or unknown one (e.g. `?destination=%25`, already
+    // decoded to `%`) falls back to the default page instead of throwing after a successful sign-in.
     // Use full page navigation to ensure middleware reads fresh auth cookies.
-    if (destination && checkRouteValidity(decodedDestination)) {
-      window.location.href = decodedDestination;
-    } else {
-      window.location.href = getInstancesRoute();
-    }
+    window.location.href = resolveDestination(destination) ?? getInstancesRoute();
   }
 
   const passwordSignInMutation = useMutation({
@@ -141,6 +222,19 @@ const SignInForm: FC<SignInFormProps> = ({
     if (token) data["reCaptchaToken"] = token;
 
     passwordSignInMutation.mutate(data);
+  }
+
+  if (autoStartIdp) {
+    return (
+      <Text
+        size="medium"
+        weight="semibold"
+        sx={{ color: "#414651", textAlign: "center", marginTop: "48px" }}
+        data-testid="idp-auto-start-message"
+      >
+        Redirecting to sign in…
+      </Text>
+    );
   }
 
   return (

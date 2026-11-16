@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { jwtDecode } from "jwt-decode";
 
 import { baseURL } from "src/axios";
-import { PAGE_TITLE_MAP } from "src/constants/pageTitleMap";
 import { COOKIE_NAME, REFRESH_COOKIE_NAME } from "src/server/utils/authCookieConstants";
 import {
   clearAuthCookieEdge,
@@ -10,6 +9,7 @@ import {
   clearRefreshCookieEdge,
 } from "src/server/utils/authCookieEdge";
 import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
+import { resolveDestination } from "src/utils/route/resolveDestination";
 
 const environmentType = getEnvironmentType();
 
@@ -116,11 +116,8 @@ export async function proxy(request) {
   }
 
   if (path.startsWith("/signin") || path.startsWith("/redirect")) {
-    let destination = request.nextUrl.searchParams.get("destination");
-
-    if (!destination || destination.startsWith("//") || !destination.startsWith("/") || !PAGE_TITLE_MAP[destination]) {
-      destination = "/instances";
-    }
+    // Same resolution as the sign-in page, so a link leads to the same page with or without a session
+    const destination = resolveDestination(request.nextUrl.searchParams.get("destination")) ?? "/instances";
 
     const response = NextResponse.redirect(new URL(destination, request.url));
     response.headers.set("x-middleware-cache", "no-cache");

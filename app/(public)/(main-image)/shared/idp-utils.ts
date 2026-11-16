@@ -1,5 +1,6 @@
 import extractQueryParam from "src/constants/extractQueryParam";
 import { IdentityProvider } from "src/types/identityProvider";
+import { safeDecodeURIComponent } from "src/utils/safeDecodeURIComponent";
 
 type InvitationInfo = {
   invitedEmail?: string;
@@ -26,13 +27,13 @@ export function buildInvitationInfo(params: {
   const info: InvitationInfo = {};
 
   if (email) {
-    info.invitedEmail = decodeURIComponent(email).trim();
+    info.invitedEmail = safeDecodeURIComponent(email).trim();
   }
   if (org) {
-    info.legalCompanyName = decodeURIComponent(org).trim();
+    info.legalCompanyName = safeDecodeURIComponent(org).trim();
   }
   if (orgUrl) {
-    info.companyUrl = decodeURIComponent(orgUrl).trim();
+    info.companyUrl = safeDecodeURIComponent(orgUrl).trim();
   }
 
   return info;
@@ -48,7 +49,9 @@ export function handleIDPButtonClick(params: HandleIDPButtonClickParams) {
   if (!stateFromURL && state) {
     redirectURL += (redirectURL.includes("?") ? "&" : "?") + `state=${state}`;
   }
-  redirectURL += (redirectURL.includes("?") ? "&" : "?") + `login_hint=${encodeURIComponent(userEmail)}`;
+  if (userEmail?.trim()) {
+    redirectURL += (redirectURL.includes("?") ? "&" : "?") + `login_hint=${encodeURIComponent(userEmail.trim())}`;
+  }
 
   const localAuthState: {
     destination: string | undefined | null;
@@ -66,7 +69,7 @@ export function handleIDPButtonClick(params: HandleIDPButtonClickParams) {
     localAuthState.nonce = stateFromURL || state;
   }
   if (affiliateCode) {
-    localAuthState.affiliateCode = decodeURIComponent(affiliateCode).trim();
+    localAuthState.affiliateCode = safeDecodeURIComponent(affiliateCode).trim();
   }
 
   const encodedLocalAuthState = Buffer.from(JSON.stringify(localAuthState), "utf8").toString("base64");

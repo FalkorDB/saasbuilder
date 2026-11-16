@@ -19,6 +19,7 @@ import useSnackbar from "src/hooks/useSnackbar";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
 import { getReCaptchaToken } from "src/utils/getReCaptchaToken";
 import { isPasswordSameAsEmail, passwordMatchesEmailText, passwordRegex, passwordText } from "src/utils/passwordRegex";
+import { safeDecodeURIComponent } from "src/utils/safeDecodeURIComponent";
 import DisplayHeading from "components/NonDashboardComponents/DisplayHeading";
 import FieldLabel from "components/NonDashboardComponents/FormElementsV2/FieldLabel";
 import SubmitButton from "components/NonDashboardComponents/FormElementsV2/SubmitButton";
@@ -136,13 +137,13 @@ const SignupPage = (props) => {
     const updatedValues: any = {};
 
     if (org) {
-      updatedValues.legalCompanyName = decodeURIComponent(org).trim();
+      updatedValues.legalCompanyName = safeDecodeURIComponent(org).trim();
     }
     if (orgUrl) {
-      updatedValues.companyUrl = decodeURIComponent(orgUrl).trim();
+      updatedValues.companyUrl = safeDecodeURIComponent(orgUrl).trim();
     }
     if (email) {
-      updatedValues.email = decodeURIComponent(email).trim();
+      updatedValues.email = safeDecodeURIComponent(email).trim();
     }
     if (userSource) {
       updatedValues.userSource = userSource.trim();

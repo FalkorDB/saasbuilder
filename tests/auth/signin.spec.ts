@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { test, expect } from "test-fixtures/har-test";
 import { getIdentityProviderButtonLabel } from "app/(public)/(main-image)/signin/utils";
 import { PageURLs } from "page-objects/pages";
@@ -5,6 +6,7 @@ import { SigninPage } from "page-objects/signin-page";
 import { GlobalStateManager } from "test-utils/global-state-manager";
 import { ProviderAPIClient } from "test-utils/provider-api-client";
 import { getHubSpotScriptSrc } from "../../src/hubspotConfig";
+import { IdentityProvider } from "src/types/identityProvider";
 
 test.describe("Signin Page", () => {
   let signinPage: SigninPage;
@@ -109,7 +111,9 @@ test.describe("Signin Page", () => {
   });
 
   for (const analyticsEnabled of [true, false]) {
-    test(`Migrating version-1 consent (analytics ${analyticsEnabled ? "enabled" : "disabled"}) requires fresh analytics opt-in`, async ({ page }) => {
+    test(`Migrating version-1 consent (analytics ${analyticsEnabled ? "enabled" : "disabled"}) requires fresh analytics opt-in`, async ({
+      page,
+    }) => {
       const hubspotRequests: string[] = [];
       // The analytics category only exists when GA and/or HubSpot is configured (same rules as the app)
       const analyticsConfigured =
@@ -257,5 +261,131 @@ test.describe("Signin Page", () => {
 
     //expect page to have redirected to the instances page
     await expect(page).toHaveURL(PageURLs.instances, { timeout: 10000 });
+  });
+});
+
+// `/signin?idp=<name>` starts that identity provider's sign-in without a click (#213).
+// The IdP itself is never contacted: its origin is stubbed and requests to it are recorded.
+
+const REMEMBERED_EMAIL = "remembered.user@example.com";
+
+async function getHttpIdentityProvider(): Promise<{ idp: IdentityProvider; origin: string } | null> {
+  const identityProviders = await new ProviderAPIClient().getIdentityProviders();
+  for (const idp of identityProviders) {
+    try {
+      const url = new URL(idp.renderedAuthorizationEndpoint);
+      if (url.protocol === "https:" || url.protocol === "http:") return { idp, origin: url.origin };
+    } catch {
+      // not a usable endpoint; try the next provider
+    }
+  }
+  return null;
+}
+
+/** Stubs the IdP origin and returns the URLs the page requested from it. */
+async function stubIdentityProvider(page: Page, origin: string): Promise<string[]> {
+  const requested: string[] = [];
+  await page.route(
+    (url) => url.origin === origin,
+    async (route) => {
+      requested.push(route.request().url());
+      await route.fulfill({ status: 200, contentType: "text/html", body: "<html><body>IdP</body></html>" });
+    }
+  );
+  return requested;
+}
+
+/** Cookies of a session the middleware lets through to /signin: no access token, a refresh token and the indicator. */
+async function addRefreshableSessionCookies(page: Page, baseURL: string) {
+  await page.context().addCookies([
+    { name: "omnistrate_refresh_token", value: "test-refresh-token", url: baseURL },
+    { name: "omnistrate_logged_in", value: "true", url: baseURL },
+  ]);
+}
+
+test.describe("Signin ?idp= auto-start", () => {
+  let provider: { idp: IdentityProvider; origin: string } | null;
+
+  test.beforeAll(async () => {
+    provider = await getHttpIdentityProvider();
+  });
+
+  test.beforeEach(async ({ baseURL }) => {
+    test.skip(!provider, "No identity provider with an http(s) authorization endpoint is configured");
+    test.skip(provider?.origin === new URL(baseURL!).origin, "Identity provider is served from the portal origin");
+  });
+
+  test("starts the identity provider with the remembered email as login_hint", async ({ page }) => {
+    const { idp, origin } = provider!;
+
+    // localStorage is per origin, so load the portal once before seeding the remembered email
+    await new SigninPage(page).navigate();
+    await page.evaluate((email) => localStorage.setItem("lastLoginEmail", email), REMEMBERED_EMAIL);
+
+    const requested = await stubIdentityProvider(page, origin);
+    await page.goto(`${PageURLs.signin}?idp=${encodeURIComponent(idp.name)}`);
+
+    await page.waitForURL((url) => url.origin === origin, { timeout: 10000 });
+    expect(requested.length).toBeGreaterThan(0);
+    expect(new URL(page.url()).searchParams.get("login_hint")).toBe(REMEMBERED_EMAIL);
+  });
+
+  test("skips the identity provider when the session can be refreshed", async ({ page, baseURL }) => {
+    const { idp, origin } = provider!;
+    const userToken = GlobalStateManager.getToken("user");
+
+    await addRefreshableSessionCookies(page, baseURL!);
+    // Mock must set the httpOnly cookie (like the real server does)
+    await page.route("**/api/refresh-token", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "Set-Cookie": `omnistrate_token=${userToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400` },
+        body: JSON.stringify({}),
+      })
+    );
+    const requested = await stubIdentityProvider(page, origin);
+
+    await page.goto(
+      `${PageURLs.signin}?idp=${encodeURIComponent(idp.name)}&destination=${encodeURIComponent(PageURLs.instances)}`
+    );
+
+    await expect(page).toHaveURL(PageURLs.instances, { timeout: 10000 });
+    expect(requested).toEqual([]);
+  });
+
+  test("starts the identity provider when the session cannot be refreshed", async ({ page, baseURL }) => {
+    const { idp, origin } = provider!;
+
+    await addRefreshableSessionCookies(page, baseURL!);
+    await page.route("**/api/refresh-token", (route) =>
+      route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({}) })
+    );
+    const requested = await stubIdentityProvider(page, origin);
+
+    await page.goto(`${PageURLs.signin}?idp=${encodeURIComponent(idp.name)}`);
+
+    await page.waitForURL((url) => url.origin === origin, { timeout: 10000 });
+    expect(requested.length).toBeGreaterThan(0);
+  });
+
+  test("shows the sign-in form for an unknown identity provider", async ({ page }) => {
+    const signinPage = new SigninPage(page);
+    const requested = await stubIdentityProvider(page, provider!.origin);
+
+    await page.goto(`${PageURLs.signin}?idp=${encodeURIComponent("not-a-configured-provider")}`);
+
+    await expect(page.getByTestId(signinPage.dataTestIds.emailInput)).toBeVisible();
+    expect(requested).toEqual([]);
+  });
+
+  test("shows the sign-in form after an identity provider error", async ({ page }) => {
+    const signinPage = new SigninPage(page);
+    const requested = await stubIdentityProvider(page, provider!.origin);
+
+    await page.goto(`${PageURLs.signin}?idp=${encodeURIComponent(provider!.idp.name)}&redirect_reason=idp_auth_error`);
+
+    await expect(page.getByTestId(signinPage.dataTestIds.emailInput)).toBeVisible();
+    expect(requested).toEqual([]);
   });
 });

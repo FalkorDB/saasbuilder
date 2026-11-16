@@ -99,8 +99,16 @@ const SignInForm: FC<SignInFormProps> = ({
       // if the session can be refreshed, go to the destination instead of round-tripping
       // through the IdP; if not (e.g. a stale indicator cookie), continue with the IdP.
       if (Cookies.get(AUTH_INDICATOR_COOKIE) && (await refreshAuth())) {
+        // Yield once so the refreshed cookies are in place before navigating (as src/api/client.ts does).
+        await Promise.resolve();
         window.location.replace(validDestination ? decodeURIComponent(validDestination) : getInstancesRoute());
         return;
+      }
+
+      // Navigate without a click only to an http(s) endpoint (never e.g. `javascript:`). Checked
+      // before handleIDPButtonClick, which saves the auth state and last-used login method.
+      if (!isHttpUrl(idp.renderedAuthorizationEndpoint)) {
+        throw new Error("Identity provider authorization URL is not http(s)");
       }
 
       handleIDPButtonClick({
@@ -113,12 +121,8 @@ const SignInForm: FC<SignInFormProps> = ({
           orgUrl: searchParams?.get("orgUrl"),
         }),
         affiliateCode: searchParams?.get("affiliateCode"),
-        // Navigate without a click only to an http(s) endpoint (never e.g. `javascript:`);
-        // replace, so Back from the IdP doesn't land on `/signin?idp=` and bounce again.
-        onRedirect: (url) => {
-          if (!isHttpUrl(url)) throw new Error("Identity provider authorization URL is not http(s)");
-          window.location.replace(url);
-        },
+        // replace, so Back from the IdP doesn't land on `/signin?idp=` and bounce again
+        onRedirect: (url) => window.location.replace(url),
         onSetLoginMethod: (method) => setLoginMethod(method),
       });
     }

@@ -44,3 +44,15 @@ test("keeps IDs the URL parser would percent-encode (spaces, Unicode)", () => {
   assert.equal(resolveDestination("/instances/svc/plan/res/instå/sub"), "/instances/svc/plan/res/instå/sub");
   assert.equal(resolveDestination("/instances/svc/plan/res/inst.v2/sub"), "/instances/svc/plan/res/inst.v2/sub");
 });
+
+test("rejects control characters and trailing spaces the URL parser would strip", () => {
+  // tabs/newlines inside a segment are deleted by the parser, turning `.\t.` into `..`
+  assert.equal(resolveDestination("/instances/.\t./.\t./.\t./api/provider-details"), undefined);
+  assert.equal(resolveDestination("%2Finstances%2F.%09.%2F.%09.%2F.%09.%2Fapi%2Fprovider-details"), undefined);
+  assert.equal(resolveDestination("/instances/.\n./.\r./..\t/api/provider-details"), undefined);
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst/sub\u0000"), undefined);
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst/sub\u007f"), undefined);
+  // trailing spaces/controls are trimmed, which could expose a final `..`
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst/.. "), undefined);
+  assert.equal(resolveDestination("/instances/svc/plan/res/inst/..\u001f"), undefined);
+});

@@ -374,12 +374,17 @@ test.describe("Signin ?idp= auto-start", () => {
 
     await addRefreshableSessionCookies(page, baseURL!);
     // Leave the refresh pending (never fulfilled) so only the auto-start timeout can move on
-    await page.route("**/api/refresh-token", () => new Promise<void>(() => {}));
+    let refreshRequests = 0;
+    await page.route("**/api/refresh-token", () => {
+      refreshRequests++;
+      return new Promise<void>(() => {});
+    });
     const requested = await stubIdentityProvider(page, origin);
 
     await page.goto(`${PageURLs.signin}?idp=${encodeURIComponent(idp.name)}`);
 
     await page.waitForURL((url) => url.origin === origin, { timeout: 15000 });
+    expect(refreshRequests).toBeGreaterThan(0);
     expect(requested.length).toBeGreaterThan(0);
   });
 

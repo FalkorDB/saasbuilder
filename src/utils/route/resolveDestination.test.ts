@@ -13,7 +13,8 @@ test("resolves known routes, decoding once more", () => {
 });
 
 test("decodes a partially encoded dynamic route the same way for every caller", () => {
-  // `searchParams.get()` value of `destination=%2Finstances%2F...%2Fsub%253Ftab%253Doverview`
+  // URL query `destination=%2Finstances%2F...%2Fsub%253Ftab%253Doverview`; searchParams.get() returns
+  // it decoded once (`/instances/.../sub%3Ftab%3Doverview`), which is what the helper receives
   assert.equal(resolveDestination(`${INSTANCE}%3Ftab%3Doverview`), `${INSTANCE}?tab=overview`);
 });
 

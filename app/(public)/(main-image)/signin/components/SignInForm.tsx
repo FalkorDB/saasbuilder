@@ -17,6 +17,7 @@ import useSnackbar from "src/hooks/useSnackbar";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
 import { IdentityProvider } from "src/types/identityProvider";
 import { getReCaptchaToken } from "src/utils/getReCaptchaToken";
+import { resolveDestination } from "src/utils/route/resolveDestination";
 import { getInstancesRoute } from "src/utils/routes";
 
 import { buildInvitationInfo, handleIDPButtonClick } from "../../shared/idp-utils";
@@ -112,7 +113,7 @@ const SignInForm: FC<SignInFormProps> = ({
       if (Cookies.get(AUTH_INDICATOR_COOKIE) && (await refreshAuthWithTimeout())) {
         // Yield once so the refreshed cookies are in place before navigating (as src/api/client.ts does).
         await Promise.resolve();
-        window.location.replace(validDestination ? decodeURIComponent(validDestination) : getInstancesRoute());
+        window.location.replace(resolveDestination(destination) ?? getInstancesRoute());
         return;
       }
 
@@ -171,8 +172,7 @@ const SignInForm: FC<SignInFormProps> = ({
     // Redirect to the destination; a malformed or unknown one (e.g. `?destination=%25`, already
     // decoded to `%`) falls back to the default page instead of throwing after a successful sign-in.
     // Use full page navigation to ensure middleware reads fresh auth cookies.
-    const validDestination = getValidDestination(destination);
-    window.location.href = validDestination ? decodeURIComponent(validDestination) : getInstancesRoute();
+    window.location.href = resolveDestination(destination) ?? getInstancesRoute();
   }
 
   const passwordSignInMutation = useMutation({

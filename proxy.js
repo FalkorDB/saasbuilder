@@ -9,8 +9,7 @@ import {
   clearRefreshCookieEdge,
 } from "src/server/utils/authCookieEdge";
 import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
-import checkRouteValidity from "src/utils/route/checkRouteValidity";
-import { safeDecodeURIComponent } from "src/utils/safeDecodeURIComponent";
+import { resolveDestination } from "src/utils/route/resolveDestination";
 
 const environmentType = getEnvironmentType();
 
@@ -117,18 +116,8 @@ export async function proxy(request) {
   }
 
   if (path.startsWith("/signin") || path.startsWith("/redirect")) {
-    const isValidDestination = (value) =>
-      Boolean(value) && value.startsWith("/") && !value.startsWith("//") && checkRouteValidity(value);
-
-    // searchParams decodes once. Use that value when it's valid; otherwise decode once more like
-    // the client (getValidDestination), so e.g. `destination=%252Fbilling` resolves to /billing.
-    // Validating first keeps an already-valid value from being decoded (and altered) again.
-    const onceDecoded = request.nextUrl.searchParams.get("destination") || "";
-    let destination = isValidDestination(onceDecoded) ? onceDecoded : safeDecodeURIComponent(onceDecoded);
-
-    if (!isValidDestination(destination)) {
-      destination = "/instances";
-    }
+    // Same resolution as the sign-in page, so a link leads to the same page with or without a session
+    const destination = resolveDestination(request.nextUrl.searchParams.get("destination")) ?? "/instances";
 
     const response = NextResponse.redirect(new URL(destination, request.url));
     response.headers.set("x-middleware-cache", "no-cache");

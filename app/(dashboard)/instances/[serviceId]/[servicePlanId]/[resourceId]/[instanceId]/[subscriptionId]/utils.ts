@@ -63,7 +63,7 @@ export const getTabs = ({
       (productTierName === "FalkorDB Startup" && isVersionAtLeast(tierVersion, LDAP_MIN_TIER_VERSION_STARTUP)) ||
       (productTierName === "FalkorDB Pro" && isVersionAtLeast(tierVersion, LDAP_MIN_TIER_VERSION_PRO)) ||
       (productTierName === "FalkorDB Enterprise" &&
-        String(enterpriseModuleEnabled).toLowerCase() === "true" &&
+        (enterpriseModuleEnabled === true || enterpriseModuleEnabled === "true") &&
         isVersionAtLeast(tierVersion, LDAP_MIN_TIER_VERSION_ENTERPRISE))
     ) {
       tabs["userAccess"] = "User Access";

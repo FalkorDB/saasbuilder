@@ -121,12 +121,10 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
   const [isDeletionReasonLoading, setIsDeletionReasonLoading] = useState(false);
   const [deletionReasonProvided, setDeletionReasonProvided] = useState(false);
 
-  const isPaidSubscription = Boolean(subscription?.paymentMethodConfigured);
-
-  // For paid subscriptions deleting, intercept the delete dialog to show the reason dialog first
+  // Intercept the delete dialog to ask for a deletion reason first
   const isDeleteDialogRequested = isOverlayOpen && overlayType === "delete-dialog";
-  const showDeletionReasonDialog = isDeleteDialogRequested && isPaidSubscription && !deletionReasonProvided;
-  const showDeleteConfirmDialog = isDeleteDialogRequested && (!isPaidSubscription || deletionReasonProvided);
+  const showDeletionReasonDialog = isDeleteDialogRequested && !deletionReasonProvided;
+  const showDeleteConfirmDialog = isDeleteDialogRequested && deletionReasonProvided;
 
   const handleDeletionReasonClose = () => {
     setDeletionReasonProvided(false);

@@ -105,6 +105,17 @@ const buildCsp = ({ reportOnly = false } = {}) => {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ["isomorphic-dompurify"],
+  // Non-secret User Access (LDAP) minimum tier versions, inlined so the client-side tab logic can read overrides.
+  env: Object.fromEntries(
+    [
+      "LDAP_MIN_TIER_VERSION_FREE",
+      "LDAP_MIN_TIER_VERSION_STARTUP",
+      "LDAP_MIN_TIER_VERSION_PRO",
+      "LDAP_MIN_TIER_VERSION_ENTERPRISE",
+    ]
+      .filter((key) => process.env[key])
+      .map((key) => [key, process.env[key]])
+  ),
   turbopack: {},
   async redirects() {
     return [

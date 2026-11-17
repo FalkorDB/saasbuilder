@@ -20,11 +20,12 @@ const qualifying = [
   { productTierName: "FalkorDB Free", tierVersion: "80.0" },
   { productTierName: "FalkorDB Startup", tierVersion: "58.0" },
   { productTierName: "FalkorDB Pro", tierVersion: "88.0" },
-  { productTierName: "FalkorDB Enterprise", tierVersion: "1.0", enterpriseModuleEnabled: "true" },
+  { productTierName: "FalkorDB Enterprise", tierVersion: "105.0", enterpriseModuleEnabled: "true" },
 ];
 
 for (const tier of qualifying) {
-  for (const resourceName of ["Single-Zone", "Multi-Zone"]) {
+  // Enterprise at its minimum also qualifies on sentinel; covered by sentinelCases below.
+  for (const resourceName of tier.productTierName === "FalkorDB Enterprise" ? [] : ["Single-Zone", "Multi-Zone"]) {
     test(`hides User Access for ${resourceName} on ${tier.productTierName}`, () => {
       const tabs = getTabs({ ...base, ...tier, resourceName });
       assert.equal(tabs.userAccess, undefined);
@@ -39,7 +40,7 @@ for (const tier of qualifying) {
   }
 }
 
-// Sentinel deployments need a higher minimum version; Free and Startup never qualify.
+// Sentinel deployments need Pro 103.0+ or Enterprise at its regular minimum; Free and Startup never qualify.
 const sentinelCases = [
   { productTierName: "FalkorDB Pro", tierVersion: "103.0", expected: "User Access" },
   { productTierName: "FalkorDB Pro", tierVersion: "110.0", expected: "User Access" },
@@ -60,6 +61,19 @@ for (const { expected, ...tier } of sentinelCases) {
     });
   }
 }
+
+test("requires the Enterprise minimum version on every deployment type", () => {
+  for (const tierVersion of ["104.9", undefined]) {
+    const tabs = getTabs({
+      ...base,
+      productTierName: "FalkorDB Enterprise",
+      tierVersion,
+      enterpriseModuleEnabled: "true",
+      resourceName: "Standalone",
+    });
+    assert.equal(tabs.userAccess, undefined);
+  }
+});
 
 test("does not add User Access below the tier's minimum version", () => {
   const tabs = getTabs({ ...base, productTierName: "FalkorDB Pro", tierVersion: "87.0", resourceName: "Standalone" });

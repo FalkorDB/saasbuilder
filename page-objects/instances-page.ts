@@ -125,6 +125,9 @@ export class InstancesPage {
   async deleteInstance(instanceId: string) {
     await this.selectInstance(instanceId);
     await this.page.getByTestId(this.dataTestIds.deleteButton).click();
+    // Every deletion first asks for a reason before the confirmation dialog
+    await this.page.getByText("I will recreate a new one").click();
+    await this.page.getByTestId("deletion-reason-confirm-button").click();
     await this.page.locator("#confirmationText").fill("deleteme");
     await this.page.getByRole("button", { name: "Delete" }).click();
   }

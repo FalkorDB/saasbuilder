@@ -138,7 +138,12 @@ const DeletionReasonDialog: FC<DeletionReasonDialogProps> = ({
               Before you delete, help us improve
             </Text>
           </Stack>
-          <IconButton onClick={handleClose} disabled={isLoading} aria-label="Close deletion reason dialog" sx={{ alignSelf: "flex-start" }}>
+          <IconButton
+            onClick={handleClose}
+            disabled={isLoading}
+            aria-label="Close deletion reason dialog"
+            sx={{ alignSelf: "flex-start" }}
+          >
             <CloseIcon />
           </IconButton>
         </Stack>
@@ -149,10 +154,7 @@ const DeletionReasonDialog: FC<DeletionReasonDialogProps> = ({
           Why are you deleting{instanceId ? ` - ${instanceId}` : " this instance"}?
         </Text>
 
-        <RadioGroup
-          value={selectedReason}
-          onChange={(e) => setSelectedReason(e.target.value as DeletionReasonValue)}
-        >
+        <RadioGroup value={selectedReason} onChange={(e) => setSelectedReason(e.target.value as DeletionReasonValue)}>
           {DELETION_REASONS.map((reason) => (
             <StyledFormControlLabel
               key={reason.value}

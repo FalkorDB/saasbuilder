@@ -48,7 +48,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ message: "OK" });
   } catch (error) {
     // Log the error server-side but don't block the deletion flow
-    console.error("Failed to call N8N deletion reason webhook:", error instanceof Error ? error.message : "Unknown error");
+    console.error(
+      "Failed to call N8N deletion reason webhook:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
     return res.status(200).json({ message: "Webhook call failed but proceeding" });
   }
 }

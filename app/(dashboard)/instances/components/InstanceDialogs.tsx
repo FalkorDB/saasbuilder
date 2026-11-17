@@ -34,6 +34,8 @@ import { getMainResourceFromInstance } from "../utils";
 
 import CustomWorkflowForm from "./CustomWorkflowForm";
 import DeletionReasonDialog from "./DeletionReasonDialog";
+
+const DELETION_REASON_TIMEOUT_MS = 8000;
 import InstanceForm from "./InstanceForm";
 import SnapshotBeforeDeletionConfirmation from "./SnapshotBeforeDeletionConfirmation";
 
@@ -121,12 +123,10 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
   const [isDeletionReasonLoading, setIsDeletionReasonLoading] = useState(false);
   const [deletionReasonProvided, setDeletionReasonProvided] = useState(false);
 
-  const isPaidSubscription = Boolean(subscription?.paymentMethodConfigured);
-
-  // For paid subscriptions deleting, intercept the delete dialog to show the reason dialog first
+  // Intercept the delete dialog to ask for a deletion reason first
   const isDeleteDialogRequested = isOverlayOpen && overlayType === "delete-dialog";
-  const showDeletionReasonDialog = isDeleteDialogRequested && isPaidSubscription && !deletionReasonProvided;
-  const showDeleteConfirmDialog = isDeleteDialogRequested && (!isPaidSubscription || deletionReasonProvided);
+  const showDeletionReasonDialog = isDeleteDialogRequested && !deletionReasonProvided;
+  const showDeleteConfirmDialog = isDeleteDialogRequested && deletionReasonProvided;
 
   const handleDeletionReasonClose = () => {
     setDeletionReasonProvided(false);
@@ -139,6 +139,8 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
       await fetch("/api/instance-deletion-reason", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // Fail open: a slow or hung webhook must never block the deletion flow
+        signal: AbortSignal.timeout(DELETION_REASON_TIMEOUT_MS),
         body: JSON.stringify({
           instanceId: instance?.id,
           reason,

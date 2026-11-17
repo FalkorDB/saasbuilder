@@ -76,6 +76,31 @@ test("requires the Pro and Enterprise minimum versions on every deployment type"
   }
 });
 
+test("requires an explicitly enabled enterprise module", () => {
+  for (const enterpriseModuleEnabled of ["false", false, "", undefined]) {
+    for (const resourceName of ["Standalone", "Single-Zone"]) {
+      const tabs = getTabs({
+        ...base,
+        productTierName: "FalkorDB Enterprise",
+        tierVersion: "105.0",
+        enterpriseModuleEnabled,
+        resourceName,
+      });
+      assert.equal(tabs.userAccess, undefined, `${resourceName} with ${JSON.stringify(enterpriseModuleEnabled)}`);
+    }
+  }
+  for (const enterpriseModuleEnabled of ["true", true]) {
+    const tabs = getTabs({
+      ...base,
+      productTierName: "FalkorDB Enterprise",
+      tierVersion: "105.0",
+      enterpriseModuleEnabled,
+      resourceName: "Single-Zone",
+    });
+    assert.equal(tabs.userAccess, "User Access");
+  }
+});
+
 test("adds User Access when the tier version has more digits than the minimum", () => {
   const tabs = getTabs({ ...base, productTierName: "FalkorDB Free", tierVersion: "100.0", resourceName: "Standalone" });
   assert.equal(tabs.userAccess, "User Access");

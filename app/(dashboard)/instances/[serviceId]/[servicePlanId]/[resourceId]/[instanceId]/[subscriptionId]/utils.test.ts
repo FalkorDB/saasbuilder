@@ -70,9 +70,12 @@ test("requires the Pro and Enterprise minimum versions on every deployment type"
     { productTierName: "FalkorDB Enterprise", tierVersion: "104.9", enterpriseModuleEnabled: "true" },
     { productTierName: "FalkorDB Enterprise", tierVersion: undefined, enterpriseModuleEnabled: "true" },
   ];
+  const resourceNames = ["Standalone", "Single-Zone", "Multi-Zone", "Cluster-Single-Zone", "Cluster-Multi-Zone"];
   for (const tier of below) {
-    const tabs = getTabs({ ...base, ...tier, resourceName: "Standalone" });
-    assert.equal(tabs.userAccess, undefined);
+    for (const resourceName of resourceNames) {
+      const tabs = getTabs({ ...base, ...tier, resourceName });
+      assert.equal(tabs.userAccess, undefined, `${tier.productTierName} ${tier.tierVersion} on ${resourceName}`);
+    }
   }
 });
 

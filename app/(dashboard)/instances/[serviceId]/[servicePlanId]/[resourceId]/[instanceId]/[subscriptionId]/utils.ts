@@ -2,10 +2,12 @@ import { RESOURCE_TYPES } from "src/constants/resource";
 
 const LDAP_MIN_TIER_VERSION_FREE = process.env.LDAP_MIN_TIER_VERSION_FREE || "80.0";
 const LDAP_MIN_TIER_VERSION_STARTUP = process.env.LDAP_MIN_TIER_VERSION_STARTUP || "58.0";
-const LDAP_MIN_TIER_VERSION_PRO = process.env.LDAP_MIN_TIER_VERSION_PRO || "88.0";
+const LDAP_MIN_TIER_VERSION_PRO = process.env.LDAP_MIN_TIER_VERSION_PRO || "103.0";
+const LDAP_MIN_TIER_VERSION_ENTERPRISE = process.env.LDAP_MIN_TIER_VERSION_ENTERPRISE || "105.0";
 
-// User Access (LDAP) is not supported yet on sentinel-based deployments.
-const LDAP_UNSUPPORTED_RESOURCES = ["Single-Zone", "Multi-Zone"];
+// On sentinel-based deployments only Pro and Enterprise support User Access (LDAP).
+const LDAP_SENTINEL_RESOURCES = ["Single-Zone", "Multi-Zone"];
+const LDAP_SENTINEL_TIERS = ["FalkorDB Pro", "FalkorDB Enterprise"];
 
 // Compares dotted numeric versions ("101.0" vs "88.0") segment by segment.
 // Plain string comparison is lexicographic and gets multi-digit majors wrong.
@@ -32,7 +34,7 @@ type GetTabsParams = {
   isBackup: number | undefined;
   isCustomDNS: boolean;
   serviceModelType: string | undefined;
-  enterpriseModuleEnabled: string | undefined;
+  enterpriseModuleEnabled: string | boolean | undefined;
 };
 
 export const getTabs = ({
@@ -59,15 +61,19 @@ export const getTabs = ({
     if (
       (productTierName === "FalkorDB Free" && isVersionAtLeast(tierVersion, LDAP_MIN_TIER_VERSION_FREE)) ||
       (productTierName === "FalkorDB Startup" && isVersionAtLeast(tierVersion, LDAP_MIN_TIER_VERSION_STARTUP)) ||
-      (productTierName === "FalkorDB Pro" && isVersionAtLeast(tierVersion, LDAP_MIN_TIER_VERSION_PRO))
+      (productTierName === "FalkorDB Pro" && isVersionAtLeast(tierVersion, LDAP_MIN_TIER_VERSION_PRO)) ||
+      (productTierName === "FalkorDB Enterprise" &&
+        String(enterpriseModuleEnabled).toLowerCase() === "true" &&
+        isVersionAtLeast(tierVersion, LDAP_MIN_TIER_VERSION_ENTERPRISE))
     ) {
       tabs["userAccess"] = "User Access";
     }
   }
-  if (productTierName === "FalkorDB Enterprise" && enterpriseModuleEnabled) {
-    tabs["userAccess"] = "User Access";
-  }
-  if (resourceName && LDAP_UNSUPPORTED_RESOURCES.includes(resourceName)) {
+  if (
+    resourceName &&
+    LDAP_SENTINEL_RESOURCES.includes(resourceName) &&
+    !LDAP_SENTINEL_TIERS.includes(productTierName ?? "")
+  ) {
     delete tabs.userAccess;
   }
 

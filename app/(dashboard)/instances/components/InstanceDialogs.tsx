@@ -129,6 +129,9 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
   const showDeleteConfirmDialog = isDeleteDialogRequested && deletionReasonProvided;
 
   const handleDeletionReasonClose = () => {
+    // Closing mid-request would let the pending confirm mark the reason as provided,
+    // so the next delete would skip the reason prompt
+    if (isDeletionReasonLoading) return;
     setDeletionReasonProvided(false);
     setIsOverlayOpen(false);
   };

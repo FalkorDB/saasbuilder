@@ -34,6 +34,8 @@ import { getMainResourceFromInstance } from "../utils";
 
 import CustomWorkflowForm from "./CustomWorkflowForm";
 import DeletionReasonDialog from "./DeletionReasonDialog";
+
+const DELETION_REASON_TIMEOUT_MS = 8000;
 import InstanceForm from "./InstanceForm";
 import SnapshotBeforeDeletionConfirmation from "./SnapshotBeforeDeletionConfirmation";
 
@@ -137,6 +139,8 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
       await fetch("/api/instance-deletion-reason", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // Fail open: a slow or hung webhook must never block the deletion flow
+        signal: AbortSignal.timeout(DELETION_REASON_TIMEOUT_MS),
         body: JSON.stringify({
           instanceId: instance?.id,
           reason,

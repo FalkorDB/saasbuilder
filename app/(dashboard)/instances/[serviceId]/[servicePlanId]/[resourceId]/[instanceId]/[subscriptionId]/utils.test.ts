@@ -39,6 +39,28 @@ for (const tier of qualifying) {
   }
 }
 
+// Sentinel deployments need a higher minimum version; Free and Startup never qualify.
+const sentinelCases = [
+  { productTierName: "FalkorDB Pro", tierVersion: "103.0", expected: "User Access" },
+  { productTierName: "FalkorDB Pro", tierVersion: "110.0", expected: "User Access" },
+  { productTierName: "FalkorDB Pro", tierVersion: "102.9", expected: undefined },
+  { productTierName: "FalkorDB Enterprise", tierVersion: "105.0", enterpriseModuleEnabled: "true", expected: "User Access" },
+  { productTierName: "FalkorDB Enterprise", tierVersion: "104.0", enterpriseModuleEnabled: "true", expected: undefined },
+  { productTierName: "FalkorDB Enterprise", tierVersion: "105.0", enterpriseModuleEnabled: undefined, expected: undefined },
+  { productTierName: "FalkorDB Enterprise", tierVersion: undefined, enterpriseModuleEnabled: "true", expected: undefined },
+  { productTierName: "FalkorDB Free", tierVersion: "200.0", expected: undefined },
+  { productTierName: "FalkorDB Startup", tierVersion: "200.0", expected: undefined },
+];
+
+for (const { expected, ...tier } of sentinelCases) {
+  for (const resourceName of ["Single-Zone", "Multi-Zone"]) {
+    test(`${expected ? "shows" : "hides"} User Access for ${resourceName} on ${tier.productTierName} ${tier.tierVersion ?? "(no version)"}${tier.productTierName === "FalkorDB Enterprise" && !tier.enterpriseModuleEnabled ? " without enterprise module" : ""}`, () => {
+      const tabs = getTabs({ ...base, ...tier, resourceName });
+      assert.equal(tabs.userAccess, expected);
+    });
+  }
+}
+
 test("does not add User Access below the tier's minimum version", () => {
   const tabs = getTabs({ ...base, productTierName: "FalkorDB Pro", tierVersion: "87.0", resourceName: "Standalone" });
   assert.equal(tabs.userAccess, undefined);

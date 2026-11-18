@@ -7,6 +7,7 @@ import { Box, Stack } from "@mui/material";
 import { useQueryClient } from "@tanstack/react-query";
 
 import AwsCloudFormationInstructions from "src/components/AwsCloudFormationInstructions/AwsCloudFormationInstructions";
+import CommandBlock from "src/components/AwsCloudFormationInstructions/CommandBlock";
 import CardWithTitle from "src/components/Card/CardWithTitle";
 import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
 import CopyToClipboardButton from "src/components/CopyClipboardButton/CopyClipboardButton";
@@ -148,6 +149,7 @@ export type GrantAccessStepProps = {
     ociTenancyID?: string;
     ociDomainID?: string;
     ociBootstrapShellCommand?: string;
+    nebiusTenantID?: string;
   };
   isAccessPage?: boolean;
   fetchClickedInstanceDetails?: () => Promise<any>;
@@ -174,6 +176,7 @@ const GrantAccessStep: React.FC<GrantAccessStepProps> = ({
   const hasGcpAccount = !!accountInstructionDetails?.gcpProjectID;
   const hasAzureAccount = !!accountInstructionDetails?.azureSubscriptionID;
   const hasOciAccount = !!accountInstructionDetails?.ociTenancyID;
+  const hasNebiusAccount = !!accountInstructionDetails?.nebiusTenantID;
 
   const needsCloudFormation = hasAwsAccount && !cloudFormationTemplateUrl;
   const needsGcpScript = hasGcpAccount && !gcpBootstrapShellCommand;
@@ -450,7 +453,11 @@ const GrantAccessStep: React.FC<GrantAccessStepProps> = ({
               <Text size="small" weight="regular" color="#344054">
                 Please open the {gcpCloudShellLink} environment and execute the command below.
               </Text>
-              <TextContainerToCopy text={addQuotesToShellCommand(gcpBootstrapShellCommand)} />
+              <CommandBlock
+                title="Run command"
+                command={addQuotesToShellCommand(gcpBootstrapShellCommand)}
+                dataTestId="gcp-bootstrap-command"
+              />
               <Text size="small" weight="regular" color="#344054">
                 For guidance, our instructional video is available {gcpShellScriptGuide}.
               </Text>
@@ -486,7 +493,11 @@ const GrantAccessStep: React.FC<GrantAccessStepProps> = ({
               <Text size="small" weight="regular" color="#344054">
                 Please open the {azureCloudShellLink} environment and execute the command below.
               </Text>
-              <TextContainerToCopy text={addQuotesToShellCommand(azureBootstrapShellCommand)} />
+              <CommandBlock
+                title="Run command"
+                command={addQuotesToShellCommand(azureBootstrapShellCommand)}
+                dataTestId="azure-bootstrap-command"
+              />
               <Text size="small" weight="regular" color="#344054">
                 For guidance, our instructional video is available {azureShellScriptGuide}.
               </Text>
@@ -522,7 +533,11 @@ const GrantAccessStep: React.FC<GrantAccessStepProps> = ({
               <Text size="small" weight="regular" color="#344054">
                 Please open the {ociCloudShellLink} environment and execute the command below.
               </Text>
-              <TextContainerToCopy text={addQuotesToShellCommand(accountInstructionDetails.ociBootstrapShellCommand)} />
+              <CommandBlock
+                title="Run command"
+                command={addQuotesToShellCommand(accountInstructionDetails.ociBootstrapShellCommand)}
+                dataTestId="oci-bootstrap-command"
+              />
             </Stack>
           ) : (
             <Text size="small" weight="regular" color="#344054">
@@ -540,20 +555,14 @@ const GrantAccessStep: React.FC<GrantAccessStepProps> = ({
     );
   };
 
-  const stackDeployedLabel = hasAwsAccount
-    ? "CloudFormation stack deployed"
-    : hasGcpAccount
-      ? "GCP bootstrap script executed"
-      : hasAzureAccount
-        ? "Azure bootstrap script executed"
-        : "Account bootstrap completed";
+  const stackDeployedLabel = hasNebiusAccount ? "Nebius binding validated" : "Access granted and verified ";
 
   const stackInProgressLabel = hasAwsAccount
-    ? "Deploying CloudFormation stack..."
-    : hasGcpAccount
-      ? "Deploying GCP bootstrap script..."
-      : hasAzureAccount
-        ? "Deploying Azure bootstrap script..."
+    ? "Waiting for you to create the CloudFormation stack above - we will verify the access automatically"
+    : hasAzureAccount || hasGcpAccount || hasOciAccount
+      ? "Waiting for you to run the command above - we will verify the access automatically"
+      : hasNebiusAccount
+        ? "Validating Nebius binding..."
         : "Deploying account bootstrap...";
 
   return (
@@ -586,7 +595,7 @@ const GrantAccessStep: React.FC<GrantAccessStepProps> = ({
               ? "This account configuration verification failed"
               : isRequestOrDataPending
                 ? "Verifying Account configuration"
-                : "This account configuration verification succeeded"
+                : "Account configuration prechecks succeeded"
           }
           isComplete={isVerificationComplete && !isFailed}
           isInProgress={isRequestOrDataPending && !isVerificationComplete && !isFailed}

@@ -79,7 +79,7 @@ YARN_ENABLE_SCRIPTS=false yarn install
 yarn rebuild sharp tree-sitter tree-sitter-json @tree-sitter-grammars/tree-sitter-yaml
 ```
 
-> **Why two commands?** Package install scripts are disabled by default to prevent supply-chain attacks. In the March 31, 2026 axios npm compromise, malicious versions `axios@1.14.1` and `axios@0.30.4` pulled in a malicious `plain-crypto-js@4.2.1` whose `postinstall` hook fetched and executed a cross-platform RAT — any developer or CI runner that ran `npm/yarn install` on a vulnerable lockfile was compromised silently. The second command re-enables install scripts only for an explicit, security-reviewed allowlist of native packages. If you add a new dependency that needs a build-time script (e.g., a native module), security-review its install script, then add the package name to the `yarn rebuild` line in `Dockerfile`, `.github/workflows/playwright.yml`, and this README.
+> **Why two commands?** Package install scripts are disabled by default to prevent supply-chain attacks. In the March 31, 2026 axios npm compromise, malicious versions `axios@1.14.1` and `axios@0.30.4` pulled in a malicious `plain-crypto-js@4.2.1` whose `postinstall` hook fetched and executed a cross-platform RAT — any developer or CI runner that ran `npm/yarn install` on a vulnerable lockfile was compromised silently. The second command re-enables install scripts only for an explicit, security-reviewed allowlist of native packages. If you add a new dependency that needs a build-time script (e.g., a native module), security-review its install script, then add the package name to the `yarn rebuild` line in `Dockerfile` and this README (and in upstream's Playwright workflow, which this fork does not run).
 
 5. Configure .env.local: Create a .env.local file in the root directory. Populate it with necessary environment variables
 
@@ -139,11 +139,11 @@ docker push yourorg/your-customer-portal:1.0.0
 
 ### Without Code Customizations
 
-For users looking to deploy the Customer Portal quickly and without modifications, the straightforward approach involves using a predefined Docker compose [yaml](https://github.com/omnistrate-oss/customer-portal/blob/master/docker-compose.yaml). This method facilitates the creation and launching of your service on the Omnistrate platform, utilizing the Customer Portal's existing setup and allowing for basic, provided customizations. It's an efficient path for rapid deployment, capitalizing on the built-in configurations of Customer Portal.
+For users looking to deploy the Customer Portal quickly and without modifications, the straightforward approach involves using the predefined Docker compose yaml attached to the [latest release](https://github.com/omnistrate-oss/customer-portal/releases/latest). That file names the exact image version and digest of the release. The [file in the repository](https://github.com/omnistrate-oss/customer-portal/blob/master/docker-compose.yaml) is the template it is built from and points at the `latest` image. This method facilitates the creation and launching of your service on the Omnistrate platform, utilizing the Customer Portal's existing setup and allowing for basic, provided customizations. It's an efficient path for rapid deployment, capitalizing on the built-in configurations of Customer Portal.
 
 For a video guide covering all the below steps, you can follow it [here](https://www.loom.com/share/58d0019c307646868dae2ba9bc56f727?sid=bab3b5f7-b6b8-4669-9dff-e53ee74dd3cc). The manual steps are listed below -
 
-- Copy the contents of the docker-compose.yaml
+- Download `docker-compose.yaml` from the [latest release](https://github.com/omnistrate-oss/customer-portal/releases/latest/download/docker-compose.yaml) and copy its contents
 - Login to Omnistrate and navigate to "Build Your SaaS" and "Your Compose Spec" tab
 - Paste the content of docker-compose.yaml in the yaml editor and provide name, description (logo image is optional and wont be seen by your customers).
 - Choose your service model i.e. Provider Hosted, to create your service.
@@ -259,8 +259,21 @@ We welcome contributions from the community! Here's how you can help:
 
 - Fork the Repository: Start by forking the project's repository.
 - Make Your Changes: Whether it's fixing a bug or adding a feature, make your changes in a separate branch.
-- Adhere to Coding Standards: Ensure your code matches the project's style and best practices.
-- Submit a Pull Request: Open a pull request with a clear description of your changes and any relevant issue numbers.
+- Adhere to Coding Standards: Read `AGENTS.md` first. It covers the project conventions, where code goes, and the guides in `.agents/skills/` for features, UI, icons, data fetching, forms and Playwright tests. Coding agents such as Codex load it automatically.
+- Run the checks before you push:
+
+  ```bash
+  yarn lint                                   # includes the project guardrail rules
+  yarn typecheck
+  yarn check:guardrails --base origin/master  # guidance paths, lint allowlists only shrink, Prettier on changed files
+  yarn check:playwright-discovery             # every Playwright spec runs in a project
+  yarn build
+  ```
+
+  In a fork, `origin/master` is your fork's own branch. Compare against upstream `master` instead: add the remote once with `git remote add upstream https://github.com/omnistrate-oss/customer-portal.git`, then run `git fetch upstream` and pass `--base upstream/master`.
+
+  Files that predate a lint rule are listed in `eslint.migration-allowlists.cjs`. Those lists only shrink: when you fix a file, remove its entry, and never add one.
+- Submit a Pull Request: Open a pull request with a clear description of your changes and any relevant issue numbers. Include before/after screenshots for UI changes, and keep each pull request to one concern.
 
 ## Support and Contact
 

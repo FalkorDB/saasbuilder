@@ -7,6 +7,8 @@ import { createColumnHelper } from "@tanstack/react-table";
 import { useSelector } from "react-redux";
 
 import { deleteSubscription } from "src/api/subscriptions";
+import { COLUMN_PREFERENCE_TABLE_IDS } from "src/components/ColumnPreference/tableIds";
+import { useTableColumnPreference } from "src/components/ColumnPreference/useColumnPreference";
 import useEnvironmentType from "src/hooks/useEnvironmentType";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
@@ -46,6 +48,7 @@ const SubscriptionsPage = () => {
   const subscriptionId = searchParams?.get("subscriptionId");
 
   const [searchText, setSearchText] = useState<string>("");
+  const [filteredSubscriptions, setFilteredSubscriptions] = useState<Subscription[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [overlayType, setOverlayType] = useState<Overlay>("manage-subscriptions");
   const [isOverlayOpen, setIsOverlayOpen] = useState<boolean>(false);
@@ -165,6 +168,16 @@ const SubscriptionsPage = () => {
     ];
   }, []);
 
+  const {
+    columns: preferredColumns,
+    columnVisibility,
+    columnPreference,
+  } = useTableColumnPreference({
+    tableId: COLUMN_PREFERENCE_TABLE_IDS.subscriptions,
+    columns: dataTableColumns,
+    primaryColumnId: "id",
+  });
+
   const selectedSubscription = useMemo(() => {
     return subscriptions.find((subscription) => subscription.id === selectedRows[0]);
   }, [selectedRows, subscriptions]);
@@ -195,15 +208,6 @@ const SubscriptionsPage = () => {
     },
   });
 
-  const filteredSubscriptions = useMemo(() => {
-    return existingSubscriptions.filter((sub) => {
-      return (
-        sub.serviceName.toLowerCase().includes(searchText.toLowerCase()) ||
-        sub.id.toLowerCase().includes(searchText.toLowerCase())
-      );
-    });
-  }, [searchText, existingSubscriptions]);
-
   return (
     <div>
       <AccountManagementHeader userName={selectUser?.name} userEmail={selectUser?.email} />
@@ -214,12 +218,18 @@ const SubscriptionsPage = () => {
 
         <div>
           <DataTable
-            columns={dataTableColumns}
+            columns={preferredColumns}
+            columnVisibility={columnVisibility}
             rows={filteredSubscriptions}
             noRowsText="No subscriptions"
+            isFilterApplied={existingSubscriptions.length > 0 && filteredSubscriptions.length === 0}
+            entityName="subscriptions"
             HeaderComponent={SubscriptionsTableHeader}
             headerProps={{
+              columnPreference,
               selectedRows,
+              subscriptions: existingSubscriptions,
+              setFilteredSubscriptions,
               searchText,
               setSearchText,
               onManageSubscriptions: () => {
@@ -231,7 +241,7 @@ const SubscriptionsPage = () => {
                 setOverlayType("unsubscribe-dialog");
               },
               isUnsubscribing: unSubscribeMutation.isPending,
-              count: existingSubscriptions?.length,
+              count: existingSubscriptions.length,
               isFetchingSubscriptions,
               refetchSubscriptions,
               selectedSubscription,
@@ -279,7 +289,11 @@ const SubscriptionsPage = () => {
           buttonLabel="Unsubscribe"
           isLoading={unSubscribeMutation.isPending}
           subtitle={`Are you sure you want to unsubscribe from ${selectedSubscription?.serviceName}?`}
-          message="To confirm, please enter <b>unsubscribe</b>, in the field below:"
+          message={
+            <>
+              To confirm, please enter <b>unsubscribe</b>, in the field below:
+            </>
+          }
         />
       </PageContainer>
     </div>

@@ -1,15 +1,21 @@
 import { customerUserSignUp } from "src/server/api/customer-user";
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
 import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
+import { errorSummary } from "src/server/utils/errorSummary";
 import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
-import { isPasswordSameAsEmail, passwordMatchesEmailText, passwordRegex, passwordText as passwordRegexFailText } from "src/utils/passwordRegex";
+import {
+  isPasswordSameAsEmail,
+  passwordMatchesEmailText,
+  passwordRegex,
+  passwordText as passwordRegexFailText,
+} from "src/utils/passwordRegex";
 
 export default async function handleSignup(nextRequest, nextResponse) {
   if (nextRequest.method === "POST") {
     try {
       const requestBody = nextRequest.body || {};
       const isReCaptchaSetup = checkReCaptchaSetup();
-      const { email, password, name, legalCompanyName, companyUrl, companyDescription, reCaptchaToken } = requestBody;
+      const { email, password, reCaptchaToken } = requestBody;
       if (isReCaptchaSetup) {
         const isVerified = await verifyRecaptchaToken(reCaptchaToken);
         if (!isVerified) throw new CaptchaVerificationError();
@@ -25,19 +31,31 @@ export default async function handleSignup(nextRequest, nextResponse) {
       }
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.get?.("X-Forwarded-For") || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP || "";
 
-      await customerUserSignUp({ email, password, name, legalCompanyName, companyUrl, companyDescription }, {
+      const payload = {
+        name: requestBody.name,
+        email,
+        password,
+        legalCompanyName: requestBody.legalCompanyName ?? requestBody.legalcompanyname,
+        companyDescription: requestBody.companyDescription ?? requestBody.companydescription,
+        companyUrl: requestBody.companyUrl ?? requestBody.companyurl,
+      };
+      if (typeof requestBody.attributes?.affiliateCode === "string") {
+        payload.attributes = { affiliateCode: requestBody.attributes.affiliateCode };
+      }
+
+      await customerUserSignUp(payload, {
         "Client-IP": clientIP,
         "SaaSBuilder-IP": saasBuilderIP,
       });
 
       return nextResponse.status(200).send();
     } catch (error) {
-      console.error("Error in signup", { status: error?.response?.status, message: error?.response?.data?.message });
       const defaultErrorMessage = "Something went wrong. Please retry";
+      console.error("Sign up route error", errorSummary(error));
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
         return nextResponse.status(500).send({
@@ -49,7 +67,7 @@ export default async function handleSignup(nextRequest, nextResponse) {
         if (
           responseErrorMessage?.toLowerCase() === "tenant already exists" ||
           responseErrorMessage?.toLowerCase() ===
-          "tenant with a valid token already exists, wait for the current token to expire"
+            "tenant with a valid token already exists, wait for the current token to expire"
         ) {
           return nextResponse.status(200).send();
         }

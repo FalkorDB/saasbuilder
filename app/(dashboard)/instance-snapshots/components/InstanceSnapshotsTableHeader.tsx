@@ -1,6 +1,8 @@
-import { CircularProgress } from "@mui/material";
-
 import Button from "src/components/Button/Button";
+import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
+import ColumnPreferenceButton, {
+  ColumnPreferenceButtonProps,
+} from "src/components/ColumnPreference/ColumnPreferenceButton";
 import DataGridHeaderTitle from "src/components/Headers/DataGridHeaderTitle";
 import RefreshWithToolTip from "src/components/RefreshWithTooltip/RefreshWithToolTip";
 import { SetState } from "src/types/common/reactGenerics";
@@ -23,6 +25,7 @@ type InstanceSnapshotsTableHeaderProps = {
   createDisabledMessage: string;
   onCopyClick: () => void;
   copyDisabledMessage: string;
+  columnPreference: ColumnPreferenceButtonProps;
 };
 
 const InstanceSnapshotsTableHeader: React.FC<InstanceSnapshotsTableHeaderProps> = ({
@@ -40,10 +43,11 @@ const InstanceSnapshotsTableHeader: React.FC<InstanceSnapshotsTableHeaderProps> 
   createDisabledMessage,
   onCopyClick,
   copyDisabledMessage,
+  columnPreference,
 }) => {
   return (
     <div>
-      <div className="py-5 px-6 flex items-center justify-between gap-4 border-b border-[#EAECF0]">
+      <div className="py-5 px-6 flex items-center justify-between gap-4 border-b border-gray-200">
         <DataGridHeaderTitle
           title="List of Instance Snapshots"
           desc="View and manage all snapshots, including their creation status, progress, region, and encryption details"
@@ -56,9 +60,10 @@ const InstanceSnapshotsTableHeader: React.FC<InstanceSnapshotsTableHeaderProps> 
 
         <div className="flex items-center gap-4 flex-shrink-0">
           <div className="flex items-center gap-2">
-            {isFetchingSnapshots && <CircularProgress size={20} />}
+            {!!isFetchingSnapshots && <LoadingSpinnerSmall size={20} sx={{ marginLeft: 0 }} />}
             <RefreshWithToolTip refetch={refetchSnapshots} disabled={isFetchingSnapshots} />
           </div>
+          <ColumnPreferenceButton {...columnPreference} />
           <Button
             data-testid="delete-button"
             variant="outlined"
@@ -98,7 +103,7 @@ const InstanceSnapshotsTableHeader: React.FC<InstanceSnapshotsTableHeaderProps> 
           </Button>
         </div>
       </div>
-      <div className="py-5 px-6 border-b border-[#EAECF0]">
+      <div className="py-5 px-6 border-b border-gray-200">
         <InstanceSnapshotsFilters snapshots={snapshots} setFilteredSnapshots={setFilteredSnapshots} />
       </div>
     </div>

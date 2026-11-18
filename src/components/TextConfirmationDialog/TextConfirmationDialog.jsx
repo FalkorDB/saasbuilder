@@ -1,7 +1,6 @@
 "use client";
 
 import CloseIcon from "@mui/icons-material/Close";
-import DOMPurify from "isomorphic-dompurify";
 import {
   Dialog as MuiDialog,
   DialogActions as MuiDialogActions,
@@ -59,10 +58,15 @@ const TextConfirmationDialog = (props) => {
     IconComponent = DeleteCircleIcon,
     maxWidth = 521,
     closeButtonAriaLabel = "Close confirmation dialog",
+    message: messageProp,
     ...rest
   } = props;
 
-  const message = props.message || `To confirm, please enter <b>${confirmationText}</b>, in the field below:`;
+  const message = messageProp || (
+    <>
+      To confirm, please enter <b>{confirmationText}</b>, in the field below:
+    </>
+  );
   const snackbar = useSnackbar();
 
   const formData = useFormik({
@@ -108,7 +112,9 @@ const TextConfirmationDialog = (props) => {
           <Text size="medium" weight="semibold" mt="20px">
             {subtitle}
           </Text>
-          <Text size="small" weight="medium" color="#344054" mt="9px" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message) }} />
+          <Text size="small" weight="medium" color="#344054" mt="9px">
+            {message}
+          </Text>
           <TextField
             id="confirmationText"
             name="confirmationText"

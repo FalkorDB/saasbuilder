@@ -28,8 +28,16 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
     else node.removeAttribute("style");
   }
 
-  if (node.nodeName.toLowerCase() === "a") node.setAttribute("rel", "noopener noreferrer");
+  if (node.nodeName.toLowerCase() === "a") {
+    const rel = new Set((node.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
+    rel.add("noopener");
+    rel.add("noreferrer");
+    node.setAttribute("rel", [...rel].join(" "));
+  }
 });
 
 export const sanitizeHTML = (html?: string | null): string =>
-  DOMPurify.sanitize(html ?? "", { FORBID_TAGS: ["style", "form", "input", "button", "textarea", "select"] });
+  DOMPurify.sanitize(html ?? "", {
+    ADD_ATTR: ["target"],
+    FORBID_TAGS: ["style", "form", "input", "button", "textarea", "select"],
+  });

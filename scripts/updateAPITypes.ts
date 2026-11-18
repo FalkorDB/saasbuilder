@@ -39,7 +39,10 @@ const run = async (): Promise<void> => {
   }
 };
 
-run().catch(() => {
-  console.error("API types update failed unexpectedly.");
+run().catch((error) => {
+  console.error(
+    "API types update failed unexpectedly:",
+    sanitizeDiagnostic(error instanceof Error ? error.message : error)
+  );
   process.exitCode = 1;
 });

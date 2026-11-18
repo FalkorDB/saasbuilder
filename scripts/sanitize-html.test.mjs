@@ -32,6 +32,12 @@ test("removes style attributes containing only unsafe declarations", () => {
 test("protects links opening a new tab", () => {
   const html = sanitizeHTML('<a href="https://example.com" target="_blank">x</a>');
   assert.match(html, /\brel="noopener noreferrer"/);
+  assert.match(html, /\btarget="_blank"/);
+});
+
+test("keeps existing link rel tokens", () => {
+  const html = sanitizeHTML('<a href="https://example.com" rel="nofollow ugc">x</a>');
+  assert.match(html, /\brel="nofollow ugc noopener noreferrer"/);
 });
 
 test("removes JavaScript link destinations", () => {

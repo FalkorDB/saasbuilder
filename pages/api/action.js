@@ -197,10 +197,10 @@ export default async function handleAction(nextRequest, nextResponse) {
         }
       } catch (error) {
         console.error("Action Route error", errorSummary(error));
-        const errorCode = error?.status || 500;
-        const errorMessage = error?.message || defaultErrorMessage;
+        // Thrown errors (network, parsing) can carry internal detail, so the client only gets the generic message
+        const errorCode = Number.isInteger(error?.status) && error.status >= 400 ? error.status : 500;
         return nextResponse.status(errorCode).send({
-          message: errorMessage,
+          message: defaultErrorMessage,
         });
       }
     }

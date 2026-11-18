@@ -1,10 +1,15 @@
 const next = require("next");
 const express = require("express");
 const path = require("path");
+const { loadEnvConfig } = require("@next/env");
+
+const dev = process.env.NODE_ENV !== "production";
+// next.config.js reads env vars at load time, so load .env files before requiring it
+loadEnvConfig(__dirname, dev);
+
 const nextConfig = require("./next.config");
 const verifyEnvironmentVariables = require("./src/server/utils/verifyEnvironmentVariables");
 
-const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
 const port = dev ? 3000 : 8080;
 // when using middleware `hostname` and `port` must be provided below

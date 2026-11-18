@@ -6,7 +6,7 @@ import { deriveOptionsFromData } from "src/components/DataGridFilter/utils";
 import { statuses } from "src/components/StatusChip/StatusChip";
 import { SetState } from "src/types/common/reactGenerics";
 import { Subscription } from "src/types/subscription";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 
 type SubscriptionsFiltersProps = {
   subscriptions: Subscription[];
@@ -73,7 +73,7 @@ const SubscriptionsFilters: FC<SubscriptionsFiltersProps> = ({
         subscription.serviceName,
         subscription.productTierName,
         formatLabel(subscription.status),
-        formatDateUTC(subscription.createdAt),
+        formatDateLocal(subscription.createdAt),
         subscription.subscriptionOwnerName,
       ].join(" "),
     []

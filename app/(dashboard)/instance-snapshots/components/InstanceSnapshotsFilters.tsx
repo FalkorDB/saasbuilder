@@ -7,7 +7,7 @@ import { statuses } from "src/components/StatusChip/StatusChip";
 import { cloudProviderLabelsShort } from "src/constants/cloudProviders";
 import { SetState } from "src/types/common/reactGenerics";
 import { InstanceSnapshot } from "src/types/instance-snapshot";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 
 type InstanceSnapshotsFiltersProps = {
   snapshots: InstanceSnapshot[];
@@ -73,7 +73,7 @@ const InstanceSnapshotsFilters: React.FC<InstanceSnapshotsFiltersProps> = ({ sna
     const status = snapshot.status ?? "";
     const completedOn =
       snapshot.completeTime && snapshot.completeTime !== "0001-01-01T00:00:00Z"
-        ? formatDateUTC(snapshot.completeTime)
+        ? formatDateLocal(snapshot.completeTime)
         : "";
     return [
       snapshot.snapshotId,
@@ -84,7 +84,7 @@ const InstanceSnapshotsFilters: React.FC<InstanceSnapshotsFiltersProps> = ({ sna
       snapshot.region,
       snapshot.sourceInstanceId,
       snapshot.subscriptionOwnerUserName,
-      formatDateUTC(snapshot.createdTime),
+      formatDateLocal(snapshot.createdTime),
       completedOn,
       snapshot.progress,
       snapshot.encrypted ? "Encrypted" : "Not Encrypted",

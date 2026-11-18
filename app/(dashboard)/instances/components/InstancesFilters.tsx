@@ -10,7 +10,7 @@ import { resourceInstanceStatusMap } from "src/constants/statusChipStyles/resour
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { SetState } from "src/types/common/reactGenerics";
 import { ResourceInstance, ResourceInstanceNetworkTopology } from "src/types/resourceInstance";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 
 import { loadStatusLabel, loadStatusMap } from "../constants";
 import { getMainResourceFromInstance } from "../utils";
@@ -216,8 +216,8 @@ const InstancesFilters: React.FC<InstancesFiltersProps> = ({ instances, setFilte
         instance.onpremPlatform,
         instance.region ?? "Global",
         subscription?.subscriptionOwnerName,
-        formatDateUTC(instance.created_at),
-        formatDateUTC(instance.last_modified_at),
+        formatDateLocal(instance.created_at),
+        formatDateLocal(instance.last_modified_at),
       ].join(" ");
     },
     [serviceOfferingsObj, subscriptionsObj]

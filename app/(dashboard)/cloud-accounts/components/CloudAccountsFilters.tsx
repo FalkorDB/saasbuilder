@@ -9,7 +9,7 @@ import { AccountConfig } from "src/types/account-config";
 import { SetState } from "src/types/common/reactGenerics";
 import { ResourceInstance } from "src/types/resourceInstance";
 import { Subscription } from "src/types/subscription";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 import { getResultParams } from "src/utils/instance";
 
 import { getCloudAccountId, getCloudAccountProvider, getExistingVpcCount } from "../utils";
@@ -132,7 +132,7 @@ const CloudAccountsFilters: FC<CloudAccountsFiltersProps> = ({
         existingVpcs,
         privateLink,
         subscription?.subscriptionOwnerName,
-        formatDateUTC(instance.created_at),
+        formatDateLocal(instance.created_at),
         subscription?.productTierName,
         subscription?.serviceName,
         provider,

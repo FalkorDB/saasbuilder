@@ -7,7 +7,7 @@ import { statuses } from "src/components/StatusChip/StatusChip";
 import { cloudProviderLabels } from "src/constants/cloudProviders";
 import { SetState } from "src/types/common/reactGenerics";
 import { CustomNetwork } from "src/types/customNetwork";
-import formatDateUTC from "src/utils/formatDateUTC";
+import formatDateLocal from "src/utils/formatDateLocal";
 
 type CustomNetworksFiltersProps = {
   customNetworks: CustomNetwork[];
@@ -68,8 +68,8 @@ const CustomNetworksFilters: FC<CustomNetworksFiltersProps> = ({ customNetworks,
       network.cidr,
       network.owningUserName,
       getStatusLabel(network.status),
-      formatDateUTC(network.created_at),
-      formatDateUTC(network.last_modified_at),
+      formatDateLocal(network.created_at),
+      formatDateLocal(network.last_modified_at),
     ].join(" ");
   }, []);
 

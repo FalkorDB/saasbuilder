@@ -14,10 +14,7 @@ type AddNewAccountStepProps = {
   formMode: "create" | "view";
 };
 
-const AddNewAccountStep: React.FC<AddNewAccountStepProps> = ({
-  formData,
-  formConfiguration,
-}) => {
+const AddNewAccountStep: React.FC<AddNewAccountStepProps> = ({ formData, formConfiguration }) => {
   const sections = formConfiguration.sections || [];
 
   return (

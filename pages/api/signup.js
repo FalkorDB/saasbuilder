@@ -55,7 +55,7 @@ export default async function handleSignup(nextRequest, nextResponse) {
       return nextResponse.status(200).send();
     } catch (error) {
       const defaultErrorMessage = "Something went wrong. Please retry";
-      console.error("Sign up error", errorSummary(error));
+      console.error("Sign up route error", errorSummary(error));
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
         return nextResponse.status(500).send({

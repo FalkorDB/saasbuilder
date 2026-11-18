@@ -8,7 +8,7 @@ Playwright is the only test tool in this repository; there is no unit-test runne
 | --------------- | --------------------------------- | ---------------------------------------------------- | ------------------------------------------------------- |
 | `off` (default) | `yarn playwright test`            | Live                                                 | Local development                                       |
 | `record`        | `yarn test:record`, `yarn record` | Live; each test's `/api/*` traffic is saved to a HAR | Recording new or changed tests, weekday re-recording    |
-| `replay`        | `yarn test:replay`                | Recorded responses from `tests/fixtures/hars`        | Every non-draft PR (`.github/workflows/playwright.yml`) |
+| `replay`        | `yarn test:replay`                | Recorded responses from `tests/fixtures/hars`        | Every non-draft PR upstream (this fork has no replay workflow) |
 
 Settings from `playwright.config.ts`:
 
@@ -230,7 +230,7 @@ Recording needs the credentials above and push access to the HAR repository. Con
 
 ### Bump the submodule pointer in the same PR
 
-CI (`.github/workflows/playwright.yml`) checks out the HAR commit that this repository pins, not the latest commit in the HAR repository. After recording:
+CI (upstream's Playwright replay workflow; this fork does not run it) checks out the HAR commit that this repository pins, not the latest commit in the HAR repository. After recording:
 
 ```bash
 git status                     # shows: modified: tests/fixtures/hars (new commits)
@@ -431,7 +431,7 @@ test.describe("My Infra Test", () => {
 
 ### CI behavior
 
-When backend soft failures occur during a PR run (`.github/workflows/playwright.yml`):
+When backend soft failures occur during a PR run (upstream's Playwright replay workflow):
 
 1. Failures are recorded to backend-failures.json in the `tests` folder
 2. A summary is added to the GitHub Actions job summary

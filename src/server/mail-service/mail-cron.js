@@ -189,8 +189,12 @@ function startMailServiceCron() {
                 //call backend api
                 await acknowledgeEvent(event.eventID);
                 console.log("Event acknowledged", event);
-              }).catch((error) => {
-                console.error(`Failed to send mail for event: ${event.eventType}, eventID: ${event.eventID}, to: ${mailContent.recepientEmail}`, error);
+              })
+              .catch((error) => {
+                console.error(
+                  `Failed to send mail for event: ${event.eventType}, eventID: ${event.eventID}, to: ${mailContent.recepientEmail}`,
+                  error
+                );
               });
             mailPromises.push(mailPromise);
           }

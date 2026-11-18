@@ -421,8 +421,7 @@ export const RadioField = ({ field, formData }) => {
 
 export const SingleSelectAutocomplete = ({ field, formData }) => {
   // Handle both string arrays and object arrays with {label, value}
-  const isObjectArray =
-    field.menuItems && field.menuItems.length > 0 && typeof field.menuItems[0] === "object";
+  const isObjectArray = field.menuItems && field.menuItems.length > 0 && typeof field.menuItems[0] === "object";
 
   const getCurrentOption = () => {
     if (!field.value) return isObjectArray ? null : "";

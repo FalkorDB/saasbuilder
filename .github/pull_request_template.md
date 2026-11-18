@@ -9,7 +9,7 @@
 ## Checklist
 
 - [ ] One concern per pull request; no unrelated refactors or formatting changes.
-- [ ] `yarn lint`, `yarn typecheck`, `yarn check:guardrails --base origin/master` and `yarn build` pass.
+- [ ] `yarn lint`, `yarn typecheck`, `yarn check:guardrails --base upstream/master` and `yarn build` pass.
 - [ ] UI changes include before/after screenshots and follow `.agents/skills/ui-and-styling/SKILL.md` (shared components, theme colors, white-label safe).
 - [ ] New or changed Playwright specs are discovered (`yarn check:playwright-discovery`) and ship with recorded HAR files and a bumped `tests/fixtures/hars` pointer (or you asked a maintainer to record them).
 - [ ] Changes to shared components, `src/api/`, `next.config.js`, `tsconfig.json`, `package.json`, workflows or the HAR submodule pointer are listed above.

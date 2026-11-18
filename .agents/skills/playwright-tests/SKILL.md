@@ -158,7 +158,7 @@ Actions time out after 30 s. Traces are kept on the first retry. Long lifecycle 
 
 ## 10. CI
 
-`.github/workflows/playwright.yml` runs on every non-draft PR to `master`: it checks out the pinned HAR submodule, builds and starts the server on port 8080, and runs `yarn test:replay`. The HTML report is uploaded as an artifact.
+Upstream's Playwright replay workflow runs on every non-draft PR to `master` (this fork does not run it, so run `yarn test:replay` locally): it checks out the pinned HAR submodule, builds and starts the server on port 8080, and runs `yarn test:replay`. The HTML report is uploaded as an artifact.
 
 ## 11. Checklist
 

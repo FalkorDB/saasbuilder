@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, unlinkSync, writeFileSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,7 +17,7 @@ const log = (message: string): void => {
 
 const run = async (): Promise<void> => {
   try {
-    if (existsSync(jsonOutputPath)) unlinkSync(jsonOutputPath);
+    rmSync(jsonOutputPath, { force: true });
 
     log(`Downloading external OpenAPI spec from ${API_SPEC_URLS.external}...`);
     const content = await downloadOpenAPIJSON(API_SPEC_URLS.external);
@@ -35,7 +35,7 @@ const run = async (): Promise<void> => {
     console.error("API types update failed:", sanitizeDiagnostic(error instanceof Error ? error.message : error));
     process.exitCode = 1;
   } finally {
-    if (existsSync(jsonOutputPath)) unlinkSync(jsonOutputPath);
+    rmSync(jsonOutputPath, { force: true });
   }
 };
 

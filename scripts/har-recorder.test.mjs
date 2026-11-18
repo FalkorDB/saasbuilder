@@ -382,10 +382,10 @@ test("rollback removes newly created owned fixtures and restores unknown-owner r
     const file = path.join(root, "fixtures/operational-tests.fixture.json.gz");
     fs.writeFileSync(file, "new-fixture");
     restoreRecordings(root, before, new Set(["deployments/instances/operational-tests.spec.ts"]), false);
-    assert.equal(fs.existsSync(file), false);
+    assert.deepEqual(fs.readdirSync(path.dirname(file)), []);
     fs.writeFileSync(file, "new-fixture");
     restoreRecordings(root, before, new Set(["future/unknown.spec.ts"]), false);
-    assert.equal(fs.existsSync(file), false);
+    assert.deepEqual(fs.readdirSync(path.dirname(file)), []);
   });
 });
 

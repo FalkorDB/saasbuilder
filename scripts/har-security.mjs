@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { realpathSync } from "node:fs";
-import { lstat, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { constants as fsConstants, realpathSync } from "node:fs";
+import { lstat, open, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 
@@ -1060,9 +1060,17 @@ const corpusRelative = (path, roots) => {
   return root ? relative(root, path).split(sep).join("/") : "";
 };
 const readJsonFile = async (path) => {
-  const info = await lstat(path);
-  if (info.size > MAX_BYTES) fail(fileLabel(path), "fixture size limit exceeded");
-  const data = await readFile(path);
+  // Stat and read through one handle so the checked file is the file read; never follow a symlink.
+  const handle = await open(path, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0));
+  let info;
+  let data;
+  try {
+    info = await handle.stat();
+    if (info.size > MAX_BYTES) fail(fileLabel(path), "fixture size limit exceeded");
+    data = await handle.readFile();
+  } finally {
+    await handle.close();
+  }
   const bytes = /\.gz$/i.test(path) ? gunzipSync(data, { maxOutputLength: MAX_BYTES }) : data;
   const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   return { value: JSON.parse(text), mode: info.mode };

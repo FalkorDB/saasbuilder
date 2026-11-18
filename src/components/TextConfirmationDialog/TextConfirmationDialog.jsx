@@ -58,10 +58,11 @@ const TextConfirmationDialog = (props) => {
     IconComponent = DeleteCircleIcon,
     maxWidth = 521,
     closeButtonAriaLabel = "Close confirmation dialog",
+    message: messageProp,
     ...rest
   } = props;
 
-  const message = props.message || (
+  const message = messageProp || (
     <>
       To confirm, please enter <b>{confirmationText}</b>, in the field below:
     </>

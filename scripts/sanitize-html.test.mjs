@@ -35,6 +35,11 @@ test("protects links opening a new tab", () => {
   assert.match(html, /\btarget="_blank"/);
 });
 
+test("protects image-map links opening a new tab", () => {
+  const html = sanitizeHTML('<map name="m"><area href="https://example.com" target="_blank"></map>');
+  assert.match(html, /<area[^>]*\brel="noopener noreferrer"/);
+});
+
 test("keeps existing link rel tokens", () => {
   const html = sanitizeHTML('<a href="https://example.com" rel="nofollow ugc">x</a>');
   assert.match(html, /\brel="nofollow ugc noopener noreferrer"/);

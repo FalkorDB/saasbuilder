@@ -28,7 +28,7 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
     else node.removeAttribute("style");
   }
 
-  if (node.nodeName.toLowerCase() === "a") {
+  if (["a", "area"].includes(node.nodeName.toLowerCase())) {
     const rel = new Set((node.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
     rel.add("noopener");
     rel.add("noreferrer");

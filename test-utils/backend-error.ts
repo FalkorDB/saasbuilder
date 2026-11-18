@@ -26,6 +26,12 @@ export function setSoftFailureRecorder(fn: (entry: SoftFailureEntry) => void) {
   _recorder = fn;
 }
 
+const backendFailedSpecFiles = new Set<string>();
+
+export function hasBackendFailure(specFile: string) {
+  return backendFailedSpecFiles.has(specFile);
+}
+
 export class BackendError extends Error {
   constructor(message: string) {
     super(message);
@@ -78,7 +84,7 @@ export class BackendSetupGuard {
   }
 
   get failureMessage(): string {
-    return this.error?.message ?? "";
+    return this.error ? `[backend] ${this.error.message}` : "";
   }
 }
 
@@ -106,15 +112,16 @@ export async function skipOnBackendError(
     await fn();
   } catch (error) {
     if (error instanceof BackendError) {
+      const info = testFn.info();
+      backendFailedSpecFiles.add(info.file);
       if (_recorder) {
-        const info = testFn.info();
         _recorder({
           specFile: info.file,
           testName: info.title,
           reason: error.message,
         });
       }
-      testFn.skip(true, `Skipping: ${error.message}`);
+      testFn.skip(true, `[backend] ${error.message}`);
     } else {
       throw error;
     }

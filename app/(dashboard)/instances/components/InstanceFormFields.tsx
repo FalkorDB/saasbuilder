@@ -1,9 +1,13 @@
+import ArrowOutwardIcon from "@mui/icons-material/ArrowOutward";
+import { Box, Skeleton } from "@mui/material";
 import SubscriptionMenu from "app/(dashboard)/components/SubscriptionMenu/SubscriptionMenu";
 import { fromProvider } from "cloud-regions-country-flags";
 import Link from "next/link";
 
 import { Field } from "src/components/DynamicForm/types";
+import AlertTrianglePITR from "src/components/Icons/AlertTrianglePITR/AlertTrianglePITR";
 import StatusChip from "src/components/StatusChip/StatusChip";
+import { Text } from "src/components/Typography/Typography";
 import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 import { productTierTypes } from "src/constants/servicePlan";
 import { getVersionSetStatusStylesAndLabel } from "src/constants/statusChipStyles/versionSet";
@@ -21,7 +25,6 @@ import KubernetesDistributionsMultiSelect from "../../components/KubernetesDistr
 import SubscriptionPlanRadio from "../../components/SubscriptionPlanRadio/SubscriptionPlanRadio";
 import { REQUEST_PARAMS_FIELDS_TO_FILTER } from "../constants";
 import { ResourceSummary } from "../hooks/useResources";
-import { isExistingVpcSupported } from "../vpcCapabilities";
 import {
   cloudProviderToPlatformMap,
   filterSchemaByCloudProvider,
@@ -36,6 +39,7 @@ import {
   platformToCloudProviderMap,
 } from "../utils";
 import { filterInstanceTypesByProvider, getInstanceTypeLabel, sortInstanceTypes } from "../utils/instanceTypeUtils";
+import { isExistingVpcSupported } from "../vpcCapabilities";
 
 import AccountConfigDescription from "./AccountConfigDescription";
 import CustomNetworkDescription from "./CustomNetworkDescription";
@@ -73,7 +77,8 @@ export const getStandardInformationFields = (
     inUse?: boolean;
   }>,
   isFetchingCloudNativeNetworks: boolean,
-  consumptionSubscriptionAdminRBAC = false
+  consumptionSubscriptionAdminRBAC = false,
+  orgName
 ) => {
   if (isFetchingServiceOfferings) return [];
 
@@ -634,38 +639,108 @@ export const getStandardInformationFields = (
         : "choose_existing";
     const createNewVpcDisabledMessage = "Creating new VPCs is not allowed for the selected cloud account config";
 
-    if (shouldShowVpcTypeRadio) {
+    if (selectedCloudAccountConfigId && isFetchingCloudNativeNetworks) {
+      fields.push({
+        label: "VPCs",
+        subLabel: "",
+        name: "requestParams._vpcType",
+        required: true,
+        customComponent: (
+          <Skeleton
+            variant="rounded"
+            animation="wave"
+            height={56}
+            sx={{ width: "100%", borderRadius: "8px", marginTop: "16px" }}
+          />
+        ),
+        previewValue: vpcType === "choose_existing" ? "Existing VPC" : "New VPC",
+      });
+    }
+
+    if (shouldShowVpcTypeRadio && !isFetchingCloudNativeNetworks) {
       fields.push({
         label: "VPCs",
         subLabel: "",
         name: "requestParams._vpcType",
         value: vpcType,
         type: "radio",
+        radioLayout: "column",
         required: true,
         options: [
           {
             dataTestId: "create-new-vpc-radio",
-            label: "Create new VPC",
+            label: `${orgName} Managed VPC`,
+            description: "Automatically create new VPCs for deployments when needed",
             value: "create_new",
             disabled: !isCreateNewVpcAllowed,
             disabledMessage: createNewVpcDisabledMessage,
           },
           {
             dataTestId: "choose-existing-vpc-radio",
-            label: "Choose from Existing VPCs",
+            label: "Use Existing VPC",
+            description: "Import VPCs from this cloud account for use in deployments",
             value: "choose_existing",
+            disabled: !region,
+            disabledMessage: "Select a region before choosing an existing VPC",
           },
         ],
         previewValue: vpcType === "choose_existing" ? "Existing VPC" : "New VPC",
       });
     }
 
-    if (selectedCloudAccountConfigId && vpcType === "choose_existing" && supportsExistingVpc) {
+    if (
+      selectedCloudAccountConfigId &&
+      vpcType === "choose_existing" &&
+      supportsExistingVpc &&
+      !isFetchingCloudNativeNetworks
+    ) {
       const filteredNetworks = region
         ? cloudNativeNetworks.filter(
             (n) => n.region === region && n.status?.toUpperCase() !== "FAILED" && n.imported === true
           )
         : [];
+      const noImportedVpcsAlert =
+        region && filteredNetworks.length === 0 ? (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              marginTop: "16px",
+              marginLeft: "20px",
+              padding: "16px",
+              border: "1px solid #E4E7EC",
+              borderRadius: "12px",
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0px 1px 2px rgba(10, 13, 18, 0.05)",
+            }}
+          >
+            <AlertTrianglePITR color="#DC6803" style={{ flexShrink: 0 }} />
+            <Text
+              size="small"
+              weight="regular"
+              color="#535862"
+              sx={{ display: "flex", alignItems: "center", gap: "18px" }}
+            >
+              No imported VPCs are available in this region.{" "}
+              <Link
+                href={`/cloud-accounts?modifyVpcsInstanceId=${encodeURIComponent(selectedCloudAccountConfig?.id ?? "")}&openModifyVpcs=true`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#6941C6", fontWeight: 600, textDecoration: "underline" }}
+              >
+                Import VPCs
+                <ArrowOutwardIcon
+                  sx={{
+                    ml: "4px",
+                    fontSize: "18px",
+                    verticalAlign: "text-bottom",
+                  }}
+                />
+              </Link>
+            </Text>
+          </Box>
+        ) : null;
       fields.push({
         dataTestId: "existing-vpc-select",
         label: "Select VPC",
@@ -679,8 +754,9 @@ export const getStandardInformationFields = (
         })),
         required: true,
         disabled: formMode !== "create",
-        isLoading: isFetchingCloudNativeNetworks,
-        emptyMenuText: region ? "No VPCs found in this region" : "Select a region first",
+        isLoading: false,
+        emptyMenuText: region ? "No imported VPCs are available in this region" : "Select a region first",
+        customComponent: noImportedVpcsAlert || undefined,
         previewValue: (() => {
           const selected = filteredNetworks.find(
             (n) => (n.cloudNativeNetworkId || n.id) === requestParams["cloudNativeNetworkId"]
@@ -798,7 +874,6 @@ export const getNetworkConfigurationFields = (
   const isBYOCOnprem = values.cloudProvider === "byoc-onprem";
   const cloudProviderFieldExists = inputParametersObj["cloud_provider"];
   const customNetworkFieldExists = inputParametersObj["custom_network_id"];
-  const cloudProviderNativeNetworkIdFieldExists = inputParametersObj["cloud_provider_native_network_id"];
   const customDNSFieldExists = inputParametersObj["custom_dns_configuration"];
 
   const getCustomDnsInputValue = (resourceKey: string): string => {
@@ -889,44 +964,6 @@ export const getNetworkConfigurationFields = (
       emptyMenuText: "No customer networks available",
       isLoading: isFetchingCustomNetworks,
       previewValue: customNetworks.find((network) => network.id === values.requestParams.custom_network_id)?.name,
-    });
-  }
-
-  if (
-    cloudProviderNativeNetworkIdFieldExists &&
-    cloudProviderFieldExists &&
-    values.cloudProvider !== "gcp" &&
-    values.cloudProvider !== "azure" &&
-    !isBYOCOnprem
-  ) {
-    const param = inputParametersObj["cloud_provider_native_network_id"];
-    fields.push({
-      dataTestId: `${param.key}-input`,
-      label: param.displayName || param.key,
-      subLabel: (
-        <>
-          {param.description && <br />}
-          If you&apos;d like to deploy within your VPC, enter its ID. Please ensure your VPC meets the{" "}
-          <Link
-            style={{
-              textDecoration: "underline",
-              color: "blue",
-            }}
-            href="https://docs.omnistrate.com/usecases/byoc/?#bring-your-own-vpc-byo-vpc"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            prerequisites
-          </Link>
-          .
-        </>
-      ),
-      disabled: formMode !== "create",
-      name: `requestParams.${param.key}`,
-      value: values.requestParams[param.key] || "",
-      type: "text-multiline",
-      required: formMode !== "modify" && param.required,
-      previewValue: values.requestParams[param.key],
     });
   }
 

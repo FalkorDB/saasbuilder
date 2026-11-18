@@ -7,6 +7,7 @@ import { Box, Stack } from "@mui/material";
 import { useSelector } from "react-redux";
 
 import StatusChip from "src/components/StatusChip/StatusChip";
+import useProductTierCustomMetrics from "src/hooks/query/useProductTierCustomMetrics";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { selectUserrootData } from "src/slices/userDataSlice";
 import getSafeExternalURL from "src/utils/getSafeExternalURL";
@@ -33,7 +34,7 @@ import { useFlexpriceStatus } from "./hooks/useFlexprice";
 import getBillingDetailsErrorMessage from "./utils/getBillingDetailsErrorMessage";
 
 const BillingPage = () => {
-  const { refetchSubscriptions } = useGlobalData();
+  const { subscriptions, isSubscriptionsPending, refetchSubscriptions } = useGlobalData();
   const [paymentURL, setPaymentURL] = useState("");
   const [selectedBillingProvider, setSelectedBillingProvider] = useState("");
   const [isStripePaymentMethodsEmpty, setIsStripePaymentMethodsEmpty] = useState(false);
@@ -61,6 +62,14 @@ const BillingPage = () => {
     isBillingDataEnabled
   );
   const { data: invoicesData, isPending: isInvoicesPending } = useConsumptionInvoices(isBillingDataEnabled);
+
+  const rootSubscriptionIds = useMemo(
+    () =>
+      subscriptions.filter((subscription) => subscription.roleType === "root").map((subscription) => subscription.id),
+    [subscriptions]
+  );
+  const { data: productTierCustomMetricsData, isLoading: isProductTierCustomMetricsLoading } =
+    useProductTierCustomMetrics(rootSubscriptionIds);
 
   const invoices = useMemo(() => invoicesData?.invoices || [], [invoicesData]);
 
@@ -102,10 +111,12 @@ const BillingPage = () => {
   const errorDisplayText = error ? getBillingDetailsErrorMessage(error) : "";
 
   const isLoading =
+    isSubscriptionsPending ||
     billingStatusQuery.isPending ||
     (isBillingEnabled && isBillingDetailsPending) ||
     isConsumptionDataPending ||
-    isInvoicesPending;
+    isInvoicesPending ||
+    isProductTierCustomMetricsLoading;
   const isStripe = selectedBillingProvider === "STRIPE";
   const isCustomPaymentPortalEnabled = isStripe && Boolean(billingDetails?.customPaymentPortalEnabled);
   const showStripePaymentMethodEmptyState = isCustomPaymentPortalEnabled && isStripePaymentMethodsEmpty;
@@ -160,6 +171,7 @@ const BillingPage = () => {
   const consumptionUsage = (
     <ConsumptionUsage
       consumptionUsageData={consumptionUsageData}
+      productTierCustomMetricsData={productTierCustomMetricsData}
       renderUsageBreakdown={isFlexpriceEnabled ? (isOpen) => <FlexpriceUsageBreakdown isOpen={isOpen} /> : undefined}
     />
   );

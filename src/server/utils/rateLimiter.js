@@ -51,9 +51,10 @@ function recordAttempt(ip, config = {}) {
         attemptStore.set(ip, {
             attempts: 1,
             firstAttemptTime: now,
+            // unref so a pending cleanup never keeps the process alive
             timeout: setTimeout(() => {
                 attemptStore.delete(ip);
-            }, finalConfig.windowMs),
+            }, finalConfig.windowMs).unref?.(),
         });
 
         return {
@@ -69,9 +70,10 @@ function recordAttempt(ip, config = {}) {
         attemptStore.set(ip, {
             attempts: 1,
             firstAttemptTime: now,
+            // unref so a pending cleanup never keeps the process alive
             timeout: setTimeout(() => {
                 attemptStore.delete(ip);
-            }, finalConfig.windowMs),
+            }, finalConfig.windowMs).unref?.(),
         });
 
         return {

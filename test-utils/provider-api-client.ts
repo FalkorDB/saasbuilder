@@ -6,7 +6,10 @@ import { IdentityProvider } from "src/types/identityProvider";
 import { ResourceInstance } from "src/types/resourceInstance";
 import { Service } from "src/types/service";
 
+import { sanitizeDiagnostic } from "../scripts/har-security.mjs";
+
 import { GlobalStateManager } from "./global-state-manager";
+import { retryOnRateLimit } from "./retry-on-rate-limit";
 
 export class ProviderAPIClient {
   baseURL = `${process.env.NEXT_PUBLIC_BACKEND_BASE_DOMAIN}`;
@@ -19,7 +22,9 @@ export class ProviderAPIClient {
     });
 
     if (!response.ok()) {
-      throw new Error(`Failed to login: ${response.status()} ${await response.text()}`);
+      throw new Error(
+        `Failed to login: ${response.status()} ${sanitizeDiagnostic(await response.text()).slice(0, 300)}`
+      );
     }
 
     const data = await response.json();
@@ -52,7 +57,9 @@ export class ProviderAPIClient {
     const response = await context.get(`/${this.apiVersion}/service`);
 
     if (!response.ok()) {
-      throw new Error(`Failed to list services: ${response.status()} ${await response.text()}`);
+      throw new Error(
+        `Failed to list services: ${response.status()} ${sanitizeDiagnostic(await response.text()).slice(0, 300)}`
+      );
     }
 
     const services: Service[] = (await response.json()).services;
@@ -74,7 +81,9 @@ export class ProviderAPIClient {
     });
 
     if (!response.ok()) {
-      throw new Error(`Failed to create service ${name}: ${response.status()} ${await response.text()}`);
+      throw new Error(
+        `Failed to create service ${name}: ${response.status()} ${sanitizeDiagnostic(await response.text()).slice(0, 300)}`
+      );
     }
   }
 
@@ -85,7 +94,9 @@ export class ProviderAPIClient {
     });
 
     if (!response.ok()) {
-      throw new Error(`Failed to create service ${name}: ${response.status()} ${await response.text()}`);
+      throw new Error(
+        `Failed to create service ${name}: ${response.status()} ${sanitizeDiagnostic(await response.text()).slice(0, 300)}`
+      );
     }
   }
 
@@ -94,7 +105,9 @@ export class ProviderAPIClient {
     const response = await context.delete(`/${this.apiVersion}/service/${serviceId}`);
 
     if (!response.ok()) {
-      console.error(`Failed to delete service ${serviceId}: ${response.status()} ${await response.text()}`);
+      console.error(
+        `Failed to delete service ${serviceId}: ${response.status()} ${sanitizeDiagnostic(await response.text()).slice(0, 300)}`
+      );
     }
   }
 
@@ -108,7 +121,9 @@ export class ProviderAPIClient {
     });
 
     if (!response.ok()) {
-      throw new Error(`Failed to get identity providers: ${response.status()} ${await response.text()}`);
+      throw new Error(
+        `Failed to get identity providers: ${response.status()} ${sanitizeDiagnostic(await response.text()).slice(0, 300)}`
+      );
     }
 
     const identityProviders: IdentityProvider[] = (await response.json()).identityProviders || [];
@@ -122,7 +137,9 @@ export class ProviderAPIClient {
     );
 
     if (!response.ok()) {
-      throw new Error(`Failed to list instances: ${response.status()} ${await response.text()}`);
+      throw new Error(
+        `Failed to list instances: ${response.status()} ${sanitizeDiagnostic(await response.text()).slice(0, 300)}`
+      );
     }
 
     const instances: { consumptionResourceInstanceResult: ResourceInstance }[] = (await response.json())
@@ -132,15 +149,19 @@ export class ProviderAPIClient {
 
   async deleteInstance(serviceId: string, environmentId: string, instanceId: string, resourceId: string) {
     const context = await this.createProviderRequest();
-    const response = await context.delete(
-      `/${this.apiVersion}/fleet/service/${serviceId}/environment/${environmentId}/instance/${instanceId}`,
-      {
-        data: { resourceId },
-      }
+    const response = await retryOnRateLimit(() =>
+      context.delete(
+        `/${this.apiVersion}/fleet/service/${serviceId}/environment/${environmentId}/instance/${instanceId}`,
+        {
+          data: { resourceId },
+        }
+      )
     );
 
     if (!response.ok()) {
-      throw new Error(`Failed to delete instance ${instanceId}: ${response.status()} ${await response.text()}`);
+      throw new Error(
+        `Failed to delete instance ${instanceId}: ${response.status()} ${sanitizeDiagnostic(await response.text()).slice(0, 300)}`
+      );
     }
   }
 
@@ -151,7 +172,9 @@ export class ProviderAPIClient {
     );
 
     if (!response.ok()) {
-      throw new Error(`Failed to describe instance ${instanceId}: ${response.status()} ${await response.text()}`);
+      throw new Error(
+        `Failed to describe instance ${instanceId}: ${response.status()} ${sanitizeDiagnostic(await response.text()).slice(0, 300)}`
+      );
     }
 
     const instance: ResourceInstance = (await response.json()).consumptionResourceInstanceResult;
@@ -165,7 +188,9 @@ export class ProviderAPIClient {
     );
 
     if (!response.ok()) {
-      throw new Error(`Failed to list subscriptions: ${response.status()} ${await response.text()}`);
+      throw new Error(
+        `Failed to list subscriptions: ${response.status()} ${sanitizeDiagnostic(await response.text()).slice(0, 300)}`
+      );
     }
 
     const subscriptionIds: string[] = (await response.json()).ids || [];

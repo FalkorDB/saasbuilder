@@ -1,9 +1,9 @@
 import type { Page } from "@playwright/test";
 import { jwtDecode } from "jwt-decode";
-import { test, expect } from "test-fixtures/har-test";
 import { getIdentityProviderButtonLabel } from "app/(public)/(main-image)/signin/utils";
 import { PageURLs } from "page-objects/pages";
 import { SigninPage } from "page-objects/signin-page";
+import { expect, test } from "test-fixtures/har-test";
 import { GlobalStateManager } from "test-utils/global-state-manager";
 import { ProviderAPIClient } from "test-utils/provider-api-client";
 import { getHubSpotScriptSrc } from "../../src/hubspotConfig";
@@ -237,26 +237,17 @@ test.describe("Signin Page", () => {
       sessionStorage.setItem("authState", encodedLocalAuthState);
     }, encodedLocalAuthState);
 
-    //get userToken the global state manager
-    const userToken = GlobalStateManager.getToken("user");
-
-    // intercept the request to the identity provider auth endpoint "/api/sign-in-with-idp
-    // Mock must set the httpOnly cookie (like the real server does)
-    await page.route("**/api/sign-in-with-idp", async (route) => {
-      try {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          headers: {
-            "Set-Cookie": `omnistrate_token=${userToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`,
-          },
-          body: JSON.stringify({}),
-        });
-      } catch (error) {
-        console.log("Error in route handler:", error);
-      }
+    // Obtain a fresh session independently of user-setup, then let the callback
+    // install all auth cookies, including the client-readable signed-in indicator.
+    const signinResponse = await page.request.post("/api/signin", {
+      data: { email: process.env.USER_EMAIL!, password: process.env.USER_PASSWORD! },
     });
-    await page.waitForTimeout(2000);
+    expect(signinResponse.status()).toBe(200);
+    await page.context().clearCookies();
+
+    await page.route("**/api/sign-in-with-idp", async (route) => {
+      await route.fulfill({ response: signinResponse, body: JSON.stringify({}) });
+    });
 
     await page.goto(`/idp-auth?state=${state}&code=test-code`);
 
@@ -439,4 +430,57 @@ test.describe("Signin ?idp= auto-start", () => {
     await expect(page.getByTestId(signinPage.dataTestIds.emailInput)).toBeVisible();
     expect(requested).toEqual([]);
   });
+});
+
+test.describe("Provider API authentication", () => {
+  const invalidSignatureToken = [
+    Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url"),
+    Buffer.from(
+      JSON.stringify({
+        exp: Math.floor(Date.now() / 1000) - 60,
+        userID: "user-auth-regression",
+        organizationID: "org-auth-regression",
+        serviceProviderID: "org-auth-regression",
+      })
+    ).toString("base64url"),
+    Buffer.alloc(32).toString("base64url"),
+  ].join(".");
+
+  const invalidSessions = [
+    { name: "missing", cookie: "omnistrate_refresh_token=invalid-refresh" },
+    { name: "malformed", cookie: "omnistrate_refresh_token=invalid-refresh; omnistrate_token=malformed-jwt" },
+    {
+      name: "invalid-signature",
+      cookie: `omnistrate_refresh_token=invalid-refresh; omnistrate_token=${invalidSignatureToken}`,
+    },
+    {
+      name: "newline-containing",
+      cookie: "omnistrate_refresh_token=invalid-refresh; omnistrate_token=invalid%0Acredential",
+    },
+    {
+      name: "carriage-return-containing",
+      cookie: "omnistrate_refresh_token=invalid-refresh; omnistrate_token=invalid%0Dcredential",
+    },
+    {
+      name: "unicode-containing",
+      cookie: "omnistrate_refresh_token=invalid-refresh; omnistrate_token=%E2%82%AC",
+    },
+  ];
+
+  for (const endpoint of ["resources", "version-sets", "cloud-providers", "product-tier-custom-metrics"]) {
+    for (const session of invalidSessions) {
+      test(`${endpoint} rejects ${session.name} tokens with 401`, async ({ request }) => {
+        const response = await request.get(`/api/${endpoint}`, {
+          params: { serviceId: "s-auth-regression", productTierId: "pt-auth-regression" },
+          // A refresh hint lets the page proxy defer auth to the API route.
+          // Neither cookie is a real credential; the route must reject this session.
+          headers: { Cookie: session.cookie },
+          maxRedirects: 0,
+        });
+
+        expect(response.status()).toBe(401);
+        expect(await response.json()).toEqual({ message: "Not authenticated" });
+      });
+    }
+  }
 });

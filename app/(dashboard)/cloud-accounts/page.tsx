@@ -10,6 +10,8 @@ import { $api } from "src/api/query";
 import { deleteResourceInstance, getResourceInstanceDetails } from "src/api/resourceInstance";
 import ConnectAccountConfigDialog from "src/components/AccountConfigDialog/ConnectAccountConfigDialog";
 import DisconnectAccountConfigDialog from "src/components/AccountConfigDialog/DisconnectAccountConfigDialog";
+import { COLUMN_PREFERENCE_TABLE_IDS } from "src/components/ColumnPreference/tableIds";
+import { useTableColumnPreference } from "src/components/ColumnPreference/useColumnPreference";
 import DeleteProtectionIcon from "src/components/Icons/DeleteProtection/DeleteProtection";
 import TextConfirmationDialog from "src/components/TextConfirmationDialog/TextConfirmationDialog";
 import { cloudProviderLogoMap, cloudProviderLongLogoMap } from "src/constants/cloudProviders";
@@ -30,7 +32,13 @@ import {
 } from "src/utils/accountConfig/accountConfig";
 import formatDateLocal from "src/utils/formatDateLocal";
 import { getResultParams, isPrivateLinkEnabled } from "src/utils/instance";
-import { getCloudAccountsRoute } from "src/utils/routes";
+import {
+  getEnumFromUserRoleString,
+  isOperationAllowedByRBAC,
+  operationEnum,
+  viewEnum,
+} from "src/utils/isAllowedByRBAC";
+import { CloudAccountTab, getCloudAccountDetailsRoute, getCloudAccountsRoute } from "src/utils/routes";
 import CloudProviderAccountOrgIdModal from "components/CloudProviderAccountOrgIdModal/CloudProviderAccountOrgIdModal";
 import DataTable from "components/DataTable/DataTable";
 import GridCellExpand from "components/GridCellExpand/GridCellExpand";
@@ -38,7 +46,6 @@ import ViewInstructionsIcon from "components/Icons/AccountConfig/ViewInstrcution
 import ServiceNameWithLogo from "components/ServiceNameWithLogo/ServiceNameWithLogo";
 import StatusChip from "components/StatusChip/StatusChip";
 import Tooltip from "components/Tooltip/Tooltip";
-import { CloudAccountTab, getCloudAccountDetailsRoute } from "src/utils/routes";
 
 import FullScreenDrawer from "../components/FullScreenDrawer/FullScreenDrawer";
 import CloudAccountsIcon from "../components/Icons/CloudAccountsIcon";
@@ -63,7 +70,13 @@ import { OffboardInstructionDetails } from "./components/OffboardingInstructions
 import SetupPrivateClusterDialog from "./components/SetupPrivateClusterDialog";
 import useAccountConfig from "./hooks/useAccountConfig";
 import { DIALOG_DATA } from "./constants";
-import { getCloudAccountId, getCloudAccountProvider, getExistingVpcCount, getOffboardReadiness } from "./utils";
+import {
+  getCloudAccountId,
+  getCloudAccountProvider,
+  getExistingVpcCount,
+  getOffboardReadiness,
+  isBringOwnVpcsSupported,
+} from "./utils";
 
 const columnHelper = createColumnHelper<ResourceInstance>();
 
@@ -87,10 +100,12 @@ const CloudAccountsPage = () => {
   const serviceId = searchParams?.get("serviceId");
   const servicePlanId = searchParams?.get("servicePlanId");
   const subscriptionId = searchParams?.get("subscriptionId");
+  const modifyVpcsInstanceId = searchParams?.get("modifyVpcsInstanceId");
+  const openModifyVpcs = searchParams?.get("openModifyVpcs") === "true";
 
   const { subscriptionsObj, serviceOfferingsObj } = useGlobalData();
   const [initialFormValues, setInitialFormValues] = useState<any>();
-  const [searchText, setSearchText] = useState("");
+  const [filteredCloudAccounts, setFilteredCloudAccounts] = useState<ResourceInstance[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [overlayType, setOverlayType] = useState<Overlay>("create-instance-form");
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
@@ -175,6 +190,50 @@ const CloudAccountsPage = () => {
 
   // Open the Create Form Overlay when serviceId, servicePlanId and subscriptionId are present in the URL
   useEffect(() => {
+    if (!openModifyVpcs || !modifyVpcsInstanceId || isFetchingInstances || isFetchingAccountConfigs) return;
+
+    const instanceToModify = instances.find((instance) => instance.id === modifyVpcsInstanceId);
+    if (!instanceToModify) return;
+
+    const subscription = subscriptionsObj[instanceToModify.subscriptionId as string];
+    if (!subscription) return;
+
+    const resultParams = getResultParams(instanceToModify);
+    const role = getEnumFromUserRoleString(subscription.roleType);
+    const isUpdateAllowedByRBAC = isOperationAllowedByRBAC(operationEnum.Update, role, viewEnum.Access_Resources);
+    const instanceStatus = String(instanceToModify.status || "").toUpperCase();
+    const instanceDescribeStatus = String(resultParams?.account_config_status || instanceStatus).toUpperCase();
+    const cloudProvider = resultParams?.cloud_provider || getCloudAccountProvider(resultParams);
+    const isModifyVpcsAllowed =
+      !["FAILED", "DELETING", "DELETED"].includes(instanceStatus) &&
+      isUpdateAllowedByRBAC &&
+      isBringOwnVpcsSupported(cloudProvider) &&
+      Boolean(resultParams?.cloud_provider_account_config_id) &&
+      instanceDescribeStatus === "READY";
+
+    if (!isModifyVpcsAllowed) {
+      snackbar.showError("Modify VPCs is not available for this cloud account");
+      router.replace(getCloudAccountsRoute({}));
+      return;
+    }
+
+    setSelectedRows([modifyVpcsInstanceId]);
+    setClickedInstance(instanceToModify);
+    setOverlayType("modify-vpcs");
+    setIsOverlayOpen(true);
+    router.replace("/cloud-accounts");
+  }, [
+    instances,
+    isFetchingInstances,
+    isFetchingAccountConfigs,
+    modifyVpcsInstanceId,
+    openModifyVpcs,
+    router,
+    snackbar,
+    subscriptionsObj,
+  ]);
+
+  useEffect(() => {
     if (serviceId && servicePlanId && subscriptionId) {
       setOverlayType("create-instance-form");
       setIsOverlayOpen(true);
@@ -187,16 +246,7 @@ const CloudAccountsPage = () => {
     }
   }, [serviceId, servicePlanId, subscriptionId]);
 
-  const byoaInstances = useMemo(() => {
-    const res = instances.filter((instance) => isCloudAccountInstance(instance));
-
-    if (searchText) {
-      const search = searchText.toLowerCase();
-      return res.filter((instance) => getCloudAccountId(getResultParams(instance)).toLowerCase().includes(search));
-    }
-
-    return res;
-  }, [instances, searchText]);
+  const byoaInstances = useMemo(() => instances.filter((instance) => isCloudAccountInstance(instance)), [instances]);
 
   const dataTableColumns = useMemo(() => {
     // The details route is keyed by the subscription's service and plan, so rows whose
@@ -219,6 +269,7 @@ const CloudAccountsPage = () => {
         id: "row_icons",
         header: "",
         cell: (data) => {
+          const resultParams = getResultParams(data.row.original);
           const isDeleteProtectionSupported =
             data.row.original.resourceInstanceMetadata?.deletionProtection !== undefined;
           const isDeleteProtected = data.row.original?.resourceInstanceMetadata?.deletionProtection;
@@ -227,7 +278,8 @@ const CloudAccountsPage = () => {
             <Stack direction="row" alignItems="center" gap="8px">
               <GovernanceControlsCell
                 href={getDetailsRoute(data.row.original, "Governance Controls")}
-                disabled={getCloudAccountProvider(getResultParams(data.row.original)) !== "aws"}
+                disabled={getCloudAccountProvider(resultParams) !== "aws"}
+                privateLinkEnabled={isPrivateLinkEnabled(resultParams)}
               />
               <Tooltip
                 title={
@@ -553,6 +605,17 @@ const CloudAccountsPage = () => {
       }),
     ];
   }, [subscriptionsObj, accountConfigsHash]);
+
+  const {
+    columns: preferredColumns,
+    columnVisibility,
+    columnPreference,
+  } = useTableColumnPreference({
+    tableId: COLUMN_PREFERENCE_TABLE_IDS.cloudAccounts,
+    columns: dataTableColumns,
+    primaryColumnId: "account_id",
+    clickableColumnIds: ["status"],
+  });
 
   const selectedInstance = useMemo(() => {
     return instances.find((instance) => instance.id === selectedRows[0]);
@@ -943,14 +1006,20 @@ const CloudAccountsPage = () => {
       <div>
         <DataTable
           key={Object.keys(subscriptionsObj).length} // Force re-render when subscriptionsObj changes
-          columns={dataTableColumns}
-          rows={byoaInstances}
+          columns={preferredColumns}
+          columnVisibility={columnVisibility}
+          rows={filteredCloudAccounts}
           noRowsText="No cloud accounts"
+          isFilterApplied={byoaInstances.length > 0 && filteredCloudAccounts.length === 0}
+          entityName="cloud accounts"
           HeaderComponent={CloudAccountsTableHeader}
           headerProps={{
-            count: byoaInstances.length,
-            searchText,
-            setSearchText,
+            columnPreference,
+            count: filteredCloudAccounts.length,
+            instances: byoaInstances,
+            setFilteredInstances: setFilteredCloudAccounts,
+            subscriptionsObj,
+            accountConfigsHash,
             onCreateClick: () => {
               setSelectedRows([]);
               setIsOverlayOpen(true);
@@ -1126,6 +1195,10 @@ const CloudAccountsPage = () => {
         accountConfigId={clickedInstance?.id}
         selectedAccountConfig={clickedInstance}
         cloudFormationTemplateUrl={awsCloudFormationTemplateUrl}
+        cloudFormationUpdateUrl={
+          accountConfigsHash?.[getResultParams(clickedInstance)?.cloud_provider_account_config_id ?? ""]
+            ?.awsCloudFormationTemplateURL
+        }
         isAccountCreation={isAccountCreation}
         gcpBootstrapShellCommand={gcpBootstrapShellCommand}
         azureBootstrapShellCommand={azureBootstrapShellCommand}

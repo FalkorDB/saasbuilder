@@ -1,10 +1,9 @@
 "use client";
 
-import CheckIcon from "@mui/icons-material/Check";
-import { Box, Tooltip as MuiTooltip, Stack } from "@mui/material";
 import { useMemo } from "react";
+import CheckIcon from "@mui/icons-material/Check";
+import { Box, Stack } from "@mui/material";
 
-import Tooltip from "components/Tooltip/Tooltip";
 import Button from "src/components/Button/Button";
 import CardWithTitle from "src/components/Card/CardWithTitle";
 import Checkbox from "src/components/Checkbox/Checkbox";
@@ -17,10 +16,16 @@ import RefreshIcon from "src/components/Icons/Refresh/Refresh";
 import LoadingSpinner from "src/components/LoadingSpinner/LoadingSpinner";
 import StatusChip from "src/components/StatusChip/StatusChip";
 import { Text } from "src/components/Typography/Typography";
+import { colors } from "src/themeConfig";
+import Tooltip from "components/Tooltip/Tooltip";
 
 import { canImportCloudNativeNetwork, canUnimportCloudNativeNetwork, isBringOwnVpcsSupported } from "../../utils";
 
 import { StyledLink } from "./GrantAccessStep";
+
+const AT_LEAST_ONE_VPC_OPTION_MESSAGE = "At least one VPC option must be enabled";
+const VPC_CONFIGURATION_UNSUPPORTED_MESSAGE = "VPC configuration is only supported for AWS, GCP, and Azure";
+const VPC_CONFIGURATION_LOADING_MESSAGE = "VPC data is loading";
 
 export type VpcRecord = {
   id: string;
@@ -74,15 +79,11 @@ const vpcStatusCategoryMap = {
 };
 
 const VpcBaseCheckbox = (props: React.ComponentProps<typeof Checkbox>) => (
-  <MuiTooltip
-    title={props.disabled ? "This VPC is failed or already in use and cannot be selected." : ""}
-    placement="top"
-    arrow
-  >
+  <Tooltip title={props.disabled ? "Failed or in-use VPCs cannot be selected" : ""}>
     <span>
       <Checkbox {...props} />
     </span>
-  </MuiTooltip>
+  </Tooltip>
 );
 
 const VpcsDataGridHeader = ({
@@ -145,16 +146,20 @@ const VpcsDataGridHeader = ({
 
         <Stack alignItems="flex-end" gap="4px">
           <Stack direction="row" alignItems="center" gap="12px">
-            <RefreshIcon
-              width={18}
-              height={18}
-              onClick={isFetchingVPCs || isLoadingVpcs ? undefined : onResync}
-              disabled={isFetchingVPCs || isLoadingVpcs}
-              data-testid="resync-vpcs-button"
-              style={{
-                cursor: isFetchingVPCs || isLoadingVpcs ? "default" : "pointer",
-              }}
-            />
+            <Tooltip title="Resync">
+              <span>
+                <RefreshIcon
+                  width={18}
+                  height={18}
+                  onClick={isFetchingVPCs || isLoadingVpcs ? undefined : onResync}
+                  disabled={isFetchingVPCs || isLoadingVpcs}
+                  data-testid="resync-vpcs-button"
+                  style={{
+                    cursor: isFetchingVPCs || isLoadingVpcs ? "default" : "pointer",
+                  }}
+                />
+              </span>
+            </Tooltip>
 
             <Button
               variant="contained"
@@ -218,6 +223,8 @@ const ConfigureVPCsStep: React.FC<ConfigureVPCsStepProps> = ({
   // The checkbox renders unchecked on unsupported providers, so gate the panel on the same
   // condition — otherwise the region/VPC picker stays visible under an unchecked box.
   const showVpcSelection = isBringOwnVpcsSupported(cloudProvider) && values.bringOwnVpcs;
+  const isVPCConfigurationSupported = isBringOwnVpcsSupported(cloudProvider);
+  const areVpcOptionsLoading = isLoadingVpcs || isFetchingVPCs || isImporting;
   const selectableVpcIds = useMemo(
     () =>
       new Set(
@@ -334,30 +341,70 @@ const ConfigureVPCsStep: React.FC<ConfigureVPCsStepProps> = ({
               Configure network settings for your workloads by allowing automatically managed VPCs or importing custom
               VPCs across selected regions
             </Text>
-            {privateConnectivityEnabled && (
-              <Text size="small" weight="regular" color="#535862">
-                <Text size="small" weight="semibold" color="#344054" sx={{ display: "inline" }}>
-                  Private Link is enabled -
-                </Text>{" "}
-                <StyledLink href="https://docs.omnistrate.com/operate-guides/byoc-cloud-accounts/#imported-vpc-requirements-for-byoc-privatelink">
-                  View VPC configuration instructions for Private Link
-                </StyledLink>
-              </Text>
-            )}
           </>
         }
       >
         <Stack gap="16px">
+          {cloudProvider === "aws" && (
+            <Stack direction="row" alignItems="flex-start" gap="12px">
+              <Checkbox
+                data-testid="private-connectivity-checkbox"
+                checked={privateConnectivityEnabled}
+                disabled
+                inputProps={{ "aria-label": "Enable Private Connectivity" }}
+                checkedIcon={
+                  <Box
+                    className="private-connectivity-checked-icon"
+                    sx={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: "6px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: colors.purple600,
+                      color: colors.white,
+                    }}
+                  >
+                    <CheckIcon sx={{ fontSize: 16 }} />
+                  </Box>
+                }
+                sx={{
+                  p: 0,
+                  "&.Mui-disabled.Mui-checked .private-connectivity-checked-icon": {
+                    backgroundColor: colors.purple200,
+                    border: `1px solid ${colors.gray300}`,
+                  },
+                }}
+              />
+              <Stack gap="2px">
+                <Text size="small" weight="medium">
+                  Enable Private Connectivity
+                </Text>
+                <Text size="xsmall" weight="regular" color="#535862">
+                  Private Link is {privateConnectivityEnabled ? "enabled" : "disabled"} -{" "}
+                  <StyledLink href="https://docs.omnistrate.com/operate-guides/byoc-cloud-accounts/#imported-vpc-requirements-for-byoc-privatelink">
+                    View VPC configuration instructions for Private Link
+                  </StyledLink>
+                </Text>
+              </Stack>
+            </Stack>
+          )}
+
           {/* Enable new VPCs */}
           {(() => {
             const canUncheckNewVpcs = values.bringOwnVpcs;
             return (
-              <Stack direction="row" alignItems="center" gap="12px">
+              <Stack direction="row" alignItems="flex-start" gap="12px">
                 <Tooltip
                   title={
-                    !canUncheckNewVpcs && values.enableNewVpcs
-                      ? "Keep Bring your own VPCs enabled before disabling new VPC creation"
-                      : ""
+                    areVpcOptionsLoading
+                      ? VPC_CONFIGURATION_LOADING_MESSAGE
+                      : !isVPCConfigurationSupported
+                        ? VPC_CONFIGURATION_UNSUPPORTED_MESSAGE
+                        : !canUncheckNewVpcs && values.enableNewVpcs
+                          ? AT_LEAST_ONE_VPC_OPTION_MESSAGE
+                          : ""
                   }
                   placement="top"
                   arrow
@@ -370,7 +417,7 @@ const ConfigureVPCsStep: React.FC<ConfigureVPCsStepProps> = ({
                         if (!e.target.checked && !values.bringOwnVpcs) return;
                         onChange({ enableNewVpcs: e.target.checked });
                       }}
-                      disabled={!canUncheckNewVpcs}
+                      disabled={areVpcOptionsLoading || !canUncheckNewVpcs}
                       checkedIcon={
                         <Box
                           className="bring-own-vpcs-checked-icon"
@@ -399,9 +446,14 @@ const ConfigureVPCsStep: React.FC<ConfigureVPCsStepProps> = ({
                   </span>
                 </Tooltip>
 
-                <Text size="small" weight="medium">
-                  Enable creating new VPCs
-                </Text>
+                <Stack gap="2px">
+                  <Text size="small" weight="medium">
+                    Enable creating new VPCs
+                  </Text>
+                  <Text size="xsmall" weight="regular" color="#535862">
+                    Automatically create new VPCs for deployments when needed
+                  </Text>
+                </Stack>
               </Stack>
             );
           })()}
@@ -410,16 +462,18 @@ const ConfigureVPCsStep: React.FC<ConfigureVPCsStepProps> = ({
           {(() => {
             const isBringOwnVpcsEnabledForProvider = isBringOwnVpcsSupported(cloudProvider);
             return (
-              <Stack direction="row" alignItems="center" gap="12px">
+              <Stack direction="row" alignItems="flex-start" gap="12px">
                 <Tooltip
                   title={
-                    !isBringOwnVpcsEnabledForProvider
-                      ? "Bring your own VPCs is currently available for AWS, GCP, and Azure only"
-                      : bringOwnVpcsLocked
-                        ? "Bring your own VPCs is enabled because cloud-native VPCs are available."
-                        : !values.enableNewVpcs && values.bringOwnVpcs
-                          ? "Keep new VPC creation enabled before disabling Bring your own VPCs"
-                          : ""
+                    areVpcOptionsLoading
+                      ? VPC_CONFIGURATION_LOADING_MESSAGE
+                      : !isBringOwnVpcsEnabledForProvider
+                        ? VPC_CONFIGURATION_UNSUPPORTED_MESSAGE
+                        : bringOwnVpcsLocked
+                          ? "Bring your own VPCs is enabled because cloud-native VPCs are available."
+                          : !values.enableNewVpcs && values.bringOwnVpcs
+                            ? AT_LEAST_ONE_VPC_OPTION_MESSAGE
+                            : ""
                   }
                   placement="top"
                   arrow
@@ -432,7 +486,7 @@ const ConfigureVPCsStep: React.FC<ConfigureVPCsStepProps> = ({
                         if (!e.target.checked && !values.enableNewVpcs) return;
                         onChange({ bringOwnVpcs: e.target.checked });
                       }}
-                      disabled={!isBringOwnVpcsEnabledForProvider || bringOwnVpcsLocked}
+                      disabled={areVpcOptionsLoading || !isBringOwnVpcsEnabledForProvider || bringOwnVpcsLocked}
                       checkedIcon={
                         <Box
                           className="bring-own-vpcs-checked-icon"
@@ -461,9 +515,14 @@ const ConfigureVPCsStep: React.FC<ConfigureVPCsStepProps> = ({
                   </span>
                 </Tooltip>
 
-                <Text size="small" weight="medium" color={isBringOwnVpcsEnabledForProvider ? "#344054" : "#98A2B3"}>
-                  Bring your own VPCs for deployments
-                </Text>
+                <Stack gap="2px">
+                  <Text size="small" weight="medium" color={isBringOwnVpcsEnabledForProvider ? "#344054" : "#98A2B3"}>
+                    Bring your own VPCs for deployments
+                  </Text>
+                  <Text size="xsmall" weight="regular" color={isBringOwnVpcsEnabledForProvider ? "#535862" : "#98A2B3"}>
+                    Import VPCs from this cloud account for use in deployments
+                  </Text>
+                </Stack>
               </Stack>
             );
           })()}

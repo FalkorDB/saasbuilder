@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { COLUMN_PREFERENCE_TABLE_IDS } from "src/components/ColumnPreference/tableIds";
 import { DateRange } from "src/components/DateRangePicker/DateTimeRangePickerStatic";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { EventType } from "src/types/event";
@@ -49,6 +50,7 @@ const EventsPage = () => {
 
       <div>
         <EventsTable
+          tableId={COLUMN_PREFERENCE_TABLE_IDS.auditLogs}
           HeaderComponent={EventsTableHeader}
           HeaderProps={{
             refetchAuditLogs: () => {
@@ -86,6 +88,10 @@ const EventsPage = () => {
           setPageIndex={setPageIndex}
           showPagination={true}
           noRowsText="No audit logs"
+          isFilterApplied={Boolean(
+            selectedDateRange?.startDate || selectedDateRange?.endDate || selectedServiceId || selectedEventTypes.length
+          )}
+          entityName="audit logs"
         />
       </div>
     </PageContainer>

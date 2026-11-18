@@ -3,15 +3,14 @@ import { jwtDecode } from "jwt-decode";
 
 import { baseURL } from "src/axios";
 import { COOKIE_NAME, REFRESH_COOKIE_NAME } from "src/server/utils/authCookieConstants";
-import {
-  clearAuthCookieEdge,
-  clearIndicatorCookieEdge,
-  clearRefreshCookieEdge,
-} from "src/server/utils/authCookieEdge";
+import { clearAuthCookieEdge, clearIndicatorCookieEdge, clearRefreshCookieEdge } from "src/server/utils/authCookieEdge";
+import { buildContentSecurityPolicy } from "src/server/utils/contentSecurityPolicy";
 import { getEnvironmentType } from "src/server/utils/getEnvironmentType";
 import { resolveDestination } from "src/utils/route/resolveDestination";
 
 const environmentType = getEnvironmentType();
+// Pages anyone can open: they get the script policy but skip the sign-in checks.
+const PUBLIC_PAGES = ["/privacy-policy", "/cookie-policy", "/terms-of-use", "/idp-auth", "/validate-token"];
 
 const applyCrossOriginPolicyHeaders = (response) => {
   response.headers.set("Cross-Origin-Embedder-Policy", "unsafe-none");
@@ -32,6 +31,17 @@ function isTokenMissingOrExpired(tokenValue) {
 }
 
 export async function proxy(request) {
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const policy = buildContentSecurityPolicy(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", policy);
+
+  const nextWithNonce = () => {
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    response.headers.set("Content-Security-Policy", policy);
+    return response;
+  };
   // Handle preflight requests early to avoid page-route OPTIONS failures.
   if (request.method === "OPTIONS") {
     return applyCrossOriginPolicyHeaders(
@@ -50,8 +60,10 @@ export async function proxy(request) {
   const refreshToken = request.cookies.get(REFRESH_COOKIE_NAME);
   const path = request.nextUrl.pathname;
 
+  if (PUBLIC_PAGES.some((page) => path.startsWith(page))) return nextWithNonce();
+
   if (path.startsWith("/signup") || path.startsWith("/reset-password") || path.startsWith("/change-password")) {
-    if (environmentType === "PROD") return;
+    if (environmentType === "PROD") return nextWithNonce();
   }
 
   // Reached only when the session is unrecoverable (no refresh cookie, or
@@ -69,7 +81,7 @@ export async function proxy(request) {
     const search = request.nextUrl.search || "";
 
     if (currentPath.startsWith("/signin")) {
-      const passthrough = NextResponse.next();
+      const passthrough = nextWithNonce();
       passthrough.headers.set("x-middleware-cache", "no-cache");
       clearAllAuthCookies(passthrough);
       return passthrough;
@@ -91,7 +103,7 @@ export async function proxy(request) {
       // interceptor recover via refreshAuth(). Refreshing here would race
       // with the client for the single-use refresh token: the loser gets
       // 401 and logs the user out.
-      const passthrough = NextResponse.next();
+      const passthrough = nextWithNonce();
       passthrough.headers.set("x-middleware-cache", "no-cache");
       return applyCrossOriginPolicyHeaders(passthrough);
     }
@@ -124,7 +136,7 @@ export async function proxy(request) {
     return applyCrossOriginPolicyHeaders(response);
   }
 
-  const response = NextResponse.next();
+  const response = nextWithNonce();
   response.headers.set("x-middleware-cache", "no-cache");
   return applyCrossOriginPolicyHeaders(response);
 }
@@ -134,7 +146,6 @@ export async function proxy(request) {
  * - signup
  * - reset-password
  * - change-password
- * - validate-token
  * - _next/static (static files)
  * - _next/image (image optimization files)
  * - favicon.ico (favicon file)
@@ -142,6 +153,6 @@ export async function proxy(request) {
 
 export const config = {
   matcher: [
-    "/((?!api/action|api/signup|api/signin|api/logout|api/refresh-token|api/reset-password|api/provider-details|api/download-cli|api/download-installer|idp-auth|api/sign-in-with-idp|privacy-policy|cookie-policy|terms-of-use|favicon.ico|_next/image|_next/static|static|validate-token|mail).*)",
+    "/((?!api/action|api/signup|api/signin|api/logout|api/refresh-token|api/reset-password|api/provider-details|api/download-cli|api/download-installer|api/sign-in-with-idp|favicon.ico|_next/image|_next/static|static|mail).*)",
   ],
 };

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import DOMPurify from "isomorphic-dompurify";
 
 import { ServiceOffering } from "src/types/serviceOffering";
+import { sanitizeHTML } from "src/utils/sanitizeHTML";
 
 import APIDocumentation from "../APIDocumentation/APIDocumentation";
 import CardWithTitle from "../Card/CardWithTitle";
@@ -76,7 +76,7 @@ const ServicePlanDetails: React.FC<ServicePlanDetailsProps> = ({ serviceOffering
               className={"ql-editor"}
               style={{ wordBreak: "break-word" }}
               dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(
+                __html: sanitizeHTML(
                   currentTab === "plan-details"
                     ? serviceOffering.productTierPlanDescription
                     : currentTab === "documentation"
@@ -86,30 +86,7 @@ const ServicePlanDetails: React.FC<ServicePlanDetailsProps> = ({ serviceOffering
                           serviceOffering.productTierPricing?.value
                         : currentTab === "support"
                           ? serviceOffering.productTierSupport
-                          : "",
-                  {
-                    ALLOWED_TAGS: [
-                      "b",
-                      "i",
-                      "em",
-                      "strong",
-                      "a",
-                      "p",
-                      "ul",
-                      "ol",
-                      "li",
-                      "br",
-                      "code",
-                      "pre",
-                      "h1",
-                      "h2",
-                      "h3",
-                      "blockquote",
-                      "span",
-                    ],
-                    ALLOWED_ATTR: ["href", "target", "rel", "class"],
-                    ALLOWED_URI_REGEXP: /^(https?:|mailto:|\/)/i,
-                  }
+                          : ""
                 ),
               }}
             />

@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import CloudProviderRadio from "app/(dashboard)/components/CloudProviderRadio/CloudProviderRadio";
 import SubscriptionMenu from "app/(dashboard)/components/SubscriptionMenu/SubscriptionMenu";
 import SubscriptionPlanRadio from "app/(dashboard)/components/SubscriptionPlanRadio/SubscriptionPlanRadio";
 import { getServiceMenuItems } from "app/(dashboard)/instances/utils";
 import { useFormik } from "formik";
+import { useMemo } from "react";
 import { useSelector } from "react-redux";
 
+import GridDynamicForm from "components/DynamicForm/GridDynamicForm";
+import { FormConfiguration } from "components/DynamicForm/types";
+import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import { $api } from "src/api/query";
 import { getResourceInstanceDetails } from "src/api/resourceInstance";
 import Switch from "src/components/Switch/Switch";
@@ -23,9 +26,6 @@ import { ServiceOffering } from "src/types/serviceOffering";
 import { getAwsBootstrapArn, getGcpServiceEmail } from "src/utils/accountConfig/accountConfig";
 import { CLOUD_PROVIDER_DEFAULT_CREATION_METHOD } from "src/utils/constants/accountConfig";
 import { getResultParams } from "src/utils/instance";
-import GridDynamicForm from "components/DynamicForm/GridDynamicForm";
-import { FormConfiguration } from "components/DynamicForm/types";
-import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 
 import { CloudAccountValidationSchema } from "../constants";
 import { getInitialValues, getValidSubscriptionForInstanceCreation } from "../utils";
@@ -143,7 +143,6 @@ const CloudAccountForm = ({
             if (values.cloudProvider === "aws") {
               resultParams.aws_account_id = values.awsAccountId;
               resultParams.aws_bootstrap_role_arn = getAwsBootstrapArn(values.awsAccountId);
-              resultParams.private_link = values.enablePrivateConnectivity;
             } else if (values.cloudProvider === "gcp") {
               resultParams.gcp_project_id = values.gcpProjectId;
               resultParams.gcp_project_number = values.gcpProjectNumber;
@@ -188,7 +187,6 @@ const CloudAccountForm = ({
             ...(values.cloudProvider === CLOUD_PROVIDERS.aws
               ? {
                   aws_account_id: values.awsAccountId,
-                  private_link: values.enablePrivateConnectivity,
                 }
               : values.cloudProvider === CLOUD_PROVIDERS.gcp
                 ? {
@@ -247,7 +245,6 @@ const CloudAccountForm = ({
           aws_account_id: values.awsAccountId.trim(),
           account_configuration_method: values.accountConfigurationMethod,
           aws_bootstrap_role_arn: getAwsBootstrapArn(values.awsAccountId.trim()),
-          private_link: values.enablePrivateConnectivity,
         };
       } else if (values.cloudProvider === "gcp") {
         requestParams = {
@@ -465,7 +462,7 @@ const CloudAccountForm = ({
                   // @ts-ignore
                   onChange={(cloudProvider: string) => {
                     setFieldValue("accountConfigurationMethod", CLOUD_PROVIDER_DEFAULT_CREATION_METHOD[cloudProvider]);
-                    setFieldValue("enablePrivateConnectivity", cloudProvider === "aws");
+                    setFieldValue("enablePrivateConnectivity", false);
                   }}
                   disabled={formMode !== "create"}
                 />
@@ -494,8 +491,8 @@ const CloudAccountForm = ({
               label: "Enable Private Connectivity",
               subLabel: (
                 <>
-                  Route all control-plane ↔ app-plane communication over provider-native private connectivity (AWS
-                  PrivateLink).
+                  Route all control-plane ↔ app-plane communication over provider-native private connectivity{" "}
+                  {cloudProvider === "aws" ? "(AWS PrivateLink)." : "."}
                   <PrivateConnectivityDescription />
                 </>
               ),

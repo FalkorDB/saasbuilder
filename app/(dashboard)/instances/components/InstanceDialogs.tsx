@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { Box } from "@mui/material";
 import FullScreenDrawer from "app/(dashboard)/components/FullScreenDrawer/FullScreenDrawer";
+import { canTakeFinalSnapshotBeforeDeletion } from "app/(dashboard)/instance-snapshots/utils";
 
 import { $api } from "src/api/query";
 import GenerateTokenDialog from "src/components/GenerateToken/GenerateTokenDialog";
@@ -118,7 +119,11 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
   const userData = useSelector(selectUserrootData);
   const [createInstanceModalData, setCreateInstanceModalData] = useState<CreateInstanceModalData | null>(null);
   const [takeFinalSnapshot, setTakeFinalSnapshot] = useState(true);
-  const showSnapshotBeforeDeleteOption = Boolean(instance?.snapshotBeforeDeletionEnabled);
+  const snapshotBeforeDeletionEnabled = Boolean(instance?.snapshotBeforeDeletionEnabled);
+  const showSnapshotBeforeDeleteOption = canTakeFinalSnapshotBeforeDeletion(
+    snapshotBeforeDeletionEnabled,
+    instance?.status
+  );
   const snackbar = useSnackbar();
   const [isDeletionReasonLoading, setIsDeletionReasonLoading] = useState(false);
   const [deletionReasonProvided, setDeletionReasonProvided] = useState(false);
@@ -369,7 +374,9 @@ const InstanceDialogs: React.FC<InstanceDialogsProps> = ({
               query: {
                 subscriptionId: subscription.id,
                 skipFinalSnapshot:
-                  overlayType === "delete-dialog" && showSnapshotBeforeDeleteOption ? !takeFinalSnapshot : undefined,
+                  overlayType === "delete-dialog" && snapshotBeforeDeletionEnabled
+                    ? !showSnapshotBeforeDeleteOption || !takeFinalSnapshot
+                    : undefined,
               },
             },
           };

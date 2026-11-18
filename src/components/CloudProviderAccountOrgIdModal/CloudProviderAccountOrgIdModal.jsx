@@ -8,28 +8,28 @@ import { useEffect, useRef, useState } from "react";
 import Button from "src/components/Button/Button";
 import { Text } from "src/components/Typography/Typography";
 import useEnvironmentType from "src/hooks/useEnvironmentType";
+import { colors } from "src/themeConfig";
 import { addQuotesToShellCommand } from "src/utils/accountConfig/accountConfig";
-import { hasAwsCloudFormationCliCommands } from "src/utils/accountConfig/awsCloudFormation";
+import {
+  getAwsCloudFormationUpdateConsoleUrl,
+  parseAwsCloudFormationQuickCreateUrl,
+} from "src/utils/accountConfig/awsCloudFormation";
 import {
   // ACCOUNT_CREATION_METHODS,
   getAccountConfigStatusBasedHeader,
 } from "src/utils/constants/accountConfig";
+import getSafeExternalURL from "src/utils/getSafeExternalURL";
 import { getResultParams } from "src/utils/instance";
 
 import AwsCloudFormationInstructions from "../AwsCloudFormationInstructions/AwsCloudFormationInstructions";
+import CommandBlock from "../AwsCloudFormationInstructions/CommandBlock";
 import LoadingSpinnerSmall from "../CircularProgress/CircularProgress";
 import CopyToClipboardButton from "../CopyClipboardButton/CopyClipboardButton";
 import InstructionsModalIcon from "../Icons/AccountConfig/InstructionsModalIcon";
-import ArrowBulletIcon from "../Icons/ArrowIcon/ArrowBulletIcon";
+import CircleCheckIcon from "../Icons/CircleCheck/CircleCheckIcon";
+import InfoCircleTooltipIcon from "../Icons/InfoCircleTooltip/InfoCircleTooltip";
 
-const ArrowBulletSmall = () => <ArrowBulletIcon width={20} height={20} />;
-
-const STATUS_TITLE_MAP = {
-  VERIFYING: "Account Configuration Instructions",
-  PENDING: "Account Configuration Instructions",
-  READY: "Account Configuration Ready",
-  FAILED: "Account Config Verification Failed",
-};
+const AWS_CLOUD_FORMATION_GUIDE_URL = "https://youtu.be/c3HNnM8UJBE";
 
 const StyledContainer = styled(Box)({
   position: "fixed",
@@ -39,18 +39,21 @@ const StyledContainer = styled(Box)({
   background: "white",
   borderRadius: "12px",
   boxShadow: "0px 8px 8px -4px rgba(16, 24, 40, 0.03), 0px 20px 24px -4px rgba(16, 24, 40, 0.08)",
-  padding: "24px",
-  width: "100%",
-  maxWidth: "680px",
+  padding: 0,
+  width: "calc(100% - 32px)",
+  maxWidth: "543px",
   // Without a bound, the fixed positioning lets tall content run past the viewport, taking the
   // footer's Close button with it.
-  maxHeight: "calc(100vh - 48px)",
+  maxHeight: "calc(100vh - 40px)",
   display: "flex",
   flexDirection: "column",
   justifyContent: "flex-start",
 });
 
 const Header = styled(Box)({
+  boxSizing: "border-box",
+  minHeight: "92px",
+  padding: "24px 12px 20px 24px",
   width: "100%",
   display: "flex",
   justifyContent: "space-between",
@@ -59,7 +62,8 @@ const Header = styled(Box)({
 });
 
 const Content = styled(Box)({
-  marginTop: "20px",
+  boxSizing: "border-box",
+  padding: "0 24px",
   width: "100%",
   flex: 1,
   minHeight: 0,
@@ -69,7 +73,8 @@ const Content = styled(Box)({
 });
 
 const Footer = styled(Box)({
-  marginTop: "24px",
+  boxSizing: "border-box",
+  padding: "32px 24px 24px",
   width: "100%",
   display: "flex",
   justifyContent: "flex-end",
@@ -98,10 +103,6 @@ const ListItem = styled(Box)({
   gap: "6px",
 });
 
-const ListItemIcon = styled(Box)({
-  flexShrink: 0,
-});
-
 const BodyText = ({ children, ...restProps }) => {
   return (
     <Text size="small" weight="regular" color="#344054" {...restProps}>
@@ -111,9 +112,10 @@ const BodyText = ({ children, ...restProps }) => {
 };
 
 export const TextContainerToCopy = (props) => {
-  const { text, marginTop = "20px" } = props;
+  const { text, marginTop = "20px", dataTestId } = props;
   return (
     <Box
+      data-testid={dataTestId}
       sx={{
         marginTop: marginTop,
         display: "flex",
@@ -156,6 +158,178 @@ export const TextContainerToCopy = (props) => {
     </Box>
   );
 };
+
+/** Explains how to retry AWS setup when its named load-balancer policy already exists. */
+const ExistingLoadBalancerPolicyNotice = () => (
+  <Box sx={{ borderTop: "1px solid #E9EAEB", paddingTop: "12px" }}>
+    <Stack direction="row" alignItems="flex-start" gap="6px">
+      <Box sx={{ display: "flex", paddingTop: "2px", flexShrink: 0 }}>
+        <InfoCircleTooltipIcon color="#7F56D9" width="16px" height="16px" />
+      </Box>
+      <Stack gap="5px" minWidth={0}>
+        <Text size="small" weight="semibold" color="#717680">
+          Existing load balancer policy
+        </Text>
+        <Text size="small" weight="regular" color="#535862">
+          If an existing AWSLoadBalancerControllerIAMPolicy policy causes an error, set CreateLoadBalancerPolicy to
+          &quot;false&quot; and try again.
+        </Text>
+      </Stack>
+    </Stack>
+  </Box>
+);
+
+/** Renders the ready-state AWS reconfiguration instructions from the Cloud Accounts design. */
+const AwsReconfigurationInstructions = ({ awsAccountId, cloudFormationUrl, cloudFormationCreateUrl }) => {
+  const updateConsoleUrl = getAwsCloudFormationUpdateConsoleUrl(cloudFormationUrl);
+  const sourceUrl = getSafeExternalURL(cloudFormationCreateUrl || cloudFormationUrl);
+  const templateDetails = parseAwsCloudFormationQuickCreateUrl(sourceUrl);
+  const templateUrl = getSafeExternalURL(
+    templateDetails?.templateUrl || (sourceUrl && !new URL(sourceUrl).hash ? sourceUrl : undefined)
+  );
+
+  return (
+    <Stack gap="20px">
+      <Box>
+        <BodyText weight="medium">AWS Account ID</BodyText>
+        <TextContainerToCopy dataTestId="aws-account-id" text={awsAccountId} marginTop="6px" />
+      </Box>
+
+      <Stack gap="12px">
+        <Stack
+          direction="row"
+          alignItems="center"
+          gap="4px"
+          sx={{ "& > svg": { width: "18px", height: "18px", flexShrink: 0 } }}
+        >
+          <CircleCheckIcon />
+          <Text size="small" weight="semibold" color="#344054">
+            This account has already been configured successfully.
+          </Text>
+        </Stack>
+
+        <AwsCloudFormationInstructions
+          cloudFormationUrl={cloudFormationUrl}
+          cloudFormationCreateUrl={cloudFormationCreateUrl}
+          variant="reconfiguration"
+          awsAccountId={awsAccountId}
+          contentSpacing="12px"
+          cliDescription={
+            <Text size="small" weight="regular" color="#344054">
+              To reconfigure this account, run the command below from a terminal authenticated to AWS account{" "}
+              <Box component="span" sx={{ fontWeight: 600 }}>
+                {awsAccountId}
+              </Box>
+              . It updates the existing CloudFormation stack.
+            </Text>
+          }
+          footer={<ExistingLoadBalancerPolicyNotice />}
+        >
+          <Stack gap="28px">
+            {updateConsoleUrl ? (
+              <BodyText>
+                To reconfigure it, please update your existing CloudFormation stack for AWS account{" "}
+                <Text component="span" weight="semibold" color={colors.gray700}>
+                  {awsAccountId}
+                </Text>{" "}
+                using the{" "}
+                <StyledLink href={updateConsoleUrl} target="_blank" rel="noopener noreferrer">
+                  link
+                </StyledLink>
+                .
+              </BodyText>
+            ) : (
+              <Stack gap="12px">
+                <BodyText>
+                  Open{" "}
+                  <StyledLink
+                    href="https://console.aws.amazon.com/cloudformation/home"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    AWS CloudFormation
+                  </StyledLink>{" "}
+                  for this account, select your existing account setup stack, and choose Update.
+                </BodyText>
+                {templateUrl ? (
+                  <BodyText>
+                    To use the latest account setup template, choose Replace current template and enter the{" "}
+                    <StyledLink href={templateUrl} target="_blank" rel="noopener noreferrer">
+                      template URL
+                    </StyledLink>
+                    . Keep the existing parameter values unless you intend to change them, then review and submit the
+                    update.
+                  </BodyText>
+                ) : (
+                  <BodyText>
+                    Keep the current template and existing parameter values unless you intend to change them, then
+                    review and submit the update.
+                  </BodyText>
+                )}
+              </Stack>
+            )}
+
+            <Text size="small" weight="regular" color="#344054">
+              For guidance, our instructional video is available{" "}
+              <StyledLink href={AWS_CLOUD_FORMATION_GUIDE_URL} target="_blank" rel="noopener noreferrer">
+                here
+              </StyledLink>
+              .
+            </Text>
+          </Stack>
+        </AwsCloudFormationInstructions>
+      </Stack>
+    </Stack>
+  );
+};
+
+/** Displays lifecycle copy with the same compact success treatment used by the AWS reference. */
+const AccountConfigurationStatus = ({ status, accountConfigId }) => {
+  if (status?.toUpperCase() === "READY") {
+    return (
+      <Stack
+        direction="row"
+        alignItems="center"
+        gap="4px"
+        sx={{ "& > svg": { width: "18px", height: "18px", flexShrink: 0 } }}
+      >
+        <CircleCheckIcon />
+        <Text size="small" weight="semibold" color="#344054">
+          This account has already been configured successfully.
+        </Text>
+      </Stack>
+    );
+  }
+
+  return (
+    <Text size="small" weight="semibold" color="#344054">
+      {getAccountConfigStatusBasedHeader(status, accountConfigId)}
+    </Text>
+  );
+};
+
+/** Displays provider bootstrap commands with the shared command-viewer treatment. */
+const ShellCommandBlock = ({ command, dataTestId }) => (
+  <Box marginTop="12px">
+    <CommandBlock title="Run command" command={command} dataTestId={dataTestId} />
+  </Box>
+);
+
+/** Failed-state guidance for accounts whose provider IDs never reached the instance's result params. */
+const FailedAccountConfigInstructions = () => (
+  <Box width="100%">
+    <AccountConfigurationStatus status="FAILED" />
+
+    <List>
+      <ListItem>
+        <Box display={"flex"} flexDirection={"column"} gap={"10px"}>
+          <BodyText>You may delete this failed configuration and retry adding it.</BodyText>
+          <BodyText>If the issue persists, please contact Support for assistance.</BodyText>
+        </Box>
+      </ListItem>
+    </List>
+  </Box>
+);
 
 const CreationTimeInstructions = (props) => {
   const {
@@ -300,20 +474,17 @@ const CreationTimeInstructions = (props) => {
               cloudFormationUrl={cloudFormationTemplateUrl}
               variant="onboarding"
               awsAccountId={accountInstructionDetails?.awsAccountID}
+              contentSpacing="12px"
+              footer={<ExistingLoadBalancerPolicyNotice />}
             >
-              <BodyText>
-                Your account details have been saved. To complete the setup please create your CloudFormation Stack
-                using the provided template {cloudformationlink}.
-              </BodyText>
+              <Stack gap="28px">
+                <BodyText>
+                  Your account details have been saved. To complete the setup, create your CloudFormation Stack using
+                  the provided template {cloudformationlink}.
+                </BodyText>
 
-              <BodyText sx={{ marginTop: "20px" }}>
-                If an existing AWSLoadBalancerControllerIAMPolicy policy causes an error while creating the
-                CloudFormation stack, set the parameter CreateLoadBalancerPolicy to &quot;false&quot;.
-              </BodyText>
-
-              <BodyText sx={{ marginTop: "20px" }}>
-                For guidance, our instructional video is available {cloudFormationGuide}.
-              </BodyText>
+                <BodyText>For guidance, our instructional video is available {cloudFormationGuide}.</BodyText>
+              </Stack>
             </AwsCloudFormationInstructions>
           </Box>
         ) : (
@@ -344,7 +515,10 @@ const CreationTimeInstructions = (props) => {
                 Please open the Google Cloud Shell environment using the following link {gcpCloudShellLink} and execute
                 the below command.
               </BodyText>
-              <TextContainerToCopy text={addQuotesToShellCommand(gcpBootstrapShellCommand)} />
+              <ShellCommandBlock
+                command={addQuotesToShellCommand(gcpBootstrapShellCommand)}
+                dataTestId="gcp-bootstrap-command"
+              />
               <BodyText sx={{ marginTop: "20px" }}>
                 For guidance, our instructional video is available {gcpShellScriptGuide}.
               </BodyText>
@@ -378,7 +552,10 @@ const CreationTimeInstructions = (props) => {
                 Please open the Azure Cloud Shell environment using the following link {azureCloudShellLink} and execute
                 the below command.
               </BodyText>
-              <TextContainerToCopy text={addQuotesToShellCommand(azureBootstrapShellCommand)} />
+              <ShellCommandBlock
+                command={addQuotesToShellCommand(azureBootstrapShellCommand)}
+                dataTestId="azure-bootstrap-command"
+              />
               <BodyText sx={{ marginTop: "20px" }}>
                 For guidance, our instructional video is available {azureShellScriptGuide}.
               </BodyText>
@@ -412,8 +589,9 @@ const CreationTimeInstructions = (props) => {
                 Please open the OCI Cloud Shell environment using the following link {ociCloudShellLink} and execute the
                 below command.
               </BodyText>
-              <TextContainerToCopy
-                text={addQuotesToShellCommand(accountInstructionDetails?.ociBootstrapShellCommand)}
+              <ShellCommandBlock
+                command={addQuotesToShellCommand(accountInstructionDetails?.ociBootstrapShellCommand)}
+                dataTestId="oci-bootstrap-command"
               />
               {/* <BodyText sx={{ marginTop: "20px" }}>
                 For guidance, our instructional video is available {ociShellScriptGuide}.
@@ -451,7 +629,10 @@ const NonCreationTimeInstructions = (props) => {
     ociCloudShellLink,
     // ociShellScriptGuide,
     accountInstructionDetails,
+    isAwsReconfiguration,
   } = props;
+
+  const status = String(selectedAccountConfig?.status ?? "").toUpperCase();
 
   if (
     !accountInstructionDetails?.awsAccountID &&
@@ -459,12 +640,26 @@ const NonCreationTimeInstructions = (props) => {
     !accountInstructionDetails?.azureSubscriptionID &&
     !accountInstructionDetails?.ociTenancyID
   ) {
+    if (status === "FAILED") return <FailedAccountConfigInstructions />;
+
     return (
       <BodyText>
         Your account details are being configured. Please check back shortly for detailed setup instructions.
       </BodyText>
     );
   }
+
+  if (isAwsReconfiguration) {
+    return (
+      <AwsReconfigurationInstructions
+        awsAccountId={accountInstructionDetails.awsAccountID}
+        cloudFormationUrl={cloudFormationTemplateUrl}
+        cloudFormationCreateUrl={cloudFormationTemplateUrl}
+      />
+    );
+  }
+
+  const isReady = status === "READY";
 
   return (
     <>
@@ -515,39 +710,32 @@ const NonCreationTimeInstructions = (props) => {
           </Stack>
         )}
 
-        <BodyText sx={{ marginTop: "20px", fontWeight: 600 }}>
-          {getAccountConfigStatusBasedHeader(
-            selectedAccountConfig?.status,
-            getResultParams(selectedAccountConfig)?.cloud_provider_account_config_id
-          )}
-        </BodyText>
+        <Box marginTop="20px">
+          <AccountConfigurationStatus
+            status={status}
+            accountConfigId={getResultParams(selectedAccountConfig)?.cloud_provider_account_config_id}
+          />
+        </Box>
 
         <List>
           <>
             {accountInstructionDetails?.awsAccountID && (
               <ListItem>
-                {!hasAwsCloudFormationCliCommands(cloudFormationTemplateUrl) && (
-                  <ListItemIcon>
-                    <ArrowBulletSmall />
-                  </ListItemIcon>
-                )}
                 {cloudFormationTemplateUrl ? (
                   <Box flex={1} minWidth={0}>
                     <AwsCloudFormationInstructions
                       cloudFormationUrl={cloudFormationTemplateUrl}
                       variant="onboarding"
                       awsAccountId={accountInstructionDetails?.awsAccountID}
+                      contentSpacing="12px"
+                      footer={<ExistingLoadBalancerPolicyNotice />}
                     >
-                      <Box display={"flex"} flexDirection={"column"} gap={"10px"}>
+                      <Stack gap="28px">
                         <BodyText>
                           Please create your CloudFormation Stack using the provided template {cloudformationlink}.
                         </BodyText>
-                        <BodyText>
-                          If an existing AWSLoadBalancerControllerIAMPolicy policy causes an error while creating the
-                          CloudFormation stack, set the parameter CreateLoadBalancerPolicy to &quot;false&quot;.
-                        </BodyText>
                         <BodyText>For guidance, our instructional video is available {cloudFormationGuide}.</BodyText>
-                      </Box>
+                      </Stack>
                     </AwsCloudFormationInstructions>
                   </Box>
                 ) : selectedAccountConfig?.status === "FAILED" ? (
@@ -569,20 +757,19 @@ const NonCreationTimeInstructions = (props) => {
             {accountInstructionDetails?.gcpProjectID && (
               <>
                 <ListItem>
-                  <ListItemIcon>
-                    <ArrowBulletSmall />
-                  </ListItemIcon>
-
                   {gcpBootstrapShellCommand ? (
                     <Box flex={1} overflow={"hidden"}>
                       <BodyText>
-                        Please open the Google Cloud Shell environment using the following link {gcpCloudShellLink} and
-                        execute the command below.
+                        {isReady ? "To reconfigure this account, open " : "Open "}
+                        {gcpCloudShellLink} and run the command below.
                       </BodyText>
 
-                      <TextContainerToCopy text={addQuotesToShellCommand(gcpBootstrapShellCommand)} marginTop="12px" />
+                      <ShellCommandBlock
+                        command={addQuotesToShellCommand(gcpBootstrapShellCommand)}
+                        dataTestId="gcp-bootstrap-command"
+                      />
                       <BodyText sx={{ marginTop: "20px" }}>
-                        For guidance our instructional video is {gcpShellScriptGuide}.
+                        For guidance, our instructional video is available {gcpShellScriptGuide}.
                       </BodyText>
                     </Box>
                   ) : selectedAccountConfig?.status === "FAILED" ? (
@@ -605,20 +792,19 @@ const NonCreationTimeInstructions = (props) => {
 
             {accountInstructionDetails?.azureSubscriptionID && (
               <ListItem>
-                <ListItemIcon>
-                  <ArrowBulletSmall />
-                </ListItemIcon>
-
                 {azureBootstrapShellCommand ? (
                   <Box flex={1} overflow={"hidden"}>
                     <BodyText>
-                      Please open the Azure Cloud Shell environment using the following link {azureCloudShellLink} and
-                      execute the command below.
+                      {isReady ? "To reconfigure this account, open " : "Open "}
+                      {azureCloudShellLink} and run the command below.
                     </BodyText>
 
-                    <TextContainerToCopy text={addQuotesToShellCommand(azureBootstrapShellCommand)} marginTop="12px" />
+                    <ShellCommandBlock
+                      command={addQuotesToShellCommand(azureBootstrapShellCommand)}
+                      dataTestId="azure-bootstrap-command"
+                    />
                     <BodyText sx={{ marginTop: "20px" }}>
-                      For guidance our instructional video is {azureShellScriptGuide}.
+                      For guidance, our instructional video is available {azureShellScriptGuide}.
                     </BodyText>
                   </Box>
                 ) : selectedAccountConfig?.status === "FAILED" ? (
@@ -640,20 +826,16 @@ const NonCreationTimeInstructions = (props) => {
 
             {accountInstructionDetails?.ociTenancyID && (
               <ListItem>
-                <ListItemIcon>
-                  <ArrowBulletSmall />
-                </ListItemIcon>
-
                 {accountInstructionDetails?.ociBootstrapShellCommand ? (
                   <Box flex={1} overflow={"hidden"}>
                     <BodyText>
-                      Please open the OCI Cloud Shell environment using the following link {ociCloudShellLink} and
-                      execute the command below.
+                      {isReady ? "To reconfigure this account, open " : "Open "}
+                      {ociCloudShellLink} and run the command below.
                     </BodyText>
 
-                    <TextContainerToCopy
-                      text={addQuotesToShellCommand(accountInstructionDetails?.ociBootstrapShellCommand)}
-                      marginTop="12px"
+                    <ShellCommandBlock
+                      command={addQuotesToShellCommand(accountInstructionDetails?.ociBootstrapShellCommand)}
+                      dataTestId="oci-bootstrap-command"
                     />
                     {/* <BodyText sx={{ marginTop: "20px" }}>
                       For guidance, our instructional video is available {ociShellScriptGuide}.
@@ -709,10 +891,14 @@ function CloudProviderAccountOrgIdModal(props) {
     </StyledLink>
   );
 
-  const cloudformationlink = (
-    <StyledLink href={cloudFormationTemplateUrl ?? ""} target="_blank" rel="noopener noreferrer">
+  const safeCloudFormationTemplateUrl = getSafeExternalURL(cloudFormationTemplateUrl);
+
+  const cloudformationlink = safeCloudFormationTemplateUrl ? (
+    <StyledLink href={safeCloudFormationTemplateUrl} target="_blank" rel="noopener noreferrer">
       here
     </StyledLink>
+  ) : (
+    "here"
   );
 
   const azureCloudShellLink = (
@@ -756,7 +942,7 @@ function CloudProviderAccountOrgIdModal(props) {
   );
 
   const cloudFormationGuide = isAccessPage ? (
-    <StyledLink href="https://youtu.be/c3HNnM8UJBE" target="_blank" rel="noopener noreferrer">
+    <StyledLink href={AWS_CLOUD_FORMATION_GUIDE_URL} target="_blank" rel="noopener noreferrer">
       {isAccountCreation ? "here" : "guide"}
     </StyledLink>
   ) : (
@@ -765,9 +951,13 @@ function CloudProviderAccountOrgIdModal(props) {
     </StyledLink>
   );
 
+  const isAwsReconfiguration =
+    ["READY", "RUNNING"].includes(String(selectedAccountConfig?.status ?? "").toUpperCase()) &&
+    Boolean(accountInstructionDetails?.awsAccountID);
+
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth={"tablet"}>
-      <StyledContainer>
+    <Dialog disableRestoreFocus open={open} onClose={handleClose} fullWidth>
+      <StyledContainer data-testid="account-configuration-dialog">
         <Header>
           <Stack direction="row" alignItems="center" gap="16px">
             <Box
@@ -785,23 +975,21 @@ function CloudProviderAccountOrgIdModal(props) {
               <InstructionsModalIcon />
             </Box>
             <Text size="large" weight="semibold">
-              {isAccountCreation || !STATUS_TITLE_MAP[selectedAccountConfig?.status]
-                ? "Account Configuration Instructions"
-                : STATUS_TITLE_MAP[selectedAccountConfig?.status]}
+              Account Configuration Instructions
             </Text>
           </Stack>
-          <IconButton onClick={handleClose} sx={{ alignSelf: "flex-start" }}>
+          <IconButton onClick={handleClose} sx={{ alignSelf: "flex-start", width: "44px", height: "44px" }}>
             <CloseIcon sx={{ color: "#98A2B3" }} />
           </IconButton>
         </Header>
         <Content>
-          {isAccountCreation ? (
+          {isAccountCreation && !isAwsReconfiguration ? (
             <CreationTimeInstructions
               cloudformationlink={cloudformationlink}
               cloudFormationGuide={cloudFormationGuide}
               accountConfigStatus={selectedAccountConfig?.status}
               accountConfigId={accountConfigId}
-              cloudFormationTemplateUrl={cloudFormationTemplateUrl}
+              cloudFormationTemplateUrl={safeCloudFormationTemplateUrl}
               gcpBootstrapShellCommand={gcpBootstrapShellCommand}
               gcpCloudShellLink={gcpCloudShellLink}
               gcpShellScriptGuide={gcpShellScriptGuide}
@@ -820,7 +1008,7 @@ function CloudProviderAccountOrgIdModal(props) {
               selectedAccountConfig={selectedAccountConfig}
               cloudformationlink={cloudformationlink}
               cloudFormationGuide={cloudFormationGuide}
-              cloudFormationTemplateUrl={cloudFormationTemplateUrl}
+              cloudFormationTemplateUrl={safeCloudFormationTemplateUrl}
               gcpBootstrapShellCommand={gcpBootstrapShellCommand}
               gcpCloudShellLink={gcpCloudShellLink}
               gcpShellScriptGuide={gcpShellScriptGuide}
@@ -830,12 +1018,18 @@ function CloudProviderAccountOrgIdModal(props) {
               azureShellScriptGuide={azureShellScriptGuide}
               azureBootstrapShellCommand={azureBootstrapShellCommand}
               ociCloudShellLink={ociCloudShellLink}
+              isAwsReconfiguration={isAwsReconfiguration}
               // ociShellScriptGuide={ociShellScriptGuide}
             />
           )}
         </Content>
         <Footer>
-          <Button variant="contained" onClick={handleClose} data-testid="close-instructions-button" fullWidth>
+          <Button
+            variant="contained"
+            onClick={handleClose}
+            data-testid="close-instructions-button"
+            sx={{ width: "71px" }}
+          >
             Close
           </Button>
         </Footer>

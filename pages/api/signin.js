@@ -6,10 +6,10 @@ const { isRateLimited, recordAttempt, resetAttempts } = require("src/server/util
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
 import { setAuthCookie, setIndicatorCookie, setRefreshCookie } from "src/server/utils/authCookie";
 import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
+import { errorSummary } from "src/server/utils/errorSummary";
 import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
 
 function checkRequiresReCaptcha(apiKey) {
-
   const skipRecaptchaApiKeys = process.env.SKIP_RECAPTCHA_API_KEYS ?? "";
   if (skipRecaptchaApiKeys && skipRecaptchaApiKeys.includes(apiKey)) return false;
 
@@ -22,7 +22,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
     try {
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get?.("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.headers["x-forwarded-for"] || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
 
       // Check rate limiting per IP
@@ -33,7 +33,8 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       }
 
       const requestBody = nextRequest.body || {};
-      const requiresReCaptachValidation = checkReCaptchaSetup() && checkRequiresReCaptcha(nextRequest.get?.("X-Api-Key") || "");
+      const requiresReCaptachValidation =
+        checkReCaptchaSetup() && checkRequiresReCaptcha(nextRequest.headers["x-api-key"] || "");
       if (requiresReCaptachValidation) {
         const { reCaptchaToken } = requestBody;
         const isVerified = await verifyRecaptchaToken(reCaptchaToken);
@@ -84,14 +85,17 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       return nextResponse.status(200).send({ ...rest });
     } catch (error) {
       // Extract IP again for error handling (in case of early errors)
-      const xForwardedForHeader = nextRequest.get?.("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.headers["x-forwarded-for"] || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
 
       // Record failed attempt for rate limiting
       recordAttempt(clientIP);
 
-      console.error("Error in sign in", { status: error?.response?.status, message: error?.response?.data?.message });
-      const defaultErrorMessage = "Failed to sign in. Either the credentials are incorrect or the user does not exist";
+      console.error("Error in sign in", errorSummary(error));
+      const defaultErrorMessage =
+        error.response?.status >= 500
+          ? "Something went wrong. Please retry"
+          : "Failed to sign in. Either the credentials are incorrect or the user does not exist";
 
       //Wait for a random duration b/w 0ms and 150ms to mask the difference b/w response times of api when a user is present vs not present
       const delayInMilliseconds = _.random(0, 150);
@@ -119,7 +123,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
         });
       } else {
         return nextResponse.status(error.response?.status || 400).send({
-          message: error.response?.data?.message || defaultErrorMessage,
+          message: defaultErrorMessage,
         });
       }
     }

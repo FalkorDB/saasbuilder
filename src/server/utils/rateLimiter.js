@@ -6,8 +6,8 @@
 const attemptStore = new Map();
 
 const DEFAULT_CONFIG = {
-    maxAttempts: 5,
-    windowMs: 15 * 60 * 1000, // 15 minutes in milliseconds
+  maxAttempts: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutes in milliseconds
 };
 
 /**
@@ -17,23 +17,23 @@ const DEFAULT_CONFIG = {
  * @returns {boolean} - True if rate limited, false otherwise
  */
 function isRateLimited(ip, config = {}) {
-    const finalConfig = { ...DEFAULT_CONFIG, ...config };
-    const record = attemptStore.get(ip);
+  const finalConfig = { ...DEFAULT_CONFIG, ...config };
+  const record = attemptStore.get(ip);
 
-    if (!record) {
-        return false;
-    }
+  if (!record) {
+    return false;
+  }
 
-    const now = Date.now();
-    const isExpired = now - record.firstAttemptTime > finalConfig.windowMs;
+  const now = Date.now();
+  const isExpired = now - record.firstAttemptTime > finalConfig.windowMs;
 
-    if (isExpired) {
-        // Window expired, clean up
-        attemptStore.delete(ip);
-        return false;
-    }
+  if (isExpired) {
+    // Window expired, clean up
+    attemptStore.delete(ip);
+    return false;
+  }
 
-    return record.attempts >= finalConfig.maxAttempts;
+  return record.attempts >= finalConfig.maxAttempts;
 }
 
 /**
@@ -43,51 +43,53 @@ function isRateLimited(ip, config = {}) {
  * @returns {object} - {attempts: number, remainingTime: number}
  */
 function recordAttempt(ip, config = {}) {
-    const finalConfig = { ...DEFAULT_CONFIG, ...config };
-    const now = Date.now();
-    const record = attemptStore.get(ip);
+  const finalConfig = { ...DEFAULT_CONFIG, ...config };
+  const now = Date.now();
+  const record = attemptStore.get(ip);
 
-    if (!record) {
-        attemptStore.set(ip, {
-            attempts: 1,
-            firstAttemptTime: now,
-            timeout: setTimeout(() => {
-                attemptStore.delete(ip);
-            }, finalConfig.windowMs),
-        });
-
-        return {
-            attempts: 1,
-            remainingTime: finalConfig.windowMs,
-        };
-    }
-
-    // Check if window has expired
-    if (now - record.firstAttemptTime > finalConfig.windowMs) {
-        // Reset the window
-        clearTimeout(record.timeout);
-        attemptStore.set(ip, {
-            attempts: 1,
-            firstAttemptTime: now,
-            timeout: setTimeout(() => {
-                attemptStore.delete(ip);
-            }, finalConfig.windowMs),
-        });
-
-        return {
-            attempts: 1,
-            remainingTime: finalConfig.windowMs,
-        };
-    }
-
-    // Increment attempts within current window
-    record.attempts += 1;
-    const remainingTime = finalConfig.windowMs - (now - record.firstAttemptTime);
+  if (!record) {
+    attemptStore.set(ip, {
+      attempts: 1,
+      firstAttemptTime: now,
+      // unref so a pending cleanup never keeps the process alive
+      timeout: setTimeout(() => {
+        attemptStore.delete(ip);
+      }, finalConfig.windowMs).unref?.(),
+    });
 
     return {
-        attempts: record.attempts,
-        remainingTime: Math.ceil(remainingTime / 1000), // Return in seconds
+      attempts: 1,
+      remainingTime: finalConfig.windowMs,
     };
+  }
+
+  // Check if window has expired
+  if (now - record.firstAttemptTime > finalConfig.windowMs) {
+    // Reset the window
+    clearTimeout(record.timeout);
+    attemptStore.set(ip, {
+      attempts: 1,
+      firstAttemptTime: now,
+      // unref so a pending cleanup never keeps the process alive
+      timeout: setTimeout(() => {
+        attemptStore.delete(ip);
+      }, finalConfig.windowMs).unref?.(),
+    });
+
+    return {
+      attempts: 1,
+      remainingTime: finalConfig.windowMs,
+    };
+  }
+
+  // Increment attempts within current window
+  record.attempts += 1;
+  const remainingTime = finalConfig.windowMs - (now - record.firstAttemptTime);
+
+  return {
+    attempts: record.attempts,
+    remainingTime: Math.ceil(remainingTime / 1000), // Return in seconds
+  };
 }
 
 /**
@@ -95,15 +97,15 @@ function recordAttempt(ip, config = {}) {
  * @param {string} ip - IP address
  */
 function resetAttempts(ip) {
-    const record = attemptStore.get(ip);
-    if (record) {
-        clearTimeout(record.timeout);
-        attemptStore.delete(ip);
-    }
+  const record = attemptStore.get(ip);
+  if (record) {
+    clearTimeout(record.timeout);
+    attemptStore.delete(ip);
+  }
 }
 
 module.exports = {
-    isRateLimited,
-    recordAttempt,
-    resetAttempts,
+  isRateLimited,
+  recordAttempt,
+  resetAttempts,
 };

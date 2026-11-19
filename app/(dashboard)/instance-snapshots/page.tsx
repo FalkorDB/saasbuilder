@@ -7,6 +7,8 @@ import { useFormik } from "formik";
 import * as yup from "yup";
 
 import { $api } from "src/api/query";
+import { COLUMN_PREFERENCE_TABLE_IDS } from "src/components/ColumnPreference/tableIds";
+import { useTableColumnPreference } from "src/components/ColumnPreference/useColumnPreference";
 import DataGridText from "src/components/DataGrid/DataGridText";
 import DataTable from "src/components/DataTable/DataTable";
 import ConfirmationDialog from "src/components/Dialog/ConfirmationDialog";
@@ -17,6 +19,7 @@ import RegionIcon from "src/components/Region/RegionIcon";
 import StatusChip from "src/components/StatusChip/StatusChip";
 import TextConfirmationDialog from "src/components/TextConfirmationDialog/TextConfirmationDialog";
 import Tooltip from "src/components/Tooltip/Tooltip";
+import { Text } from "src/components/Typography/Typography";
 import { cloudProviderLongLogoMap } from "src/constants/cloudProviders";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
@@ -35,11 +38,12 @@ import { getMainResourceFromInstance } from "../instances/utils";
 
 import CopySnapshotDialogContent from "./components/CopySnapshotDialogContent";
 import CreateSnapshotDialogContent from "./components/CreateSnapshotDialogContent";
-import { CopySnapshotIcon, CreateSnapshotIcon, RestoreSnapshotIcon } from "./components/Icons";
 import InstanceSnapshotsTableHeader from "./components/InstanceSnapshotsTableHeader";
 import RestoreSnapshotDialogContent from "./components/RestoreSnapshotDialogContent";
 import RestoreSnapshotSuccessContent from "./components/RestoreSnapshotSuccessContent";
+import { CopySnapshotIcon, CreateSnapshotIcon, RestoreSnapshotIcon } from "./components/SnapshotDialogIcon";
 import useInstanceSnapshots from "./hooks/useInstanceSnapshots";
+import { SnapshotFormValues } from "./types";
 import { getCopySnapshotTargetRegion, isOperatorCRDResourceType } from "./utils";
 
 const columnHelper = createColumnHelper<InstanceSnapshot>();
@@ -49,12 +53,6 @@ type Overlay =
   | "restore-snapshot-success"
   | "copy-snapshot-dialog"
   | "create-snapshot-dialog";
-type FormValues = {
-  restoreSnapshotCustomNetworkId: string;
-  copySnapshotRegion: string;
-  createSnapshotInstanceId: string;
-  createSnapshotRegion: string;
-};
 
 const InstanceSnapshotsPage = () => {
   const snackbar = useSnackbar();
@@ -159,6 +157,7 @@ const InstanceSnapshotsPage = () => {
 
           return instance?.id && instanceSubscription ? (
             <DataGridText
+              showCopyButton
               color="primary"
               linkProps={{
                 href: getInstanceDetailsRoute({
@@ -175,7 +174,7 @@ const InstanceSnapshotsPage = () => {
           ) : (
             <Tooltip title="Source instance not found">
               <Box>
-                <DataGridText>{data.row.original.sourceInstanceId}</DataGridText>
+                <DataGridText showCopyButton>{data.row.original.sourceInstanceId}</DataGridText>
               </Box>
             </Tooltip>
           );
@@ -202,9 +201,9 @@ const InstanceSnapshotsPage = () => {
               <Box width="100px">
                 <LinearProgress variant="determinate" value={progress} />{" "}
               </Box>
-              <Box component="span" sx={{ fontSize: 14 }}>
+              <Text component="span" size="small" weight="medium" color="inherit">
                 {roundNumberToTwoDecimals(progress)}%
-              </Box>
+              </Text>
             </Stack>
           );
         },
@@ -221,6 +220,17 @@ const InstanceSnapshotsPage = () => {
     ];
   }, [instances, subscriptionsObj]);
 
+  const {
+    columns: preferredColumns,
+    columnVisibility,
+    columnPreference,
+  } = useTableColumnPreference({
+    tableId: COLUMN_PREFERENCE_TABLE_IDS.instanceSnapshots,
+    columns: dataTableColumns,
+    primaryColumnId: "snapshotId",
+    clickableColumnIds: ["sourceInstanceId"],
+  });
+
   const selectedSnapshot = useMemo(() => {
     if (!selectedRows.length) return undefined;
     return snapshots.find((snapshot) => snapshot.snapshotId === selectedRows[0]);
@@ -232,11 +242,12 @@ const InstanceSnapshotsPage = () => {
     return serviceOfferings.find((offering) => offering.productTierID === selectedSnapshot.productTierId);
   }, [selectedSnapshot, serviceOfferings]);
 
+  const selectedSnapshotSourceInstanceId = selectedSnapshot?.sourceInstanceId;
   const selectedSnapshotSourceInstance = useMemo(() => {
-    if (!selectedSnapshot?.sourceInstanceId) return undefined;
+    if (!selectedSnapshotSourceInstanceId) return undefined;
 
-    return instances.find((instance) => instance.id === selectedSnapshot.sourceInstanceId);
-  }, [instances, selectedSnapshot?.sourceInstanceId]);
+    return instances.find((instance) => instance.id === selectedSnapshotSourceInstanceId);
+  }, [instances, selectedSnapshotSourceInstanceId]);
 
   const selectedSnapshotResource = useMemo(() => {
     return getMainResourceFromInstance(selectedSnapshotSourceInstance, serviceOffering);
@@ -247,7 +258,7 @@ const InstanceSnapshotsPage = () => {
     sourceResourceType: selectedSnapshotResource?.resourceType,
   });
 
-  const formData = useFormik<FormValues>({
+  const formData = useFormik<SnapshotFormValues>({
     initialValues: {
       restoreSnapshotCustomNetworkId: "",
       copySnapshotRegion: "",
@@ -363,11 +374,15 @@ const InstanceSnapshotsPage = () => {
       <div>
         {/* TODO: Solve the Problem of shifting DataTable height when paginating */}
         <DataTable
-          columns={dataTableColumns}
+          columns={preferredColumns}
+          columnVisibility={columnVisibility}
           rows={filteredSnapshots}
           noRowsText="No instance snapshots"
+          isFilterApplied={snapshots.length > 0 && filteredSnapshots.length === 0}
+          entityName="instance snapshots"
           HeaderComponent={InstanceSnapshotsTableHeader}
           headerProps={{
+            columnPreference,
             count: filteredSnapshots.length,
             snapshots,
             setFilteredSnapshots,
@@ -432,7 +447,7 @@ const InstanceSnapshotsPage = () => {
         />
       </div>
       <TextConfirmationDialog
-        open={isOverlayOpen && overlayType === "delete-snapshot-dialog"}
+        open={overlayType === "delete-snapshot-dialog" && isOverlayOpen}
         handleClose={closeOverlay}
         onConfirm={async () => {
           if (!selectedSnapshot?.snapshotId) {
@@ -453,13 +468,12 @@ const InstanceSnapshotsPage = () => {
       />
       <ConfirmationDialog
         open={
-          isOverlayOpen &&
           [
             "restore-snapshot-dialog",
             "restore-snapshot-success",
             "copy-snapshot-dialog",
             "create-snapshot-dialog",
-          ].includes(overlayType)
+          ].includes(overlayType) && isOverlayOpen
         }
         onClose={closeOverlay}
         title={

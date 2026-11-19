@@ -1,12 +1,26 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import useCustomNetworks from "app/(dashboard)/custom-networks/hooks/useCustomNetworks";
 import { useFormik } from "formik";
 import _, { cloneDeep } from "lodash";
-import { useEffect, useMemo, useState } from "react";
 import type { StringSchema } from "yup";
 import * as yup from "yup";
 
+import { $api } from "src/api/query";
+import { productTierTypes } from "src/constants/servicePlan";
+import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
+import useFeatureFlags from "src/hooks/useFeatureFlags";
+import useResourcesInstanceIds from "src/hooks/useResourcesInstanceIds";
+import useSnackbar from "src/hooks/useSnackbar";
+import { useGlobalData } from "src/providers/GlobalDataProvider";
+import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
+import { colors } from "src/themeConfig";
+import { CloudProvider } from "src/types/common/enums";
+import { ResourceInstance } from "src/types/resourceInstance";
+import { APIEntity } from "src/types/serviceOffering";
+import { isCloudAccountInstance } from "src/utils/access/byoaResource";
+import { checkBYOADeploymentInstance, getResultParams } from "src/utils/instance";
 import Button from "components/Button/Button";
 import CardWithTitle from "components/Card/CardWithTitle";
 import LoadingSpinnerSmall from "components/CircularProgress/CircularProgress";
@@ -15,26 +29,20 @@ import PreviewCard from "components/DynamicForm/PreviewCard";
 import Form from "components/FormElementsv2/Form/Form";
 import LoadingSpinner from "components/LoadingSpinner/LoadingSpinner";
 import { Text } from "components/Typography/Typography";
-import { $api } from "src/api/query";
-import { productTierTypes } from "src/constants/servicePlan";
-import useAvailabilityZone from "src/hooks/query/useAvailabilityZone";
-import useFeatureFlags from "src/hooks/useFeatureFlags";
-import useResourcesInstanceIds from "src/hooks/useResourcesInstanceIds";
-import useSnackbar from "src/hooks/useSnackbar";
-import { useGlobalData } from "src/providers/GlobalDataProvider";
-import { colors } from "src/themeConfig";
-import { CloudProvider } from "src/types/common/enums";
-import { ResourceInstance } from "src/types/resourceInstance";
-import { APIEntity } from "src/types/serviceOffering";
-import { isCloudAccountInstance } from "src/utils/access/byoaResource";
-import { checkBYOADeploymentInstance, getResultParams } from "src/utils/instance";
 
 import { REQUEST_PARAMS_FIELDS_TO_FILTER } from "../constants";
 import useCustomerVersionSets from "../hooks/useCustomerVersionSets";
+import useInstancesDescribe from "../hooks/useInstancesDescribe";
 import useResources from "../hooks/useResources";
 import useResourceSchema from "../hooks/useResourceSchema";
+import {
+  applyCustomDnsNormalization,
+  filterSchemaByCloudProvider,
+  getInitialValues,
+  getSubscriptionDeploymentOffering,
+  getSubscriptionDeploymentValues,
+} from "../utils";
 import { filterInstanceTypesByProvider, sortInstanceTypes } from "../utils/instanceTypeUtils";
-import { filterSchemaByCloudProvider, getInitialValues } from "../utils";
 import { isExistingVpcSupported } from "../vpcCapabilities";
 
 import {
@@ -44,7 +52,9 @@ import {
 } from "./InstanceFormFields";
 
 type ValidationSchema =
-  StringSchema<string | undefined> | StringSchema<string | null | undefined> | ReturnType<typeof yup.mixed>;
+  | StringSchema<string | undefined>
+  | StringSchema<string | null | undefined>
+  | ReturnType<typeof yup.mixed>;
 
 const InstanceForm = ({
   formMode,
@@ -57,6 +67,7 @@ const InstanceForm = ({
   setSelectedRows,
 }) => {
   const snackbar = useSnackbar();
+  const { orgName } = useProviderOrgDetails();
 
   // State for validation schema
   const [validationSchema, setValidationSchema] = useState(() =>
@@ -193,19 +204,30 @@ const InstanceForm = ({
     [consumptionSubscriptionAdminRBAC, selectedInstance?.id]
   );
 
-  const formData = useFormik({
+  const rawFormData = useFormik({
     initialValues,
     enableReinitialize: true,
     validationSchema: validationSchema,
     validateOnBlur: true,
     validateOnChange: true,
-    onSubmit: async (values) => {
+    onSubmit: async (submittedValues) => {
       try {
         // Clean up requestParams cloud_provider_native_network_id before submitting
-        if ((values.requestParams as any)?.cloud_provider_native_network_id === "") {
-          delete (values.requestParams as any)?.cloud_provider_native_network_id;
+        if ((submittedValues.requestParams as any)?.cloud_provider_native_network_id === "") {
+          delete (submittedValues.requestParams as any)?.cloud_provider_native_network_id;
         }
 
+        const subscription = subscriptionsObj[submittedValues.subscriptionId];
+        const values =
+          formMode === "create" && subscription?.allowedDeploymentLocations?.length
+            ? getSubscriptionDeploymentValues(
+                submittedValues,
+                getSubscriptionDeploymentOffering(
+                  serviceOfferingsObj[submittedValues.serviceId]?.[submittedValues.servicePlanId],
+                  subscription
+                )
+              )
+            : submittedValues;
         const offering = serviceOfferingsObj[values.serviceId]?.[values.servicePlanId];
 
         // Determine if we should use version set resources or service offering resources
@@ -268,11 +290,6 @@ const InstanceForm = ({
           delete data.productTierVersion;
         }
 
-        // Remove productTierVersion if allowCustomerVersionOverride is false or if we're not creating
-        if (!allowCustomerVersionOverride || formMode !== "create") {
-          delete data.productTierVersion;
-        }
-
         const createSchema =
           // eslint-disable-next-line no-use-before-define
           resourceSchemaData?.apis?.find((api) => api.verb === "CREATE")?.inputParameters || [];
@@ -314,6 +331,19 @@ const InstanceForm = ({
                 if (data.requestParams[key] === "true") data.requestParams[key] = true;
                 else data.requestParams[key] = false;
                 break;
+              case "any":
+                // Ensure ANY type fields are always sent as strings
+                if (data.requestParams[key] !== undefined && data.requestParams[key] !== null) {
+                  if (typeof data.requestParams[key] !== "string") {
+                    try {
+                      data.requestParams[key] = JSON.stringify(data.requestParams[key]);
+                    } catch {
+                      // If stringification fails, convert to empty string
+                      data.requestParams[key] = "";
+                    }
+                  }
+                }
+                break;
             }
 
             if (key === "nodeInstanceType" && data.requestParams["nodeInstanceType"]) {
@@ -354,10 +384,15 @@ const InstanceForm = ({
             return;
           }
 
+          // Remove Empty Fields from data.requestParams
+
           for (const key in data.requestParams) {
             const value = data.requestParams[key];
-
-            if (value === undefined || (typeof value === "string" && !value.trim())) {
+            if (
+              value === undefined ||
+              (typeof value === "string" && !value.trim()) ||
+              (REQUEST_PARAMS_FIELDS_TO_FILTER.includes(key) && value === null)
+            ) {
               delete data.requestParams[key];
             }
           }
@@ -378,15 +413,16 @@ const InstanceForm = ({
             return snackbar.showError("Creating new VPCs is not allowed for the selected cloud account config");
           }
 
-          // Remove internal _vpcType field and only send cloudNativeNetworkId for existing VPC selections.
+          // Remove internal _vpcType field and send the selected existing VPC using the deployment API field.
           // Only applies when the VPC chooser is in play — otherwise the legacy
           // cloud_provider_native_network_id input is the source of truth and must pass through.
           if (data.requestParams._vpcType === "choose_existing") {
-            delete data.requestParams.cloud_provider_native_network_id;
-
             if (!data.requestParams.cloudNativeNetworkId) {
               return snackbar.showError("VPC is required");
             }
+
+            data.requestParams.cloud_provider_native_network_id = data.requestParams.cloudNativeNetworkId;
+            delete data.requestParams.cloudNativeNetworkId;
           } else if (data.requestParams._vpcType) {
             delete data.requestParams.cloudNativeNetworkId;
           }
@@ -431,14 +467,31 @@ const InstanceForm = ({
             return snackbar.showError("Network Type is required");
           }
 
-          if (inputParametersObj["custom_dns_configuration"] && data.requestParams["custom_dns_configuration"]) {
-            data.requestParams.custom_dns_configuration = {
-              [resourceKey]: data.requestParams.custom_dns_configuration,
-            };
+          if (inputParametersObj["custom_dns_configuration"]) {
+            applyCustomDnsNormalization(data.requestParams, resourceKey);
           }
 
           for (const field of requiredFields) {
-            if (data.requestParams[field.key] === undefined) {
+            if (field.key === "custom_dns_configuration") {
+              const customDnsConfiguration = data.requestParams.custom_dns_configuration;
+              const hasCustomDnsValue =
+                customDnsConfiguration &&
+                typeof customDnsConfiguration === "object" &&
+                !Array.isArray(customDnsConfiguration) &&
+                Object.values(customDnsConfiguration).some((value) => typeof value === "string" && value.trim());
+
+              if (field.required && !hasCustomDnsValue) {
+                snackbar.showError(`${field.displayName || field.key} is required`);
+                return;
+              }
+
+              continue;
+            }
+
+            if (
+              data.requestParams[field.key] === undefined ||
+              (field.required && data.requestParams[field.key] === "")
+            ) {
               snackbar.showError(`${field.displayName || field.key} is required`);
               return;
             }
@@ -467,7 +520,7 @@ const InstanceForm = ({
         } else {
           // Only send the fields that have changed
           const requestParams = {},
-            oldResultParams = selectedInstance?.result_params;
+            oldResultParams = getResultParams(selectedInstance);
 
           for (const key in data.requestParams) {
             const value = data.requestParams[key];
@@ -500,6 +553,19 @@ const InstanceForm = ({
           }
 
           let isTypeError = false;
+
+          schema.forEach((schemaParam) => {
+            // Skip required validation for these fields as they are handled separately
+            if (REQUEST_PARAMS_FIELDS_TO_FILTER.includes(schemaParam.key)) {
+              return;
+            }
+            if (schemaParam?.required && !oldResultParams[schemaParam?.key] && !data.requestParams[schemaParam?.key]) {
+              snackbar.showError(`${schemaParam.displayName || schemaParam.key} is required`);
+              isTypeError = true;
+              return;
+            }
+          });
+
           Object.keys(data.requestParams).forEach((key) => {
             const result = schema.find((schemaParam) => {
               return schemaParam.key === key;
@@ -536,6 +602,19 @@ const InstanceForm = ({
                 if (data.requestParams[key] === "true") data.requestParams[key] = true;
                 else data.requestParams[key] = false;
                 break;
+              case "any":
+                // Ensure ANY type fields are always sent as strings
+                if (data.requestParams[key] !== undefined && data.requestParams[key] !== null) {
+                  if (typeof data.requestParams[key] !== "string") {
+                    try {
+                      data.requestParams[key] = JSON.stringify(data.requestParams[key]);
+                    } catch {
+                      // If stringification fails, convert to empty string
+                      data.requestParams[key] = "";
+                    }
+                  }
+                }
+                break;
             }
 
             if (key === "falkordbUser") {
@@ -559,10 +638,17 @@ const InstanceForm = ({
           // Remove Empty Fields from data.requestParams
           for (const key in data.requestParams) {
             const value = data.requestParams[key];
-
-            if (value === undefined || (typeof value === "string" && !value.trim())) {
+            if (
+              value === undefined ||
+              (typeof value === "string" && !value.trim()) ||
+              (REQUEST_PARAMS_FIELDS_TO_FILTER.includes(key) && value === null)
+            ) {
               delete data.requestParams[key];
             }
+          }
+
+          if (inputParametersObj["custom_dns_configuration"]) {
+            applyCustomDnsNormalization(data.requestParams, resourceKey);
           }
 
           if (!isTypeError) {
@@ -594,9 +680,37 @@ const InstanceForm = ({
     },
   });
 
+  const subscription = subscriptionsObj[rawFormData.values.subscriptionId];
+  const planOffering = serviceOfferingsObj[rawFormData.values.serviceId]?.[rawFormData.values.servicePlanId];
+  const offering = useMemo(
+    () => (formMode === "create" ? getSubscriptionDeploymentOffering(planOffering, subscription) : planOffering),
+    [formMode, planOffering, subscription]
+  );
+  const deploymentValues = useMemo(
+    () =>
+      formMode === "create" && subscription?.allowedDeploymentLocations?.length
+        ? getSubscriptionDeploymentValues(rawFormData.values, offering)
+        : rawFormData.values,
+    [formMode, subscription, rawFormData.values, offering]
+  );
+  const formData = {
+    ...rawFormData,
+    values: deploymentValues,
+  };
   const { values } = formData;
-
-  const offering = serviceOfferingsObj[values.serviceId]?.[values.servicePlanId];
+  const deploymentOfferingsObj = useMemo(
+    () =>
+      offering
+        ? {
+            ...serviceOfferingsObj,
+            [rawFormData.values.serviceId]: {
+              ...serviceOfferingsObj[rawFormData.values.serviceId],
+              [rawFormData.values.servicePlanId]: offering,
+            },
+          }
+        : serviceOfferingsObj,
+    [offering, serviceOfferingsObj, rawFormData.values.serviceId, rawFormData.values.servicePlanId]
+  );
 
   const { data: customNetworks = [], isFetching: isFetchingCustomNetworks } = useCustomNetworks({
     enabled: (values.requestParams as Record<string, any>)?.custom_network_id !== undefined, // Fetch only if custom_network_id is present
@@ -815,7 +929,7 @@ const InstanceForm = ({
   // Check if the current offering is on-prem (has onprem_platform in input params)
   const isOnPremOffering = Boolean(
     offering?.serviceModelType === "ON_PREM" &&
-    resourceCreateSchema?.inputParameters?.some((field) => field.key === "onprem_platform")
+      resourceCreateSchema?.inputParameters?.some((field) => field.key === "onprem_platform")
   );
 
   // Update validation schema when requestParams validation changes
@@ -970,17 +1084,14 @@ const InstanceForm = ({
   }, [resourceCreateSchema, formMode, offering, formData.values.cloudProvider]);
 
   const customAvailabilityZones = useMemo(() => {
-    // @ts-expect-error TODO: Ask someone on the backend to fix the docs
-    const availabilityZones = customAvailabilityZoneData?.availabilityZones || [];
-    return availabilityZones.sort(function (a, b) {
+    return [...customAvailabilityZoneData].sort(function (a, b) {
       if (a.code < b.code) return -1;
       else if (a.code > b.code) {
         return 1;
       }
       return -1;
     });
-    // @ts-expect-error TODO: Ask someone on the backend to fix the docs
-  }, [customAvailabilityZoneData?.availabilityZones]);
+  }, [customAvailabilityZoneData]);
 
   const cloudAccountInstances = useMemo(
     () =>
@@ -1024,36 +1135,69 @@ const InstanceForm = ({
   const selectedCloudAccountInstance = cloudAccountInstances.find(
     (config) => config.id === selectedCloudAccountInstanceId
   );
-  const selectedAccountConfigId = getResultParams(selectedCloudAccountInstance)?.cloud_provider_account_config_id;
-  const shouldFetchCloudNativeNetworks = Boolean(
-    formMode === "create" &&
-    selectedAccountConfigId &&
-    (values.cloudProvider === "aws" || values.cloudProvider === "gcp" || values.cloudProvider === "azure")
-  );
+  const selectedCloudAccountSubscription = selectedCloudAccountInstance
+    ? subscriptionsObj[selectedCloudAccountInstance.subscriptionId as string]
+    : undefined;
+  const selectedCloudAccountOffering = selectedCloudAccountSubscription
+    ? serviceOfferingsObj[selectedCloudAccountSubscription.serviceId]?.[selectedCloudAccountSubscription.productTierId]
+    : undefined;
+  const selectedCloudAccountResourceKey = selectedCloudAccountOffering?.resourceParameters?.find((resource) =>
+    resource.resourceId.startsWith("r-injectedaccountconfig")
+  )?.urlKey;
 
-  const cloudNativeNetworksQuery = $api.useQuery(
-    "get",
-    "/2022-09-01-00/accountconfig/{id}/cloud-native-networks",
-    {
-      params: {
-        path: {
-          id: selectedAccountConfigId || "",
-        },
-      },
-      headers: {
-        "x-ignore-global-error": true,
-      },
-    },
-    {
-      enabled: shouldFetchCloudNativeNetworks,
-      retry: 2,
-      retryDelay: 3000,
-    }
-  );
+  const selectedCloudAccountDescribeQuery = useInstancesDescribe({
+    serviceProviderId: selectedCloudAccountOffering?.serviceProviderId || "",
+    serviceKey: selectedCloudAccountOffering?.serviceURLKey || "",
+    serviceAPIVersion: selectedCloudAccountOffering?.serviceAPIVersion || "",
+    serviceEnvironmentKey: selectedCloudAccountOffering?.serviceEnvironmentURLKey || "",
+    serviceModelKey: selectedCloudAccountOffering?.serviceModelURLKey || "",
+    productTierKey: selectedCloudAccountOffering?.productTierURLKey || "",
+    resourceKey: selectedCloudAccountResourceKey || "",
+    id: selectedCloudAccountInstance?.id || "",
+    subscriptionId: selectedCloudAccountInstance?.subscriptionId,
+    ignoreGlobalError: true,
+    refetchOnWindowFocus: true,
+    enabled: Boolean(
+      formMode === "create" &&
+        selectedCloudAccountInstance &&
+        selectedCloudAccountOffering &&
+        selectedCloudAccountResourceKey
+    ),
+  });
 
-  const cloudNativeNetworks = useMemo(
-    () => cloudNativeNetworksQuery.data?.cloudNativeNetworks || [],
-    [cloudNativeNetworksQuery.data?.cloudNativeNetworks]
+  const describedCloudAccountInstance = selectedCloudAccountDescribeQuery.data as ResourceInstance | undefined;
+  const selectedCloudAccountResultParams = getResultParams(describedCloudAccountInstance);
+
+  const cloudNativeNetworks = useMemo(() => {
+    const networks =
+      selectedCloudAccountResultParams?.cloudNativeNetworks ||
+      selectedCloudAccountResultParams?.CloudNativeNetworks ||
+      selectedCloudAccountResultParams?.cloud_native_networks ||
+      [];
+
+    if (!Array.isArray(networks)) return [];
+
+    return networks.map((network) => ({
+      ...network,
+      id: network.id || network.ID,
+      cloudNativeNetworkId: network.cloudNativeNetworkId || network.CloudNativeNetworkID,
+      name: network.name || network.Name,
+      region: network.region || network.Region,
+      status: network.status || network.Status,
+      imported: network.imported ?? network.Imported,
+      inUse: network.inUse ?? network.InUse,
+      cidr: network.cidr || network.Cidr,
+    }));
+  }, [selectedCloudAccountResultParams]);
+
+  const effectiveCloudAccountInstances = useMemo(
+    () =>
+      cloudAccountInstances.map((config) =>
+        config.id === selectedCloudAccountInstanceId && describedCloudAccountInstance
+          ? { ...config, ...describedCloudAccountInstance, label: config.label }
+          : config
+      ),
+    [cloudAccountInstances, describedCloudAccountInstance, selectedCloudAccountInstanceId]
   );
 
   useEffect(() => {
@@ -1066,7 +1210,7 @@ const InstanceForm = ({
     const regionFieldExists = resourceCreateSchema?.inputParameters?.some((param) => param.key === "region");
     const supportsExistingVpc = isExistingVpcSupported(values.cloudProvider);
     const accountConfigId = (values.requestParams as Record<string, any>)?.cloud_provider_account_config_id;
-    const selectedCloudAccountConfig = cloudAccountInstances.find((config) => config.id === accountConfigId);
+    const selectedCloudAccountConfig = effectiveCloudAccountInstances.find((config) => config.id === accountConfigId);
     const createNewVpcDisallowed =
       selectedCloudAccountConfig &&
       getResultParams(selectedCloudAccountConfig).allow_new_cloud_native_network_creation === false;
@@ -1102,7 +1246,7 @@ const InstanceForm = ({
       formData.setFieldValue("requestParams._vpcType", "create_new");
     }
   }, [
-    cloudAccountInstances,
+    effectiveCloudAccountInstances,
     formData.setFieldValue,
     formMode,
     resourceCreateSchema?.inputParameters,
@@ -1114,7 +1258,7 @@ const InstanceForm = ({
     return getStandardInformationFields(
       servicesObj,
       serviceOfferings,
-      serviceOfferingsObj,
+      deploymentOfferingsObj,
       isFetchingServiceOfferings,
       subscriptions,
       subscriptionsObj,
@@ -1128,12 +1272,14 @@ const InstanceForm = ({
       customerVersionSets,
       isFetchingVersionSets,
       isFetchingResourceInstanceIds,
-      cloudAccountInstances,
+      effectiveCloudAccountInstances,
       cloudNativeNetworks,
-      cloudNativeNetworksQuery.isFetching,
-      consumptionSubscriptionAdminRBAC
+      selectedCloudAccountDescribeQuery.isFetching,
+      consumptionSubscriptionAdminRBAC,
+      orgName
     );
   }, [
+    deploymentOfferingsObj,
     formMode,
     formData.values,
     resourceCreateSchema,
@@ -1142,11 +1288,12 @@ const InstanceForm = ({
     nonCloudAccountInstances,
     customerVersionSets,
     isFetchingVersionSets,
-    cloudAccountInstances,
+    effectiveCloudAccountInstances,
     isFetchingResourceInstanceIds,
     cloudNativeNetworks,
-    cloudNativeNetworksQuery.isFetching,
+    selectedCloudAccountDescribeQuery.isFetching,
     consumptionSubscriptionAdminRBAC,
+    orgName,
   ]);
 
   const networkConfigurationFields = useMemo(() => {
@@ -1155,7 +1302,7 @@ const InstanceForm = ({
       formData,
       formData.values,
       resourceCreateSchema,
-      serviceOfferingsObj,
+      deploymentOfferingsObj,
       resources,
       customNetworks,
       isFetchingCustomNetworks
@@ -1164,7 +1311,7 @@ const InstanceForm = ({
     formMode,
     formData.values,
     resourceCreateSchema,
-    serviceOfferingsObj,
+    deploymentOfferingsObj,
     resources,
     customNetworks,
     isFetchingCustomNetworks,

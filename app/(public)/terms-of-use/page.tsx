@@ -3,10 +3,12 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { Box } from "@mui/material";
-import DOMPurify from "isomorphic-dompurify";
 
 import { styleConfig } from "src/providerConfig";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
+import getSafeExternalURL from "src/utils/getSafeExternalURL";
+import { getPrivacyPolicyRoute } from "src/utils/routes";
+import { sanitizeHTML } from "src/utils/sanitizeHTML";
 import Container from "components/NonDashboardComponents/Container/Container";
 import Footer from "components/NonDashboardComponents/Footer";
 
@@ -184,7 +186,7 @@ const DefaultTermsOfUse = ({ orgName, orgSupportEmail }) => {
       <SectionHeading>Privacy Policy</SectionHeading>
       <SectionDescription>
         Our collection and use of your information is governed by our Privacy Policy, available{" "}
-        <Link href="/privacy-policy" style={{ color: "#2970FF" }}>
+        <Link href={getPrivacyPolicyRoute()} style={{ color: "#2970FF" }}>
           here
         </Link>
         .
@@ -195,12 +197,19 @@ const DefaultTermsOfUse = ({ orgName, orgSupportEmail }) => {
 
 const TermsPage = () => {
   const { orgName, orgSupportEmail, orgTermsOfUse } = useProviderOrgDetails();
+  const policyURL = getSafeExternalURL(orgTermsOfUse);
 
   useEffect(() => {
     const pageTitle = orgName ? `Terms and Conditions - ${orgName}` : "Terms and Conditions";
 
     document.title = pageTitle;
   }, [orgName]);
+
+  useEffect(() => {
+    if (policyURL) window.location.replace(policyURL);
+  }, [policyURL]);
+
+  if (policyURL) return null;
 
   return (
     <>
@@ -238,7 +247,7 @@ const TermsPage = () => {
                 },
               }}
               dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(orgTermsOfUse),
+                __html: sanitizeHTML(orgTermsOfUse),
               }}
             />
           </article>

@@ -26,6 +26,7 @@ const { getDisconnectedAccountCompleteMailContentGCP } = require("./templates/di
 const { getConnectedAccountCompleteMailContentGCP } = require("./templates/connectedAccountCompleteGCP");
 const { getPendingRevokePermissionsMailContentGCP } = require("./templates/pendingRevokePermissionsGCP");
 const { getPendingRestorePermissionsMailContentGCP } = require("./templates/pendingRestorePermissionsGCP");
+const { errorSummary } = require("../utils/errorSummary");
 
 let isRunning = false;
 
@@ -188,13 +189,17 @@ function startMailServiceCron() {
                 //call backend api
                 await acknowledgeEvent(event.eventID);
                 console.log("Event acknowledged", event);
-              }).catch((error) => {
-                console.error(`Failed to send mail for event: ${event.eventType}, eventID: ${event.eventID}, to: ${mailContent.recepientEmail}`, error);
+              })
+              .catch((error) => {
+                console.error(
+                  `Failed to send mail for event: ${event.eventType}, eventID: ${event.eventID}, to: ${mailContent.recepientEmail}`,
+                  error
+                );
               });
             mailPromises.push(mailPromise);
           }
         } catch (error) {
-          console.error("Mail error", error);
+          console.error("Mail error", errorSummary(error));
         }
       }
 

@@ -5,6 +5,8 @@ import { IconButton, Stack, Tooltip } from "@mui/material";
 import { createColumnHelper } from "@tanstack/react-table";
 
 import LoadingSpinnerSmall from "src/components/CircularProgress/CircularProgress";
+import { COLUMN_PREFERENCE_TABLE_IDS } from "src/components/ColumnPreference/tableIds";
+import { useTableColumnPreference } from "src/components/ColumnPreference/useColumnPreference";
 import DeleteProtectionIcon from "src/components/Icons/DeleteProtection/DeleteProtection";
 import DownloadCLIIcon from "src/components/Icons/SideNavbar/DownloadCLI/DownloadCLIIcon";
 import InstanceHealthStatusChip, {
@@ -393,6 +395,17 @@ const InstancesPage = () => {
     ];
   }, [subscriptionsObj, serviceOfferingsObj, isDownloading, handleDownload, instanceId]);
 
+  const {
+    columns: preferredColumns,
+    columnVisibility,
+    columnPreference,
+  } = useTableColumnPreference({
+    tableId: COLUMN_PREFERENCE_TABLE_IDS.instances,
+    columns: dataTableColumns,
+    primaryColumnId: "id",
+    clickableColumnIds: ["status", "healthStatus"],
+  });
+
   useEffect(() => {
     if (isInstancesError) {
       setShowGlobalProviderError(true);
@@ -466,11 +479,15 @@ const InstancesPage = () => {
       <InstancesOverview summary={instancesCountSummary} />
       <div className="mt-8">
         <DataTable
-          columns={dataTableColumns}
+          columns={preferredColumns}
+          columnVisibility={columnVisibility}
           rows={filteredInstances}
           noRowsText="No instances"
+          isFilterApplied={nonBYOAInstances.length > 0 && filteredInstances.length === 0}
+          entityName="instances"
           HeaderComponent={InstancesTableHeader}
           headerProps={{
+            columnPreference,
             count: filteredInstances.length,
             selectedInstance,
             setSelectedRows,

@@ -1,5 +1,6 @@
 const { customerSignInWithIdentityProvider } = require("src/server/api/customer-user");
 const { getEnvironmentType } = require("src/server/utils/getEnvironmentType");
+const { errorSummary } = require("src/server/utils/errorSummary");
 import { setAuthCookie, setIndicatorCookie, setRefreshCookie } from "src/server/utils/authCookie";
 import { getSaaSDomainURL } from "src/server/utils/getSaaSDomainURL";
 
@@ -7,21 +8,24 @@ export default async function handleSignIn(nextRequest, nextResponse) {
   if (nextRequest.method === "POST") {
     try {
       const environmentType = getEnvironmentType();
-      const { identityProviderName, authorizationCode, redirectUri, state } = nextRequest.body || {};
+      const body = nextRequest.body || {};
       const requestBody = {
-        identityProviderName,
-        authorizationCode,
-        redirectUri,
-        state,
+        authorizationCode: body.authorizationCode,
+        identityProviderName: body.identityProviderName,
+        state: body.state,
+        invitedEmail: body.invitedEmail,
+        legalCompanyName: body.legalCompanyName,
+        companyUrl: body.companyUrl,
         environmentType,
+        redirectUri: `${getSaaSDomainURL()}/idp-auth`,
       };
-      const saasDomainURL = getSaaSDomainURL();
-
-      requestBody.redirectUri = `${saasDomainURL}/idp-auth`;
+      if (typeof body.attributes?.affiliateCode === "string") {
+        requestBody.attributes = { affiliateCode: body.attributes.affiliateCode };
+      }
 
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.headers["x-forwarded-for"] || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
       const saasBuilderIP = process.env.POD_IP;
 
@@ -42,7 +46,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
 
       nextResponse.status(200).send({ ...rest });
     } catch (error) {
-      console.error("IDP sign in error", { status: error?.response?.status, message: error?.response?.data?.message });
+      console.error("IDP Error", errorSummary(error));
       const defaultErrorMessage = "Something went wrong. Please retry";
 
       if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {

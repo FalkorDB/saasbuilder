@@ -1,14 +1,14 @@
 import { FC } from "react";
 
 import Chip from "src/components/Chip/Chip";
-import { TierVersionSet } from "src/types/tier-version-set";
+import { ReleaseSummary } from "src/types/tier-version-set";
 import formatDateLocal from "src/utils/formatDateLocal";
 import { Text } from "components/Typography/Typography";
 
 import ReleaseNotesCard from "./ReleaseNotesCard";
 
 type ReleaseCardProps = {
-  release: TierVersionSet;
+  release: ReleaseSummary;
 };
 
 const ReleaseCard: FC<ReleaseCardProps> = ({ release }) => {

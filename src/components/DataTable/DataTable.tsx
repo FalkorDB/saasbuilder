@@ -16,9 +16,11 @@ import {
   RowData,
   SortDirection,
   useReactTable,
+  VisibilityState,
 } from "@tanstack/react-table";
 
 import CustomCheckbox from "../Checkbox/Checkbox";
+import NoRowsOverlayContent from "../DataGrid/NoRowsOverlayContent";
 
 import Pagination from "./components/Pagination";
 import {
@@ -30,6 +32,7 @@ import {
   TableHead,
   TableRow,
 } from "./components/styled";
+import { getColumnId } from "./utils";
 
 const sortIcon = {
   asc: ArrowUpwardIcon,
@@ -67,8 +70,11 @@ type SelectionMode = "single" | "multiple" | "none";
 type DataTableProps<TData> = {
   rows: TData[];
   columns: ColumnDef<TData>[];
+  columnVisibility?: VisibilityState;
   renderDetailsComponent?: (props: { rowData: TData }) => ReactNode;
   noRowsText: string;
+  isFilterApplied?: boolean;
+  entityName?: string;
   isLoading?: boolean;
   getRowCanExpand?: (rowData: Row<TData>) => boolean;
   getSubRows?: (orginalRow: TData) => TData[];
@@ -90,13 +96,17 @@ type DataTableProps<TData> = {
 };
 
 const DEFAULT_COLUMN_MIN_WIDTH = 150;
+const ALL_COLUMNS_VISIBLE: VisibilityState = {};
 
 const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
   const {
     columns,
+    columnVisibility = ALL_COLUMNS_VISIBLE,
     rows,
     renderDetailsComponent,
     noRowsText,
+    isFilterApplied = false,
+    entityName,
     isLoading,
     getRowCanExpand = () => true,
     HeaderComponent,
@@ -183,6 +193,7 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
     },
     state: {
       expanded: expanded,
+      columnVisibility,
     },
     onExpandedChange: setExpanded,
     getRowCanExpand: getRowCanExpand,
@@ -214,7 +225,10 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
     return columnFlex ? Math.min(columnFlex, 2) : isFixedColumnSizeSet ? 0 : 1;
   };
 
-  const flexTotal = columns.reduce((acc, curr) => {
+  // Hidden columns stay in the table so sorting by them keeps working, but only visible ones take up width.
+  const visibleColumns = columns.filter((column) => columnVisibility[getColumnId(column)] !== false);
+
+  const flexTotal = visibleColumns.reduce((acc, curr) => {
     const flexValue = getColumnFlexValue(curr);
     acc = acc + flexValue;
     return acc;
@@ -259,7 +273,7 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
             sx={{
               tableLayout: "fixed",
               minWidth:
-                columns.reduce((acc, curr) => {
+                visibleColumns.reduce((acc, curr) => {
                   return acc + Number(getColumnMinWidth(curr));
                 }, 0) || "100%",
             }}
@@ -381,7 +395,15 @@ const DataTable = <TData,>(props: DataTableProps<TData>): ReactNode => {
                 transform: "translateX(-50%) translateY(-50%)",
               }}
             >
-              {isLoading ? <CircularProgress /> : noRowsText}
+              {isLoading ? (
+                <CircularProgress />
+              ) : (
+                <NoRowsOverlayContent
+                  noRowsText={noRowsText}
+                  isFilterApplied={isFilterApplied}
+                  entityName={entityName}
+                />
+              )}
             </Stack>
           )}
         </Box>

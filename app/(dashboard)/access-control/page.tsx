@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createColumnHelper } from "@tanstack/react-table";
 import { useSelector } from "react-redux";
 
 import { $api } from "src/api/query";
+import { COLUMN_PREFERENCE_TABLE_IDS } from "src/components/ColumnPreference/tableIds";
+import { useTableColumnPreference } from "src/components/ColumnPreference/useColumnPreference";
 import useFeatureFlags from "src/hooks/useFeatureFlags";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useGlobalData } from "src/providers/GlobalDataProvider";
 import { selectUserrootData } from "src/slices/userDataSlice";
+import { colors } from "src/themeConfig";
 import { SubscriptionUser } from "src/types/consumptionUser";
 import {
   getEnumFromUserRoleString,
@@ -41,26 +44,22 @@ const AccessControlPage = () => {
   const snackbar = useSnackbar();
   const searchParams = useSearchParams();
   const searchUserId = searchParams?.get("searchUserId");
-  const [searchText, setSearchText] = useState<string>("");
-  const [overlayType, setOverlayType] = useState<Overlay>("delete-dialog");
-  const [isOverlayOpen, setIsOverlayOpen] = useState<boolean>(false);
-  const [selectedUser, setSelectedUser] = useState<SubscriptionUser | null>(null);
-  const { subscriptions, isSubscriptionsPending } = useGlobalData();
-  const currentUser = useSelector(selectUserrootData);
-  const { consumptionSubscriptionAdminRBAC } = useFeatureFlags();
-
-  useEffect(() => {
+  const [searchText, setSearchText] = useState<string>(searchUserId ?? "");
+  // Search for the user in the searchUserId query param when it changes
+  const [prevSearchUserId, setPrevSearchUserId] = useState(searchUserId);
+  if (searchUserId !== prevSearchUserId) {
+    setPrevSearchUserId(searchUserId);
     if (searchUserId) {
       setSearchText(searchUserId);
     }
-  }, [searchUserId]);
-
-  const subscriptionsObj = useMemo(() => {
-    return subscriptions.reduce((acc: any, sub: any) => {
-      acc[sub.id] = sub;
-      return acc;
-    }, {});
-  }, [subscriptions]);
+  }
+  const [filteredUsers, setFilteredUsers] = useState<SubscriptionUser[]>([]);
+  const [overlayType, setOverlayType] = useState<Overlay>("delete-dialog");
+  const [isOverlayOpen, setIsOverlayOpen] = useState<boolean>(false);
+  const [selectedUser, setSelectedUser] = useState<SubscriptionUser | null>(null);
+  const { subscriptionsObj, isSubscriptionsPending } = useGlobalData();
+  const currentUser = useSelector(selectUserrootData);
+  const { consumptionSubscriptionAdminRBAC } = useFeatureFlags();
 
   const { data: users = [], isFetching: isFetchingUsers, refetch: refetchUsers } = useAllUsers();
 
@@ -134,8 +133,7 @@ const AccessControlPage = () => {
           );
         },
       }),
-      // @ts-ignore
-      columnHelper.accessor("action", {
+      columnHelper.display({
         id: "action",
         header: "Action",
         enableSorting: false,
@@ -165,13 +163,13 @@ const AccessControlPage = () => {
           return (
             <Button
               variant="outlined"
-              fontColor="#B42318"
+              fontColor={colors.error700}
               onClick={() => {
                 setIsOverlayOpen(true);
                 setOverlayType("delete-dialog");
                 setSelectedUser(data.row.original);
               }}
-              startIcon={<DeleteIcon color="#B42318" disabled={disabled} />}
+              startIcon={<DeleteIcon color={colors.error700} disabled={disabled} />}
               sx={{
                 border: "none !important",
                 padding: "4px !important",
@@ -192,6 +190,16 @@ const AccessControlPage = () => {
     ];
   }, [consumptionSubscriptionAdminRBAC, currentUser?.id, subscriptionsObj]);
 
+  const {
+    columns: preferredColumns,
+    columnVisibility,
+    columnPreference,
+  } = useTableColumnPreference({
+    tableId: COLUMN_PREFERENCE_TABLE_IDS.accessControl,
+    columns: dataTableColumns,
+    clickableColumnIds: ["action"],
+  });
+
   const deleteUserMutation = $api.useMutation(
     "delete",
     "/2022-09-01-00/resource-instance/subscription/{subscriptionId}/revoke-user-role",
@@ -205,24 +213,6 @@ const AccessControlPage = () => {
     }
   );
 
-  const filteredUsers = useMemo(() => {
-    let res = users || [];
-
-    if (searchText) {
-      const searchTerm = searchText.toLowerCase();
-
-      res = res.filter((user: any) => {
-        return (
-          user.name.toLowerCase().includes(searchTerm) ||
-          user.email.toLowerCase().includes(searchTerm) ||
-          user.userId.toLowerCase().includes(searchTerm)
-        );
-      });
-    }
-
-    return res;
-  }, [users, searchText]);
-
   return (
     <PageContainer>
       <PageTitle icon={AccessControlIcon} className="mb-6">
@@ -233,11 +223,18 @@ const AccessControlPage = () => {
 
       <div>
         <DataTable
-          columns={dataTableColumns}
+          columns={preferredColumns}
+          columnVisibility={columnVisibility}
           rows={filteredUsers}
           noRowsText="No users"
+          isFilterApplied={users.length > 0 && filteredUsers.length === 0}
+          entityName="users"
           HeaderComponent={AccessControlTableHeader}
           headerProps={{
+            columnPreference,
+            users,
+            setFilteredUsers,
+            subscriptionsObj,
             searchText,
             setSearchText,
             refetchUsers,
@@ -254,7 +251,7 @@ const AccessControlPage = () => {
       </div>
 
       <TextConfirmationDialog
-        open={isOverlayOpen && overlayType === "delete-dialog"}
+        open={overlayType === "delete-dialog" && isOverlayOpen}
         handleClose={() => setIsOverlayOpen(false)}
         onConfirm={async () => {
           if (!selectedUser) return snackbar.showError("No user selected");
@@ -280,7 +277,11 @@ const AccessControlPage = () => {
             ? selectedUser?.roleType.charAt(0).toUpperCase() + selectedUser?.roleType.slice(1)
             : null
         } access for the user ${selectedUser?.email}?`}
-        message="To confirm access removal, please enter <b>remove</b>, in the field below:"
+        message={
+          <>
+            To confirm access removal, please enter <b>remove</b>, in the field below:
+          </>
+        }
       />
     </PageContainer>
   );

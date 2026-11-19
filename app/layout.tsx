@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { headers } from "next/headers";
 import Script from "next/script";
 
 import { ENVIRONMENT_TYPES } from "src/constants/environmentTypes";
@@ -34,6 +35,8 @@ const RootLayout = async ({ children }: { children: React.ReactNode }) => {
     );
   }
 
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="en">
       <head>
@@ -44,11 +47,13 @@ const RootLayout = async ({ children }: { children: React.ReactNode }) => {
               id="ga-loader"
               src={`https://www.googletagmanager.com/gtag/js?id=${process.env.GOOGLE_ANALYTICS_TAG_ID}`}
               strategy="afterInteractive"
+              nonce={nonce}
             />
             <Script
               id="ga-init"
               src="/scripts/ga-init.js"
               strategy="afterInteractive"
+              nonce={nonce}
               data-gtag-id={process.env.GOOGLE_ANALYTICS_TAG_ID}
             />
           </>

@@ -1,9 +1,9 @@
-import axios from "src/axios";
 import { customerUserResetPassword } from "src/server/api/customer-user";
 import CaptchaVerificationError from "src/server/errors/CaptchaVerificationError";
-import { getAuthToken } from "src/server/utils/authCookie";
+import { getRefreshToken } from "src/server/utils/authCookie";
 import { checkReCaptchaSetup } from "src/server/utils/checkReCaptchaSetup";
 import { isRateLimited, recordAttempt, resetAttempts } from "src/server/utils/rateLimiter";
+import { validateUserToken } from "src/server/utils/validateUserToken";
 import { verifyRecaptchaToken } from "src/server/utils/verifyRecaptchaToken";
 
 export default async function handleResetPassword(nextRequest, nextResponse) {
@@ -11,7 +11,7 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
     try {
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.headers["x-forwarded-for"] || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
 
       // Check rate limiting per IP
@@ -23,72 +23,56 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
 
       const saasBuilderIP = process.env.POD_IP || "";
       const requestBody = nextRequest.body || {};
-      const { email, token: resetToken, newPassword, reCaptchaToken } = requestBody;
+      const { reCaptchaToken } = requestBody;
       const isReCaptchaSetup = checkReCaptchaSetup();
-      const sessionToken = getAuthToken(nextRequest);
-      let tokenValidate = false;
-      if (sessionToken) {
-        tokenValidate = await getUser(sessionToken);
-      }
-      if (!tokenValidate && isReCaptchaSetup) {
+      if (isReCaptchaSetup) {
         const isVerified = await verifyRecaptchaToken(reCaptchaToken);
-        if (!isVerified) throw new CaptchaVerificationError();
+        if (!isVerified) {
+          const authentication = await validateUserToken(nextRequest);
+          if (!authentication.ok && authentication.status === 401 && !reCaptchaToken && getRefreshToken(nextRequest)) {
+            return nextResponse.status(401).send({ message: "Not authenticated" });
+          }
+          const userEmail = authentication.ok ? authentication.user.email : undefined;
+          const requestedEmail = requestBody.email;
+          if (
+            typeof userEmail !== "string" ||
+            !userEmail.trim() ||
+            typeof requestedEmail !== "string" ||
+            !requestedEmail.trim() ||
+            userEmail.trim().toLowerCase() !== requestedEmail.trim().toLowerCase()
+          ) {
+            throw new CaptchaVerificationError();
+          }
+        }
       }
 
-      await customerUserResetPassword({ email, token: resetToken, newPassword }, {
-        "Client-IP": clientIP,
-        "SaaSBuilder-IP": saasBuilderIP,
-      });
+      await customerUserResetPassword(
+        { email: requestBody.email },
+        {
+          "Client-IP": clientIP,
+          "SaaSBuilder-IP": saasBuilderIP,
+        }
+      );
 
       // Reset rate limiting on successful request
       resetAttempts(clientIP);
 
       return nextResponse.status(200).send();
     } catch (error) {
-      console.error("Reset password error", error);
-      // Extract IP for error handling
-      const xForwardedForHeader = nextRequest.get?.call("X-Forwarded-For") || "";
-      const clientIP = xForwardedForHeader.split(",").shift().trim();
-
       // Record failed attempt for rate limiting
-      recordAttempt(clientIP);
+      const xForwardedForHeader = nextRequest.headers["x-forwarded-for"] || "";
+      recordAttempt(xForwardedForHeader.split(",").shift().trim());
 
-      const defaultErrorMessage = "Something went wrong. Please retry";
-
-      if (error.name === "ProviderAuthError" || error?.response?.status === undefined) {
-        return nextResponse.status(500).send({
-          message: defaultErrorMessage,
-        });
-      } else {
-        const responseErrorMessage = error.response?.data?.message;
-
-        if (responseErrorMessage === "user not found: record not found") {
-          return nextResponse.status(200).send();
-        }
-
-        return nextResponse.status(error.response?.status || 500).send({
-          message: responseErrorMessage || defaultErrorMessage,
-        });
+      // A backend rejection is answered like success, so the response never hints whether an account exists.
+      if (error.name !== "ProviderAuthError" && error?.response?.status < 500) {
+        return nextResponse.status(200).send();
       }
+
+      return nextResponse.status(500).send({ message: "Something went wrong. Please retry" });
     }
   } else {
     return nextResponse.status(404).json({
       message: "Endpoint not found",
     });
-  }
-}
-
-async function getUser(token) {
-  try {
-    const response = await axios.get("/user", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    return response.status === 200;
-  } catch (error) {
-    console.error("getUser error", error);
-    return false;
   }
 }

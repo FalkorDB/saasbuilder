@@ -1,9 +1,11 @@
-import { Page } from "@playwright/test";
+import { expect, Locator, Page } from "@playwright/test";
 import { BackendError } from "test-utils/backend-error";
 import { isReplayMode } from "test-utils/har-mode";
+import { retryOnRateLimit } from "test-utils/retry-on-rate-limit";
 import { UserAPIClient } from "test-utils/user-api-client";
 
-import { dataTestIds } from "./constants/instances-page";
+import { dataTestIds } from "src/constants/testIds/instances-page";
+
 import { PageURLs } from "./pages";
 
 // Replay serves HAR responses instantly, so poll aggressively to consume state
@@ -44,6 +46,28 @@ export class InstancesPage {
 
   async navigate() {
     await this.page.goto(PageURLs.instances);
+  }
+
+  async search(text: string) {
+    await this.page.getByTestId("search-in-filter-input").fill(text);
+  }
+
+  async applyMultiSelectFilter(filterKey: string, values: string[]) {
+    await this.page.getByTestId("filter-button").click();
+    const filterPopover = this.page.locator(".MuiPopover-paper");
+    await expect(filterPopover).toBeVisible();
+    await filterPopover.getByTestId(`filter-menu-${filterKey}`).click();
+
+    for (const value of values) {
+      await filterPopover.getByTestId(`filter-option-${value}`).click();
+    }
+
+    await filterPopover.getByRole("button", { name: "Apply" }).click();
+    await expect(filterPopover).toHaveCount(0);
+  }
+
+  filterChip(label: string): Locator {
+    return this.page.getByTestId("filter-button").getByTestId(`filter-chip-${label}`);
   }
 
   async waitForStatus(
@@ -119,7 +143,7 @@ export class InstancesPage {
 
   async selectInstance(instanceId: string) {
     const row = this.page.getByTestId(instanceId);
-    await row.getByRole("checkbox").click();
+    await row.getByRole("checkbox").check();
   }
 
   async deleteInstance(instanceId: string) {
@@ -129,14 +153,14 @@ export class InstancesPage {
     await this.page.getByText("I will recreate a new one").click();
     await this.page.getByTestId("deletion-reason-confirm-button").click();
     await this.page.locator("#confirmationText").fill("deleteme");
-    await this.page.getByRole("button", { name: "Delete" }).click();
+    await this.confirmAction(instanceId, "Delete");
   }
 
   async stopInstance(instanceId: string) {
     await this.selectInstance(instanceId);
     await this.page.getByTestId(this.dataTestIds.stopButton).click();
     await this.page.locator("#confirmationText").fill("stop");
-    await this.page.getByRole("button", { name: "Stop" }).click();
+    await this.confirmAction(instanceId, "Stop");
   }
 
   async startInstance(instanceId: string) {
@@ -150,7 +174,35 @@ export class InstancesPage {
     await this.page.getByTestId(this.dataTestIds.rebootButton).click();
 
     await this.page.locator("#confirmationText").fill("reboot");
-    await this.page.getByRole("button", { name: "Reboot" }).click();
+    await this.confirmAction(instanceId, "Reboot");
+  }
+
+  // Clicks the dialog's confirm button, retrying 429s, and waits for the dialog to close.
+  private async confirmAction(instanceId: string, buttonName: string) {
+    const response = await retryOnRateLimit(
+      async () => {
+        const [response] = await Promise.all([
+          this.page.waitForResponse(
+            (response) =>
+              response.url().includes("%2Fresource-instance%2F") &&
+              response.url().includes(instanceId) &&
+              response.request().postDataJSON()?.method !== "GET" &&
+              // An expired session gets a 401 that the API client refreshes and retries; wait for the retry.
+              response.status() !== 401
+          ),
+          this.page.getByRole("dialog").getByRole("button", { name: buttonName, exact: true }).click(),
+        ]);
+        return response;
+      },
+      4,
+      isReplayMode() ? 0 : undefined
+    );
+    if (!response.ok()) {
+      const status = response.status();
+      const message = `${buttonName} instance ${instanceId} failed with ${status}`;
+      throw status === 429 || status >= 500 ? new BackendError(message) : new Error(message);
+    }
+    await expect(this.page.getByRole("dialog")).toHaveCount(0, { timeout: 2 * 60_000 });
   }
 
   async changeCapacity(type: "add" | "remove", instanceId: string, newCapacity: number) {

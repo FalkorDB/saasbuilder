@@ -4,6 +4,7 @@ import { baseDomain } from "src/api/client";
 import { isAllowedRoute, normalizeEndpoint } from "src/server/utils/allowedRoutes";
 import { getAuthToken } from "src/server/utils/authCookie";
 import { httpRequestMethods } from "src/server/utils/constants/httpsRequestMethods";
+import { errorSummary } from "src/server/utils/errorSummary";
 import { checkIsNonProtectedEndpoint } from "src/utils/authUtils";
 import {
   isPasswordSameAsEmail,
@@ -59,7 +60,7 @@ export default async function handleAction(nextRequest, nextResponse) {
       const arrayBuffer = await response.arrayBuffer();
       return nextResponse.status(200).send(Buffer.from(arrayBuffer));
     } catch (error) {
-      console.error("Action Route GET proxy error", error);
+      console.error("Action Route GET proxy error", errorSummary(error));
       return nextResponse.status(500).send({ message: defaultErrorMessage });
     }
   }
@@ -94,12 +95,12 @@ export default async function handleAction(nextRequest, nextResponse) {
         // Extract client IP from X-Forwarded-For header
         // xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
         // Get the first IP (client IP)
-        const xForwardedForHeader = nextRequest.getHeader?.call("x-forwarded-for") || "";
+        const xForwardedForHeader = nextRequest.headers["x-forwarded-for"] || "";
         const clientIP = xForwardedForHeader.split(",").shift().trim();
         const saasBuilderIP = process.env.POD_IP || "";
 
         // Build custom User-Agent: customer-portal/<version> (<original-user-agent>)
-        const originalUserAgent = nextRequest.getHeader?.call("user-agent") || "";
+        const originalUserAgent = nextRequest.headers["user-agent"] || "";
         const customUserAgent = `customer-portal/${appVersion} (${originalUserAgent})`;
 
         // Read auth token from httpOnly cookie (primary)
@@ -169,7 +170,7 @@ export default async function handleAction(nextRequest, nextResponse) {
 
           // Handle errors from OpenAPI Fetch
           if (error) {
-            console.error("Action Route error", error);
+            console.error("Action Route error", errorSummary(error));
             const errorCode = fetchResponse?.status || 500;
             const errorMessage = error.message || defaultErrorMessage;
             return nextResponse.status(errorCode).send({
@@ -195,11 +196,11 @@ export default async function handleAction(nextRequest, nextResponse) {
           }
         }
       } catch (error) {
-        console.error("Action Route error", error);
-        const errorCode = error?.response?.status || 500;
-        const errorMessage = error?.response?.data?.message || defaultErrorMessage;
+        console.error("Action Route error", errorSummary(error));
+        // Thrown errors (network, parsing) can carry internal detail, so the client only gets the generic message
+        const errorCode = Number.isInteger(error?.status) && error.status >= 400 ? error.status : 500;
         return nextResponse.status(errorCode).send({
-          message: errorMessage,
+          message: defaultErrorMessage,
         });
       }
     }

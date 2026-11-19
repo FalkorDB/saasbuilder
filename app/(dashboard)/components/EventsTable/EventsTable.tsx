@@ -4,6 +4,7 @@ import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
 import { IconButton } from "@mui/material";
 import { createColumnHelper } from "@tanstack/react-table";
 
+import { useTableColumnPreference } from "src/components/ColumnPreference/useColumnPreference";
 import DataGridText from "src/components/DataGrid/DataGridText";
 import CursorPaginatedDataTable from "src/components/DataTable/CursorPaginatedDataTable";
 import EventDetailsView from "src/components/EventsTable/EventDetailsView";
@@ -31,6 +32,7 @@ export type ColumnType =
   | "subscriptionOwner";
 
 const EventsTable = ({
+  tableId,
   columns,
   showPagination,
   HeaderComponent,
@@ -44,6 +46,8 @@ const EventsTable = ({
   isFetchingNextPage,
   minHeight = "667px",
   noRowsText,
+  isFilterApplied,
+  entityName,
 }: any) => {
   const { subscriptionsObj } = useGlobalData();
 
@@ -212,17 +216,30 @@ const EventsTable = ({
     return columns.map((columnName) => columnsConfig[columnName]);
   }, [columns, columnsConfig]);
 
+  const {
+    columns: preferredColumns,
+    columnVisibility,
+    columnPreference,
+  } = useTableColumnPreference<AuditEvent>({
+    tableId,
+    columns: selectedColumns,
+    clickableColumnIds: ["userName"],
+  });
+
   return (
     <CursorPaginatedDataTable
       pageIndex={pageIndex}
       setPageIndex={setPageIndex}
-      columns={selectedColumns}
+      columns={preferredColumns}
+      columnVisibility={columnVisibility}
       data={data}
       renderDetailsComponent={EventDetailsView}
       noRowsText={noRowsText || "No events"}
+      isFilterApplied={isFilterApplied}
+      entityName={entityName}
       getRowCanExpand={(rowData) => Number(rowData.original.workflowFailures?.length) > 0}
       HeaderComponent={HeaderComponent}
-      headerProps={HeaderProps}
+      headerProps={{ ...HeaderProps, columnPreference }}
       isLoading={isLoading}
       hasNextPage={hasNextPage}
       fetchNextPage={fetchNextPage}

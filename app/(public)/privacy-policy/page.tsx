@@ -3,10 +3,11 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { Box } from "@mui/material";
-import DOMPurify from "isomorphic-dompurify";
 
 import { styleConfig } from "src/providerConfig";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
+import getSafeExternalURL from "src/utils/getSafeExternalURL";
+import { sanitizeHTML } from "src/utils/sanitizeHTML";
 import Container from "components/NonDashboardComponents/Container/Container";
 import Footer from "components/NonDashboardComponents/Footer";
 
@@ -136,12 +137,19 @@ const DefaultPrivacyPolicy = ({ orgName, orgSupportEmail }) => {
 
 const PrivacyPolicyPage = () => {
   const { orgName, orgPrivacyPolicy, orgSupportEmail } = useProviderOrgDetails();
+  const policyURL = getSafeExternalURL(orgPrivacyPolicy);
 
   useEffect(() => {
     const pageTitle = orgName ? `Privacy Policy - ${orgName}` : "Privacy Policy";
 
     document.title = pageTitle;
   }, [orgName]);
+
+  useEffect(() => {
+    if (policyURL) window.location.replace(policyURL);
+  }, [policyURL]);
+
+  if (policyURL) return null;
 
   return (
     <>
@@ -179,7 +187,7 @@ const PrivacyPolicyPage = () => {
                 },
               }}
               dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(orgPrivacyPolicy),
+                __html: sanitizeHTML(orgPrivacyPolicy),
               }}
             />
           </article>

@@ -1,4 +1,5 @@
 const withYaml = require("next-plugin-yaml");
+const { buildContentSecurityPolicy } = require("./src/server/utils/contentSecurityPolicy");
 const { getHubSpotCspOrigins } = require("./src/hubspotConfig");
 
 const toOrigin = (value) => {
@@ -23,7 +24,15 @@ const analyticsOrigins = [
   "https://bat.bing.com",
 ];
 
-const imageOrigins = ["https://avatars.githubusercontent.com", "https://githubusercontent.com", "https://c.clarity.ms", "https://perf-eu1.hsforms.com", "https://c.bing.com", "https://bat.bing.com", "https://track-eu1.hubspot.com"];
+const imageOrigins = [
+  "https://avatars.githubusercontent.com",
+  "https://githubusercontent.com",
+  "https://c.clarity.ms",
+  "https://perf-eu1.hsforms.com",
+  "https://c.bing.com",
+  "https://bat.bing.com",
+  "https://track-eu1.hubspot.com",
+];
 
 const runtimeOrigins = unique([
   toOrigin(process.env.NEXT_PUBLIC_BACKEND_BASE_DOMAIN),
@@ -32,9 +41,7 @@ const runtimeOrigins = unique([
   toOrigin(process.env.NEXT_PUBLIC_GRAFANA_URL),
 ]);
 
-const reoOrigins = process.env.NEXT_PUBLIC_REO_CLIENT_ID
-  ? ["https://static.reo.dev", "https://api.reo.dev"]
-  : [];
+const reoOrigins = process.env.NEXT_PUBLIC_REO_CLIENT_ID ? ["https://static.reo.dev", "https://api.reo.dev"] : [];
 
 const hubspotOrigins = getHubSpotCspOrigins(
   process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID,
@@ -151,6 +158,10 @@ const nextConfig = {
           {
             key: "Cross-Origin-Embedder-Policy",
             value: "unsafe-none",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: buildContentSecurityPolicy(),
           },
           {
             key: "Content-Security-Policy-Report-Only",

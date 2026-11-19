@@ -11,7 +11,7 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
     try {
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get?.("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.headers["x-forwarded-for"] || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
 
       // Check rate limiting per IP
@@ -60,7 +60,7 @@ export default async function handleResetPassword(nextRequest, nextResponse) {
       return nextResponse.status(200).send();
     } catch (error) {
       // Record failed attempt for rate limiting
-      const xForwardedForHeader = nextRequest.get?.("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.headers["x-forwarded-for"] || "";
       recordAttempt(xForwardedForHeader.split(",").shift().trim());
 
       // A backend rejection is answered like success, so the response never hints whether an account exists.

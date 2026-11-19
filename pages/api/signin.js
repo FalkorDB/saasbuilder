@@ -22,7 +22,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
     try {
       //xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
       //get the first IP (client IP)
-      const xForwardedForHeader = nextRequest.get?.("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.headers["x-forwarded-for"] || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
 
       // Check rate limiting per IP
@@ -34,7 +34,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
 
       const requestBody = nextRequest.body || {};
       const requiresReCaptachValidation =
-        checkReCaptchaSetup() && checkRequiresReCaptcha(nextRequest.get?.("X-Api-Key") || "");
+        checkReCaptchaSetup() && checkRequiresReCaptcha(nextRequest.headers["x-api-key"] || "");
       if (requiresReCaptachValidation) {
         const { reCaptchaToken } = requestBody;
         const isVerified = await verifyRecaptchaToken(reCaptchaToken);
@@ -85,7 +85,7 @@ export default async function handleSignIn(nextRequest, nextResponse) {
       return nextResponse.status(200).send({ ...rest });
     } catch (error) {
       // Extract IP again for error handling (in case of early errors)
-      const xForwardedForHeader = nextRequest.get?.("X-Forwarded-For") || "";
+      const xForwardedForHeader = nextRequest.headers["x-forwarded-for"] || "";
       const clientIP = xForwardedForHeader.split(",").shift().trim();
 
       // Record failed attempt for rate limiting

@@ -37,7 +37,7 @@ const post = async (body) => {
       return response;
     },
   };
-  await handler({ method: "POST", body, get: () => "" }, response);
+  await handler({ method: "POST", body, headers: {} }, response);
   return result;
 };
 

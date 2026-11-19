@@ -72,7 +72,7 @@ const post = async ({ email = "customer@example.com", cookies = {} } = {}) => {
       return response;
     },
   };
-  await handler({ method: "POST", body: { email }, cookies, get: () => "" }, response);
+  await handler({ method: "POST", body: { email }, cookies, headers: {} }, response);
   return result;
 };
 

@@ -95,12 +95,12 @@ export default async function handleAction(nextRequest, nextResponse) {
         // Extract client IP from X-Forwarded-For header
         // xForwardedForHeader has multiple IPs in the format <client>, <proxy1>, <proxy2>
         // Get the first IP (client IP)
-        const xForwardedForHeader = nextRequest.getHeader?.call("x-forwarded-for") || "";
+        const xForwardedForHeader = nextRequest.headers["x-forwarded-for"] || "";
         const clientIP = xForwardedForHeader.split(",").shift().trim();
         const saasBuilderIP = process.env.POD_IP || "";
 
         // Build custom User-Agent: customer-portal/<version> (<original-user-agent>)
-        const originalUserAgent = nextRequest.getHeader?.call("user-agent") || "";
+        const originalUserAgent = nextRequest.headers["user-agent"] || "";
         const customUserAgent = `customer-portal/${appVersion} (${originalUserAgent})`;
 
         // Read auth token from httpOnly cookie (primary)

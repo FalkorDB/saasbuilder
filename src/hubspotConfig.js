@@ -43,4 +43,10 @@ const getHubSpotCspOrigins = (portalId, region) => {
   ];
 };
 
-module.exports = { getHubSpotConfig, getHubSpotScriptSrc, getHubSpotCspOrigins };
+// The chat widget loaded from js<suffix>.usemessages.com renders its conversation UI in an iframe on this origin.
+const getHubSpotFrameOrigins = (portalId, region) => {
+  const config = getHubSpotConfig(portalId, region);
+  return config ? [`https://app${config.suffix}.hubspot.com`] : [];
+};
+
+module.exports = { getHubSpotConfig, getHubSpotScriptSrc, getHubSpotCspOrigins, getHubSpotFrameOrigins };

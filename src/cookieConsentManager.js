@@ -1,7 +1,7 @@
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import { clarity } from "react-microsoft-clarity";
-import { loadReoScript } from 'reodotdev'
+import { loadReoScript } from "reodotdev";
 import { getHubSpotScriptSrc } from "src/hubspotConfig";
 
 const HUBSPOT_COOKIES = ["__hstc", "__hssc", "__hssrc", "hubspotutk"];
@@ -58,9 +58,9 @@ export const getCookieConsentInitialObject = (googleAnalyticsTagID) => ({
       hide: false,
       editable: true,
       enabled: false, // user must opt-in to enable
-    }
-  ]
-})
+    },
+  ],
+});
 
 const handlerMap = {
   addGoogleAnalytics,
@@ -140,28 +140,10 @@ function addGoogleAnalytics() {
 function initializeGoogleAnalytics() {
   if (!this.gtag || this.gtag.toLowerCase() === "undefined") return;
 
-  const id = `gtm-noscript-${this.name}`;
-  if (document.getElementById(id)) return; // Avoid duplicate noscript
+  // No GTM <noscript> ns.html fallback here: it only helps when JavaScript is off, and an iframe added from
+  // JavaScript loads even inside <noscript>, firing GTM's no-JS tags on top of gtm.js.
 
-  // Create a <noscript> element with the GTM iframe
-  const noscript = document.createElement("noscript");
-  noscript.id = id;
-
-  const iframe = document.createElement("iframe");
-  iframe.src = `https://www.googletagmanager.com/ns.html?id=${this.gtag}`;
-  iframe.height = "0";
-  iframe.width = "0";
-  iframe.style.display = "none";
-  iframe.style.visibility = "hidden";
-
-  noscript.appendChild(iframe);
-
-  // Append <noscript> to <body>
-  document.body.appendChild(noscript);
-
-  console.info(`Google Tag Manager (noscript) initialized for ${this.gtag}.`);
-
-  startReo()
+  startReo();
 }
 
 const removeScript = (id) => {
@@ -176,7 +158,8 @@ const removeCookies = (cookieNames) => {
     const allCookies = document.cookie.split("; ");
     const labels = location.hostname.split(".");
     // Also clear cookies set on parent domains (e.g. ".example.com"), where third-party trackers usually put them.
-    const parentDomains = labels.length > 2 ? labels.slice(1, -1).map((_, i) => `.${labels.slice(i + 1).join(".")}`) : [];
+    const parentDomains =
+      labels.length > 2 ? labels.slice(1, -1).map((_, i) => `.${labels.slice(i + 1).join(".")}`) : [];
     const domains = [location.hostname, ...parentDomains];
     const paths = ["/"];
     const deleteCookie = (cookieName) => {
@@ -205,12 +188,6 @@ function removeGoogleAnalyticsScriptsAndCookies() {
   // Remove the main GTM <script> tag
   removeScript(`gtm-script-${this.name}`);
 
-  // Remove the <noscript> iframe block
-  const noscript = document.getElementById(`gtm-noscript-${this.name}`);
-  if (noscript) {
-    noscript.remove();
-  }
-
   // Remove any related cookies
   if (this.cookies && Array.isArray(this.cookies)) {
     removeCookies(this.cookies);
@@ -222,7 +199,6 @@ function removeGoogleAnalyticsScriptsAndCookies() {
 
   console.info(`Google Tag Manager (${this.gtag}) scripts and cookies removed.`);
 }
-
 
 function addClarity() {
   try {
@@ -422,12 +398,12 @@ function startReo() {
   // Resolve promise to get access to methods on Reo
   const reoPromise = loadReoScript({ clientID });
   reoPromise
-    .then(Reo => {
+    .then((Reo) => {
       Reo.init({ clientID });
     })
-    .catch(error => {
-      console.error('Error loading Reo', error);
-    })
+    .catch((error) => {
+      console.error("Error loading Reo", error);
+    });
 }
 
 export const handleConsentChanges = (categories) => {

@@ -1,6 +1,6 @@
 const withYaml = require("next-plugin-yaml");
 const { buildContentSecurityPolicy } = require("./src/server/utils/contentSecurityPolicy");
-const { getHubSpotCspOrigins } = require("./src/hubspotConfig");
+const { getHubSpotCspOrigins, getHubSpotFrameOrigins } = require("./src/hubspotConfig");
 
 const toOrigin = (value) => {
   if (!value) return "";
@@ -48,6 +48,11 @@ const hubspotOrigins = getHubSpotCspOrigins(
   process.env.NEXT_PUBLIC_HUBSPOT_REGION
 );
 
+const hubspotFrameOrigins = getHubSpotFrameOrigins(
+  process.env.NEXT_PUBLIC_HUBSPOT_PORTAL_ID,
+  process.env.NEXT_PUBLIC_HUBSPOT_REGION
+);
+
 const additionalScriptSources = (process.env.CSP_SRC || "").trim();
 const isAnalyticsEnabled = Boolean(process.env.GOOGLE_ANALYTICS_TAG_ID);
 
@@ -88,6 +93,7 @@ const buildCsp = ({ reportOnly = false } = {}) => {
     "https://www.google.com",
     "https://vercel.live",
     ...runtimeOrigins,
+    ...hubspotFrameOrigins,
     "https://js.stripe.com",
     "https://hooks.stripe.com",
   ]);

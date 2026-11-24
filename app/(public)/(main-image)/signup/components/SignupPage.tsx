@@ -15,6 +15,7 @@ import FieldError from "src/components/FormElementsv2/FieldError/FieldError";
 import TextField from "src/components/FormElementsv2/TextField/TextField";
 import Logo from "src/components/NonDashboardComponents/Logo";
 import { Text } from "src/components/Typography/Typography";
+import { signupPageTestIds } from "src/constants/testIds/signup-page";
 import useSnackbar from "src/hooks/useSnackbar";
 import { useProviderOrgDetails } from "src/providers/ProviderOrgDetailsProvider";
 import { getReCaptchaToken } from "src/utils/getReCaptchaToken";
@@ -188,7 +189,11 @@ const SignupPage = (props) => {
     <>
       <Box display="flex" justifyContent="center">
         {orgLogoURL ? (
-          <Logo src={orgLogoURL} alt={orgName} style={{ maxWidth: "300px", maxHeight: "120px", height: "auto" }} />
+          <Logo
+            src={orgLogoURL}
+            alt={orgName}
+            style={{ maxWidth: "min(300px, 100%)", maxHeight: "120px", height: "auto" }}
+          />
         ) : (
           ""
         )}
@@ -213,6 +218,7 @@ const SignupPage = (props) => {
             <FieldLabel required>Email</FieldLabel>
             {/* @ts-ignore */}
             <TextField
+              inputProps={{ "data-testid": signupPageTestIds.emailInput }}
               name="email"
               id="email"
               placeholder="example@companyemail.com"
@@ -274,6 +280,7 @@ const SignupPage = (props) => {
         {formStep === "email-input" && (
           <Stack mt="32px" maxWidth="360px" mx="auto">
             <SubmitButton
+              data-testid={signupPageTestIds.nextButton}
               type="button"
               onClick={() => setFormStep("complete-form")}
               disabled={Boolean(errors.email)}
